@@ -1,5 +1,5 @@
 # MicroserviceExample
-[![Open Source](https://img.shields.io/badge/Open%20Source-Yes-green.svg)](https://github.com/ScottsSecondAct/MicroserviceExample) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) ![AI Assisted](https://img.shields.io/badge/AI%20Assisted-Claude-blue?logo=anthropic)
+[![Open Source](https://img.shields.io/badge/Open%20Source-Yes-green.svg)](https://github.com/ScottsSecondAct/MicroserviceExample) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) ![AI Assisted](https://img.shields.io/badge/AI%20Assisted-Claude-blue?logo=anthropic) [![Release](https://github.com/ScottsSecondAct/MicroserviceExample/actions/workflows/release.yml/badge.svg)](https://github.com/ScottsSecondAct/MicroserviceExample/actions/workflows/release.yml)
 
 A working two-service microservices system in **ASP.NET Core (.NET 9)** — authentication, user profile management, JWT-secured inter-service communication, and a React frontend. Built to demonstrate real microservice patterns rather than toy examples.
 
@@ -172,3 +172,4 @@ Every line was reviewed and understood before integration.
 ## License
 
 MIT — Copyright (c) 2026 Scott Davis
+
