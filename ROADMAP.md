@@ -45,6 +45,7 @@ Core CRM entities. The building blocks every other CRM feature depends on.
 - [ ] **Gateway routes** — `/api/contacts/**` and `/api/accounts/**`
 - [ ] **Frontend: React Router** — replace `useState`-based page switching with React Router v6
 - [ ] **Frontend: React Query** — replace manual fetch calls with TanStack Query for caching and background refetching
+- [ ] **Frontend: per-domain API client modules** — replace flat `api.js` with `contacts.api.js`, `accounts.api.js`, etc., all sharing a common `apiClient` base that attaches the JWT header
 - [ ] **Frontend: Contact module** — list (search + filter by status/owner), detail page, create/edit form
 - [ ] **Frontend: Account module** — list, detail page (with associated contacts), create/edit form
 
@@ -57,6 +58,7 @@ The sales pipeline — the primary daily-use feature for sales reps.
 - [ ] **DealService** — pipeline stages (seeded: Prospecting, Proposal, Negotiation, Closed Won, Closed Lost); deal CRUD; deal-contact associations with role (Decision Maker, Influencer, Champion); validates ContactId and AccountId on create; publishes `DealCreated`, `DealStageChanged`, `DealClosed`
 - [ ] **SharedLibrary.Deals** — event package
 - [ ] **Gateway routes** — `/api/deals/**` and `/api/pipeline/**`
+- [ ] **DealService subscribes to `ContactDeleted`** — handle deals whose associated contact is removed
 - [ ] **Frontend: Pipeline board** — Kanban view grouped by stage; drag-and-drop stage updates
 - [ ] **Frontend: Deal detail** — associated contacts, account, value, probability, expected close date, activity timeline stub
 - [ ] **Frontend: Deal create/edit form** — stage selector, contact/account association
@@ -83,7 +85,8 @@ Visibility into pipeline health and rep activity, powered by an event-driven rea
 - [ ] **ReportingService** — subscribes to `DealCreated`, `DealStageChanged`, `DealClosed`, `ActivityLogged`, `ContactStatusChanged`; maintains denormalized projections (pipeline value by stage, activity counts by rep, contact funnel by status); no external write API
 - [ ] **Gateway routes** — `/api/reports/**`
 - [ ] **Frontend: Dashboard** — pipeline summary chart (value by stage), activity counts per rep, recent contacts and deals
-- [ ] **Eventual consistency acknowledgment** — dashboard data lags source services by seconds; this is acceptable for all reporting use cases
+
+Dashboard data will lag source services by seconds due to the event-driven projection model. This is acceptable for all reporting use cases.
 
 ---
 
