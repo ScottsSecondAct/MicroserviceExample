@@ -1,0 +1,102 @@
+using Moq;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+using AuthService.Controllers;
+using AuthService.Services;
+using AuthService.Models.DTOs;
+
+public class LoginControllerTests
+{
+  private readonly Mock<ILoginService> _mockLoginService;
+  private readonly LoginController _controller;
+
+  public LoginControllerTests()
+  {
+    _mockLoginService = new Mock<ILoginService>();
+    _controller = new LoginController(_mockLoginService.Object);
+  }
+
+  [Fact]
+  public async Task Login_ShouldReturnOk_WithToken_WhenCredentialsAreValid()
+  {
+    // Arrange
+    var request = new LoginRequest { Email = "test@example.com", Password = "SecurePassword123" };
+    _mockLoginService
+        .Setup(s => s.LoginAsync(request))
+        .ReturnsAsync(ServiceResult.Success("jwt-token-string", "Login successful."));
+
+    // Act
+    var result = await _controller.Login(request);
+
+    // Assert
+    var okResult = Assert.IsType<OkObjectResult>(result);
+    var response = Assert.IsType<LoginResponse>(okResult.Value);
+    Assert.Equal("jwt-token-string", response.Token);
+  }
+
+  [Fact]
+  public async Task Login_ShouldReturnUnauthorized_WhenCredentialsAreInvalid()
+  {
+    // Arrange
+    var request = new LoginRequest { Email = "test@example.com", Password = "WrongPassword" };
+    _mockLoginService
+        .Setup(s => s.LoginAsync(request))
+        .ReturnsAsync(ServiceResult.Failure("Invalid email or password.", 401));
+
+    // Act
+    var result = await _controller.Login(request);
+
+    // Assert
+    var statusCodeResult = Assert.IsType<ObjectResult>(result);
+    Assert.Equal(401, statusCodeResult.StatusCode);
+    Assert.Contains("Invalid email or password.", statusCodeResult.Value!.ToString());
+  }
+
+  [Fact]
+  public async Task Login_ShouldReturnInternalServerError_WhenTokenIsNull()
+  {
+    // Arrange
+    var request = new LoginRequest { Email = "test@example.com", Password = "SecurePassword123" };
+    _mockLoginService
+        .Setup(s => s.LoginAsync(request))
+        .ReturnsAsync(ServiceResult.Success(null, "Login successful."));
+
+    // Act
+    var result = await _controller.Login(request);
+
+    // Assert
+    var statusCodeResult = Assert.IsType<ObjectResult>(result);
+    Assert.Equal(500, statusCodeResult.StatusCode);
+  }
+
+  [Fact]
+  public void GetCurrentUser_ShouldReturnOk_WithClaimsFromToken()
+  {
+    // Arrange
+    var claims = new List<Claim>
+    {
+      new Claim("UserId", "a1b2c3d4-0000-0000-0000-000000000000"),
+      new Claim(ClaimTypes.NameIdentifier, "test@example.com"),
+      new Claim(ClaimTypes.Role, "Member")
+    };
+    _controller.ControllerContext = new ControllerContext
+    {
+      HttpContext = new DefaultHttpContext
+      {
+        User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"))
+      }
+    };
+
+    // Act
+    var result = _controller.GetCurrentUser();
+
+    // Assert
+    var okResult = Assert.IsType<OkObjectResult>(result);
+    Assert.NotNull(okResult.Value);
+    var json = okResult.Value.ToString();
+    Assert.Contains("a1b2c3d4-0000-0000-0000-000000000000", json);
+    Assert.Contains("test@example.com", json);
+    Assert.Contains("Member", json);
+  }
+}

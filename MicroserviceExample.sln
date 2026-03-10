@@ -1,0 +1,62 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharedLibrary", "SharedLibrary\SharedLibrary.csproj", "{25268CFC-793E-4E34-B17F-5E666A36FAF7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AuthService", "AuthService", "{F39AD75E-B324-4C55-A220-1F7287FDEC13}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{019C0F28-1264-40DC-AF76-83CDC37FE0DD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthService", "AuthService\src\AuthService\AuthService.csproj", "{DBF41711-4077-4022-AAA8-C336B08DC953}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthService.Tests", "AuthService\src\AuthService.Tests\AuthService.Tests.csproj", "{A32DBB4D-D8DD-4176-B6BC-1FA16022CAEA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UserManagementService", "UserManagementService", "{8E5F6AF3-B014-4709-B35B-D7BA757CDF71}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{9A351E5A-7007-4785-A49D-0FBE0C92D771}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserManagementService", "UserManagementService\src\UserManagementService\UserManagementService.csproj", "{E44D373F-E0CC-4AE2-95C2-7D750D2CEFEB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserManagementService.Tests", "UserManagementService\src\UserManagementService.Tests\UserManagementService.Tests.csproj", "{87DFF397-88D5-418A-A2F9-8613105A8B1B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{25268CFC-793E-4E34-B17F-5E666A36FAF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{25268CFC-793E-4E34-B17F-5E666A36FAF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{25268CFC-793E-4E34-B17F-5E666A36FAF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{25268CFC-793E-4E34-B17F-5E666A36FAF7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DBF41711-4077-4022-AAA8-C336B08DC953}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DBF41711-4077-4022-AAA8-C336B08DC953}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBF41711-4077-4022-AAA8-C336B08DC953}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DBF41711-4077-4022-AAA8-C336B08DC953}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A32DBB4D-D8DD-4176-B6BC-1FA16022CAEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A32DBB4D-D8DD-4176-B6BC-1FA16022CAEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A32DBB4D-D8DD-4176-B6BC-1FA16022CAEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A32DBB4D-D8DD-4176-B6BC-1FA16022CAEA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E44D373F-E0CC-4AE2-95C2-7D750D2CEFEB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E44D373F-E0CC-4AE2-95C2-7D750D2CEFEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E44D373F-E0CC-4AE2-95C2-7D750D2CEFEB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E44D373F-E0CC-4AE2-95C2-7D750D2CEFEB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{87DFF397-88D5-418A-A2F9-8613105A8B1B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87DFF397-88D5-418A-A2F9-8613105A8B1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{87DFF397-88D5-418A-A2F9-8613105A8B1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87DFF397-88D5-418A-A2F9-8613105A8B1B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{019C0F28-1264-40DC-AF76-83CDC37FE0DD} = {F39AD75E-B324-4C55-A220-1F7287FDEC13}
+		{DBF41711-4077-4022-AAA8-C336B08DC953} = {019C0F28-1264-40DC-AF76-83CDC37FE0DD}
+		{A32DBB4D-D8DD-4176-B6BC-1FA16022CAEA} = {019C0F28-1264-40DC-AF76-83CDC37FE0DD}
+		{9A351E5A-7007-4785-A49D-0FBE0C92D771} = {8E5F6AF3-B014-4709-B35B-D7BA757CDF71}
+		{E44D373F-E0CC-4AE2-95C2-7D750D2CEFEB} = {9A351E5A-7007-4785-A49D-0FBE0C92D771}
+		{87DFF397-88D5-418A-A2F9-8613105A8B1B} = {9A351E5A-7007-4785-A49D-0FBE0C92D771}
+	EndGlobalSection
+EndGlobal
