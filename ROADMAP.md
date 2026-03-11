@@ -1,3 +1,4 @@
+
 # Roadmap
 
 ## v1.0 — Current State ✅
@@ -65,16 +66,16 @@ The sales pipeline — the primary daily-use feature for sales reps.
 
 ---
 
-## v1.4 — Activities
+## v1.4 — Activities ✅ (backend + frontend)
 
 The activity log ties contacts, deals, and reps together into a complete interaction history.
 
-- [ ] **ActivityService** — activity types: Call, Email, Meeting, Task, Note; references ContactId, DealId, AccountId (all optional); scheduled/completed timestamps for tasks; publishes `ActivityLogged`, `TaskCompleted`
-- [ ] **SharedLibrary.Activities** — event package
-- [ ] **Gateway routes** — `/api/activities/**`
-- [ ] **Frontend: Activity log form** — quick-add accessible from Contact, Deal, and Account detail pages
-- [ ] **Frontend: Activity timeline** — chronological feed on Contact and Deal detail pages
-- [ ] **Frontend: Task list** — all incomplete tasks assigned to the current user
+- [x] **ActivityService** — activity types: Call, Email, Meeting, Task, Note; references ContactId, DealId, AccountId (all optional); scheduled/completed timestamps for tasks; publishes `ActivityLogged`, `TaskCompleted`
+- [x] **SharedLibrary.Activities** — event package
+- [x] **Gateway routes** — `/api/activities/**`
+- [x] **Frontend: Activity log form** — quick-add accessible from Contact, Deal, and Account detail pages
+- [x] **Frontend: Activity timeline** — chronological feed on Contact and Deal detail pages
+- [x] **Frontend: Task list** — all incomplete tasks assigned to the current user
 
 ---
 

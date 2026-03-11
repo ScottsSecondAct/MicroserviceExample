@@ -184,6 +184,38 @@ services:
         condition: service_healthy
     networks: [backend]
 
+  activity-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: activitydb
+      POSTGRES_USER: activity_user
+      POSTGRES_PASSWORD: activity_pass
+    volumes:
+      - activity-db-data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U activity_user -d activitydb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  activity-service:
+    build:
+      context: .
+      dockerfile: ActivityService/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__ActivityDbConnection: "Host=activity-db;Port=5432;Database=activitydb;Username=activity_user;Password=activity_pass"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Username: "guest"
+      RabbitMQ__Password: "guest"
+    depends_on:
+      activity-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [backend]
+
   api-gateway:
     build:
       context: .
@@ -201,12 +233,14 @@ services:
       ReverseProxy__Clusters__contacts-cluster__Destinations__contact-service__Address: "http://contact-service:8080"
       ReverseProxy__Clusters__accounts-cluster__Destinations__account-service__Address: "http://account-service:8080"
       ReverseProxy__Clusters__deals-cluster__Destinations__deal-service__Address: "http://deal-service:8080"
+      ReverseProxy__Clusters__activities-cluster__Destinations__activity-service__Address: "http://activity-service:8080"
     depends_on:
       - auth-service
       - user-management-service
       - account-service
       - contact-service
       - deal-service
+      - activity-service
     networks: [backend, frontend]
 
 networks:
@@ -219,3 +253,4 @@ volumes:
   account-db-data:
   contact-db-data:
   deal-db-data:
+  activity-db-data:

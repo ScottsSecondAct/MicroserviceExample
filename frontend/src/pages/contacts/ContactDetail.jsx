@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { contactsApi } from '../../api/contacts.api.js'
 import { accountsApi } from '../../api/accounts.api.js'
 import { usersApi } from '../../api/users.api.js'
+import ActivityTimeline from '../../components/ActivityTimeline.jsx'
+import ActivityLogForm from '../../components/ActivityLogForm.jsx'
 
 const STATUS_TRANSITIONS = {
   Lead: ['Prospect', 'Churned'],
@@ -102,6 +104,14 @@ export default function ContactDetail() {
             <tr><th>Updated</th><td>{new Date(contact.updatedAt).toLocaleString()}</td></tr>
           </tbody>
         </table>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">Activity</h2>
+          <ActivityLogForm contactId={id} queryKey="contact-activities" />
+        </div>
+        <ActivityTimeline contactId={id} queryKey="contact-activities" />
       </div>
     </div>
   )

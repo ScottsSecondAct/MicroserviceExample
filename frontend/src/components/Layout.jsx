@@ -18,6 +18,7 @@ export default function Layout() {
           <NavLink to="/contacts">Contacts</NavLink>
           <NavLink to="/accounts">Accounts</NavLink>
           <NavLink to="/deals">Pipeline</NavLink>
+          <NavLink to="/activities/tasks">Tasks</NavLink>
           <NavLink to="/profile">Profile</NavLink>
         </div>
         <div className="nav-user">

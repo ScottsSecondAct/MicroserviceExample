@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { accountsApi } from '../../api/accounts.api.js'
 import { contactsApi } from '../../api/contacts.api.js'
+import ActivityLogForm from '../../components/ActivityLogForm.jsx'
+import ActivityTimeline from '../../components/ActivityTimeline.jsx'
 
 export default function AccountDetail() {
   const { id } = useParams()
@@ -88,6 +90,14 @@ export default function AccountDetail() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">Activity</h2>
+          <ActivityLogForm accountId={id} queryKey="account-activities" />
+        </div>
+        <ActivityTimeline accountId={id} queryKey="account-activities" />
       </div>
     </div>
   )

@@ -276,3 +276,76 @@ h3 { font-size: 14px; font-weight: 600; color: #6b7280; margin-top: 0.5rem; }
 .form-success { color: #065f46; font-size: 13px; background: #d1fae5; padding: 0.5rem 0.75rem; border-radius: 6px; }
 .loading { color: #6b7280; padding: 2rem 0; }
 .empty { color: #9ca3af; padding: 1.5rem 0; }
+
+/* ── Activity timeline ── */
+.activity-timeline { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.activity-item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border-left: 3px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.activity-call    { border-left-color: #3b82f6; }
+.activity-email   { border-left-color: #8b5cf6; }
+.activity-meeting { border-left-color: #f59e0b; }
+.activity-task    { border-left-color: #10b981; }
+.activity-note    { border-left-color: #6b7280; }
+
+.activity-icon {
+  font-size: 16px;
+  width: 24px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.activity-body { flex: 1; min-width: 0; }
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.activity-type {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.activity-date { font-size: 12px; color: #9ca3af; margin-left: auto; }
+
+.activity-done { font-size: 12px; color: #10b981; }
+
+.activity-subject { font-size: 14px; font-weight: 500; color: #111827; margin: 0; }
+
+.activity-notes { font-size: 13px; color: #6b7280; margin: 0.25rem 0 0; }
+
+.activity-scheduled { font-size: 12px; color: #f59e0b; margin: 0.25rem 0 0; }
+
+/* ── Activity log form ── */
+.activity-log-form { }
+
+.activity-form-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.activity-form-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 0.5rem;
+}

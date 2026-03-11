@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { dealsApi } from '../../api/deals.api.js'
 import { contactsApi } from '../../api/contacts.api.js'
 import { accountsApi } from '../../api/accounts.api.js'
+import ActivityTimeline from '../../components/ActivityTimeline.jsx'
+import ActivityLogForm from '../../components/ActivityLogForm.jsx'
 
 const STAGES = ['Prospecting', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost']
 const ROLES = ['DecisionMaker', 'Influencer', 'Champion']
@@ -169,6 +171,14 @@ export default function DealDetail() {
             </button>
           </div>
         )}
+      </div>
+
+      <div style={{ marginTop: '1.5rem' }}>
+        <div className="card-header" style={{ marginBottom: '0.75rem' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: '#111827', margin: 0 }}>Activity</h3>
+          <ActivityLogForm dealId={id} queryKey="deal-activities" />
+        </div>
+        <ActivityTimeline dealId={id} queryKey="deal-activities" />
       </div>
     </div>
   )
