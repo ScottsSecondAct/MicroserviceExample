@@ -15,97 +15,96 @@ This document describes the three-layer testing strategy for this project: unit,
 
 ## Current State
 
-Four test projects exist covering the service layer only.
+Four test projects, 128 tests. Unit layer complete. Integration and E2E not yet started.
 
 | Component | Unit | Integration | E2E |
 |-----------|------|-------------|-----|
 | AuthService — services | ✅ | ❌ | ❌ |
 | AuthService — controllers | ✅ RegistrationController, LoginController | ❌ | ❌ |
-| AuthService — repository | ❌ | ❌ | ❌ |
-| AuthService — UserRoleClient | ❌ | ❌ | ❌ |
+| AuthService — repository | ✅ | ❌ | ❌ |
+| AuthService — UserRoleClient | ✅ | ❌ | ❌ |
 | UserManagementService — services | ✅ | ❌ | ❌ |
 | UserManagementService — consumer | ✅ | ❌ | ❌ |
-| UserManagementService — controller | ❌ | ❌ | ❌ |
-| UserManagementService — repository | ❌ | ❌ | ❌ |
+| UserManagementService — controller | ✅ | ❌ | ❌ |
+| UserManagementService — repository | ✅ | ❌ | ❌ |
 | ContactService — services | ✅ | ❌ | ❌ |
-| ContactService — controller | ❌ | ❌ | ❌ |
-| ContactService — repository | ❌ | ❌ | ❌ |
-| ContactService — AccountClient | ❌ | ❌ | ❌ |
+| ContactService — controller | ✅ | ❌ | ❌ |
+| ContactService — repository | ✅ | ❌ | ❌ |
+| ContactService — AccountClient | ✅ | ❌ | ❌ |
 | AccountService — services | ✅ | ❌ | ❌ |
-| AccountService — controller | ❌ | ❌ | ❌ |
-| AccountService — repository | ❌ | ❌ | ❌ |
+| AccountService — controller | ✅ | ❌ | ❌ |
+| AccountService — repository | ✅ | ❌ | ❌ |
 
-**Approximate coverage: ~43 tests across 11 files. Services only.**
+**128 tests across 20 files. Unit layer complete.**
+
+### Test count by project
+
+| Project | Tests | Files |
+|---------|-------|-------|
+| AuthService.Tests | 33 | 6 |
+| UserManagementService.Tests | 26 | 5 |
+| ContactService.Tests | 39 | 5 |
+| AccountService.Tests | 30 | 4 |
+| **Total** | **128** | **20** |
 
 ---
 
-## Layer 1 — Unit Tests
+## Layer 1 — Unit Tests ✅ Complete
 
-**Stack:** xUnit + Moq + FluentAssertions (all already in use)
-**New package:** `RichardSzalay.MockHttp` for HTTP client tests
+**Stack:** xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`
 
 Unit tests verify a single class in isolation. All dependencies are mocked. No database, no network, no message broker.
 
-### Missing controller tests
+### What was added
 
-Three controllers have no tests. The pattern is already established in `LoginControllerTests` and `RegistrationControllerTests`: mock the service interface, assert the correct `IActionResult` type and status code.
+**Controllers** — mock the service interface, assert the correct `IActionResult` type and status code for success, not-found, validation failure, and exception paths.
 
 ```
 AccountService.Tests/Controllers/
-  AccountsControllerTests.cs     — GetAll, GetById, Create, Update, Delete
-                                   success paths + 404 + validation failure
+  AccountsControllerTests.cs     — 12 tests: GetAll, GetById, Create (name validation),
+                                   Update, Delete; success + 404 + 500 paths
 
 ContactService.Tests/Controllers/
-  ContactsControllerTests.cs     — GetAll (with query params), GetById, Create, Update, Delete
+  ContactsControllerTests.cs     — 14 tests: GetAll (filter pass-through verified),
+                                   GetById, Create (firstName/lastName/email validation),
+                                   Update, Delete
 
 UserManagementService.Tests/Controllers/
-  UsersControllerTests.cs        — GetById, GetRole, GetTeam, Create
+  UsersControllerTests.cs        — 10 tests: CreateUserProfile (email validation),
+                                   GetUserProfile, GetTeam, GetUserRole
 ```
 
-### Missing repository tests
-
-All four repositories are untested. EF Core InMemory is already referenced in every test project — it just hasn't been used. Create a fresh in-memory database per test using a GUID database name to ensure full isolation.
-
-```csharp
-var options = new DbContextOptionsBuilder<ContactDbContext>()
-    .UseInMemoryDatabase(Guid.NewGuid().ToString())
-    .Options;
-using var ctx = new ContactDbContext(options);
-var repo = new ContactRepository(ctx);
-```
+**Repositories** — fresh in-memory database per test via `Guid.NewGuid().ToString()` database name.
 
 ```
 AuthService.Tests/Repository/
-  UserRepositoryTests.cs              — FindByEmailAsync (found / not found), AddAsync
+  UserRepositoryTests.cs              — 8 tests: Add, GetByEmail ×2, GetById ×2,
+                                        Update, Delete, Delete-no-throw
 
 UserManagementService.Tests/Repository/
-  UserProfileRepositoryTests.cs       — GetByUserIdAsync, AddAsync, GetAllAsync
+  UserProfileRepositoryTests.cs       — 9 tests: Add, GetById ×2, GetByEmail ×2,
+                                        GetAll, Update, Delete, Delete-no-throw
 
 ContactService.Tests/Repository/
-  ContactRepositoryTests.cs           — GetAllAsync with no filter, status filter,
-                                        ownerId filter, accountId filter;
-                                        GetByIdAsync; Add + SaveChanges; Delete
+  ContactRepositoryTests.cs           — 11 tests: GetAll with no filter / status filter /
+                                        ownerId filter / accountId filter; GetById ×2;
+                                        Add; Update; Delete; Delete-no-throw
 
 AccountService.Tests/Repository/
-  AccountRepositoryTests.cs           — GetAllAsync, GetByIdAsync, Add, Delete
+  AccountRepositoryTests.cs           — 9 tests: GetAll ×2, GetById ×2, Add,
+                                        Update, Delete, Delete-no-throw
 ```
 
-### Missing HTTP client tests
-
-`UserRoleClient` and `AccountClient` are typed `HttpClient` wrappers with failure-handling logic (default-to-`Unassigned`, fail-open). This logic is worth testing directly using `RichardSzalay.MockHttp` to mock the `HttpMessageHandler`.
+**HTTP clients** — `RichardSzalay.MockHttp` mocks the `HttpMessageHandler` to test failure-handling logic without a real network.
 
 ```
 AuthService.Tests/Services/
-  UserRoleClientTests.cs
-    — 200 with valid role string → returns correct UserRole enum value
-    — 404 response → returns UserRole.Unassigned (default)
-    — Network exception → returns UserRole.Unassigned (default)
+  UserRoleClientTests.cs        — 4 tests: 200 Member, 200 Admin,
+                                   404→Unassigned, network exception→Unassigned
 
 ContactService.Tests/Services/
-  AccountClientTests.cs
-    — 200 response → returns true (account exists)
-    — 404 response → returns false (account not found)
-    — Network exception → returns true (fail-open behavior preserved)
+  AccountClientTests.cs         — 3 tests: 200→true, 404→false,
+                                   network exception→true (fail-open explicitly asserted)
 ```
 
 ---
@@ -349,9 +348,7 @@ In CI, add a `test-e2e` job to the GitHub Actions release workflow that runs aft
 
 ## Recommended Implementation Order
 
-### Do before v1.3 (unit gap-fill, ~1–2 days)
-
-The safety net that catches regressions when DealService reshapes the domain.
+### ✅ Done before v1.3 (unit gap-fill)
 
 1. Controller tests — AccountsController, ContactsController, UsersController
 2. Repository tests — all four repositories using EF Core InMemory
