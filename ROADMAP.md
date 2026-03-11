@@ -51,17 +51,17 @@ Core CRM entities. The building blocks every other CRM feature depends on.
 
 ---
 
-## v1.3 — Deals & Pipeline
+## v1.3 — Deals & Pipeline ✅
 
 The sales pipeline — the primary daily-use feature for sales reps.
 
-- [ ] **DealService** — pipeline stages (seeded: Prospecting, Proposal, Negotiation, Closed Won, Closed Lost); deal CRUD; deal-contact associations with role (Decision Maker, Influencer, Champion); validates ContactId and AccountId on create; publishes `DealCreated`, `DealStageChanged`, `DealClosed`
-- [ ] **SharedLibrary.Deals** — event package
-- [ ] **Gateway routes** — `/api/deals/**` and `/api/pipeline/**`
-- [ ] **DealService subscribes to `ContactDeleted`** — handle deals whose associated contact is removed
-- [ ] **Frontend: Pipeline board** — Kanban view grouped by stage; drag-and-drop stage updates
-- [ ] **Frontend: Deal detail** — associated contacts, account, value, probability, expected close date, activity timeline stub
-- [ ] **Frontend: Deal create/edit form** — stage selector, contact/account association
+- [x] **DealService** — pipeline stages (seeded: Prospecting, Proposal, Negotiation, Closed Won, Closed Lost); deal CRUD; deal-contact associations with role (Decision Maker, Influencer, Champion); validates ContactId and AccountId on create; publishes `DealCreated`, `DealStageChanged`, `DealClosed`
+- [x] **SharedLibrary.Deals** — event package
+- [x] **Gateway routes** — `/api/deals/**` and `/api/pipeline/**`
+- [x] **DealService subscribes to `ContactDeleted`** — handle deals whose associated contact is removed
+- [x] **Frontend: Pipeline board** — Kanban view grouped by stage; drag-and-drop stage updates
+- [x] **Frontend: Deal detail** — associated contacts, account, value, probability, expected close date, activity timeline stub
+- [x] **Frontend: Deal create/edit form** — stage selector, contact/account association
 
 ---
 

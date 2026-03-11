@@ -11,23 +11,24 @@ The interesting problems are in the seams. When a user registers, AuthService an
 
 This project was developed with AI assistance (Anthropic's Claude) as a design and implementation collaborator. Architecture decisions, service boundaries, and every tradeoff were made and understood by hand. The AI accelerated the work; it didn't replace the thinking.
 
-## Current State — v1.2 (Contacts & Accounts)
+## Current State — v1.3 (Deals & Pipeline)
 
-The full infrastructure foundation is in place and the first CRM entities are live:
+The core CRM is functional end-to-end: accounts, contacts, and a full sales pipeline.
 
-- **AccountService** — full CRUD for companies with firmographics (industry, size), address fields, and domain events (`AccountCreated`, `AccountDeleted`)
-- **ContactService** — full CRUD for contacts with a status lifecycle (Lead → Prospect → Customer / Churned), optional account linkage, owner assignment, and domain events (`ContactCreated`, `ContactStatusChanged`, `ContactDeleted`)
-- **SharedLibrary.Accounts / SharedLibrary.Contacts** — topic-scoped event packages consumed by downstream services
-- **Gateway routes** — `/contacts/**` and `/accounts/**` added to YARP with JWT authorization
-- **Frontend overhaul** — React Router v6 (BrowserRouter + Routes), TanStack Query v5, per-domain API modules (`auth.api.js`, `users.api.js`, `contacts.api.js`, `accounts.api.js`), Contact list/detail/form, Account list/detail/form with embedded contacts
+- **DealService** — pipeline stages (Prospecting → Proposal → Negotiation → Closed Won / Closed Lost), full CRUD for deals, deal-contact associations with role (Decision Maker, Influencer, Champion), validates AccountId and ContactId synchronously, publishes `DealCreated`, `DealStageChanged`, `DealClosed`; subscribes to `ContactDeleted` to clean up associations
+- **SharedLibrary.Deals** — `DealStage` enum, `DealContactRole` enum, deal events
+- **Gateway routes** — `/deals/**` and `/pipeline/**` added to YARP with JWT authorization
+- **Frontend: Pipeline board** — Kanban view grouped by stage with HTML5 drag-and-drop for stage transitions and per-column value totals
+- **Frontend: Deal detail/form** — deal info, stage transitions, deal-contact association table, create/edit form with account/contact/owner selectors
 
-Infrastructure foundation (v1.1):
-- Two independently deployable services behind a YARP API gateway
-- Async registration: `UserRegistered` event published by AuthService, consumed by UserManagementService
-- Role duplication fixed: `Role` removed from `AuthService.User`; fetched live from UserManagementService on login
-- Docker Compose stack with all services, four PostgreSQL databases, RabbitMQ, and the gateway
-- Health checks on all services; gateway aggregates downstream health at `/health`
-- OpenTelemetry distributed tracing with W3C `traceparent` propagation
+v1.2 (Contacts & Accounts):
+- AccountService and ContactService with full CRUD, status lifecycle, domain events, and cross-service validation
+- React Router v6, TanStack Query v5, per-domain API modules, Contact and Account pages
+
+v1.1 (Infrastructure Foundation):
+- YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry
+
+**Testing:** 221 tests total — 174 unit tests and 47 integration tests across 10 test projects. All passing. See [TESTING.md](TESTING.md).
 
 See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
@@ -58,12 +59,24 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
       │   (PathRemovePrefix: /contacts, Auth)          │
       │                                                ├─ CRUD contacts with status lifecycle
       │                                                ├─ Validate AccountId sync ──► AccountService
-      │                                                └─ Publish ContactCreated / StatusChanged / Deleted
+      │                                                └─ Publish ContactCreated / StatusChanged / Deleted ──► RabbitMQ
       │
-      └── /accounts/** ──────────────────────────► AccountService :5243
-          (PathRemovePrefix: /accounts, Auth)          │
-                                                       ├─ CRUD accounts with firmographics
-                                                       └─ Publish AccountCreated / AccountDeleted
+      ├── /accounts/** ──────────────────────────► AccountService :5243
+      │   (PathRemovePrefix: /accounts, Auth)          │
+      │                                                ├─ CRUD accounts with firmographics
+      │                                                └─ Publish AccountCreated / AccountDeleted ──► RabbitMQ
+      │
+      ├── /deals/**   ──────────────────────────► DealService :5290
+      │   (PathRemovePrefix: /deals, Auth)             │
+      │                                                ├─ CRUD deals + deal-contact associations
+      │                                                ├─ Validate AccountId sync ──► AccountService
+      │                                                ├─ Validate ContactId sync ──► ContactService
+      │                                                ├─ Consume ContactDeleted ◄── RabbitMQ
+      │                                                └─ Publish DealCreated / StageChanged / Closed ──► RabbitMQ
+      │
+      └── /pipeline/** ──────────────────────────► DealService :5290
+          (PathRemovePrefix: /pipeline, Auth)          │
+                                                       └─ GET /api/pipeline → deals grouped by stage
 ```
 
 ### Services
@@ -98,6 +111,15 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 - Publishes `ContactCreated`, `ContactStatusChanged`, `ContactDeleted`
 - Filterable list: `?status=`, `?ownerId=`, `?accountId=`
 
+**DealService** (HTTP :5290)
+- Owns deals: `Title`, `AccountId`, `Stage`, `Value`, `Probability`, `ExpectedCloseDate`, `OwnerId`
+- Pipeline stages: Prospecting → Proposal → Negotiation → Closed Won / Closed Lost (seeded on startup)
+- Deal-contact associations with role: Decision Maker, Influencer, Champion
+- Validates `AccountId` and `ContactId` synchronously (fail-open on network error)
+- Consumes `ContactDeleted` to remove orphaned deal-contact associations
+- Publishes `DealCreated`, `DealStageChanged`, `DealClosed`
+- `GET /api/pipeline` returns all stages with their deals and total value per column
+
 **SharedLibrary.Auth**
 - `CreateUserProfileRequest` / `CreateUserProfileResponse` DTOs
 - `UserRole` enum: `Unassigned`, `Member`, `Admin`
@@ -112,6 +134,11 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 **SharedLibrary.Contacts**
 - `ContactStatus` enum: `Lead`, `Prospect`, `Customer`, `Churned`
 - `ContactCreated`, `ContactStatusChanged`, `ContactDeleted` events
+
+**SharedLibrary.Deals**
+- `DealStage` enum: `Prospecting`, `Proposal`, `Negotiation`, `ClosedWon`, `ClosedLost`
+- `DealContactRole` enum: `DecisionMaker`, `Influencer`, `Champion`
+- `DealCreated`, `DealStageChanged`, `DealClosed` events
 
 ### Layered pattern (per service)
 
@@ -152,6 +179,7 @@ dotnet run --project AuthService/src/AuthService/
 dotnet run --project UserManagementService/src/UserManagementService/
 dotnet run --project AccountService/src/AccountService/
 dotnet run --project ContactService/src/ContactService/
+dotnet run --project DealService/src/DealService/
 ```
 
 Set connection strings and JWT settings via user secrets or `appsettings.Development.json`. The `appsettings.Development.json` files in each service default to localhost ports for inter-service calls.
@@ -163,7 +191,7 @@ npm install
 npm run dev    # http://localhost:5173
 ```
 
-The Vite proxy routes all `/auth/*`, `/users/*`, `/contacts/*`, and `/accounts/*` traffic to the gateway on port 5000.
+The Vite proxy routes all `/auth/*`, `/users/*`, `/contacts/*`, `/accounts/*`, `/deals/*`, and `/pipeline/*` traffic to the gateway on port 5000.
 
 ### Run a single test class
 
@@ -244,11 +272,34 @@ Status values: `Lead`, `Prospect`, `Customer`, `Churned`
 Industry values: `Technology`, `Finance`, `Healthcare`, `Retail`, `Manufacturing`, `Education`, `Other`
 Size values: `Small`, `Medium`, `Large`, `Enterprise`
 
+### Deal endpoints (`/deals/api/deals`) — requires Bearer token
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`    | `/deals/api/deals` | List deals (`?stage=`, `?accountId=`, `?ownerId=`) |
+| `GET`    | `/deals/api/deals/{id}` | Get deal by ID (includes contacts) |
+| `POST`   | `/deals/api/deals` | Create deal |
+| `PUT`    | `/deals/api/deals/{id}` | Update deal (triggers `DealStageChanged` / `DealClosed` events) |
+| `DELETE` | `/deals/api/deals/{id}` | Delete deal |
+| `POST`   | `/deals/api/deals/{id}/contacts` | Add contact to deal with role |
+| `DELETE` | `/deals/api/deals/{id}/contacts/{contactId}` | Remove contact from deal |
+
+Stage values: `Prospecting`, `Proposal`, `Negotiation`, `ClosedWon`, `ClosedLost`
+Contact role values: `DecisionMaker`, `Influencer`, `Champion`
+
+### Pipeline endpoint (`/pipeline/api/pipeline`) — requires Bearer token
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/pipeline/api/pipeline` | All stages with deals and total value per column |
+
 ## Testing
 
-- **xUnit** for test structure, **Moq** for mocking interfaces, **FluentAssertions** for readable assertions
-- **EF Core InMemory** provider for repository tests without a real database
-- Tests cover controllers, services, repositories, and MassTransit consumers; test files mirror source structure under `*.Tests/` projects
+221 tests across 10 projects. All passing.
+
+**Unit tests (174)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
+
+**Integration tests (47)** — `WebApplicationFactory<Program>` boots the real ASP.NET Core pipeline in-process. `Testcontainers.PostgreSql` provides a real PostgreSQL instance per test class. `MassTransit.Testing` (in-memory harness) replaces RabbitMQ. `WireMock.Net` stubs downstream HTTP services. Each service has its own integration test project under `*.IntegrationTests/`.
 
 ## Roadmap
 
@@ -261,8 +312,8 @@ YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role 
 ### ✅ v1.2 — Contacts & Accounts
 ContactService and AccountService with full CRUD and lifecycle state machines. React Router v6, TanStack Query v5, and per-domain API modules replace the `useState`-based frontend.
 
-### v1.3 — Deals & Pipeline
-DealService with pipeline stages and deal-contact associations. Kanban board in the frontend.
+### ✅ v1.3 — Deals & Pipeline
+DealService with pipeline stages, deal-contact associations, and a `ContactDeleted` consumer. Kanban board with drag-and-drop in the frontend. Integration tests for all five services.
 
 ### v1.4 — Activities
 ActivityService (calls, emails, meetings, tasks, notes). Activity timeline on contact and deal detail pages.
@@ -284,8 +335,8 @@ See [ROADMAP.md](ROADMAP.md) for detailed feature lists per version.
 - **Security**: Password hashing (PBKDF2), JWT generation and validation, claims-based identity, centralized auth at the gateway
 - **Observability**: OpenTelemetry distributed tracing, W3C trace context propagation, health checks
 - **Docker**: Multi-stage Dockerfiles, Docker Compose with dependency ordering, service-name DNS, environment variable configuration
-- **Testing**: xUnit, Moq, FluentAssertions, EF Core InMemory; controller, service, repository, and consumer test layers
-- **React**: React Router v6 (protected routes, nested layouts, `useNavigate`), TanStack Query v5 (`useQuery`, `useMutation`, cache invalidation), per-domain API client modules, Vite dev proxy
+- **Testing**: xUnit, Moq, FluentAssertions, EF Core InMemory (unit); `WebApplicationFactory`, Testcontainers PostgreSQL, MassTransit test harness, WireMock.Net (integration); controller, service, repository, HTTP client, and consumer layers
+- **React**: React Router v6 (protected routes, nested layouts, `useNavigate`), TanStack Query v5 (`useQuery`, `useMutation`, cache invalidation), HTML5 drag-and-drop for Kanban stage transitions, per-domain API client modules, Vite dev proxy
 
 ## Development Process & AI Collaboration
 

@@ -146,6 +146,44 @@ services:
         condition: service_healthy
     networks: [backend]
 
+  deal-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: dealdb
+      POSTGRES_USER: deal_user
+      POSTGRES_PASSWORD: deal_pass
+    volumes:
+      - deal-db-data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deal_user -d dealdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  deal-service:
+    build:
+      context: .
+      dockerfile: DealService/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DealDbConnection: "Host=deal-db;Port=5432;Database=dealdb;Username=deal_user;Password=deal_pass"
+      ServiceUrls__AccountService: "http://account-service:8080"
+      ServiceUrls__ContactService: "http://contact-service:8080"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Username: "guest"
+      RabbitMQ__Password: "guest"
+    depends_on:
+      deal-db:
+        condition: service_healthy
+      account-service:
+        condition: service_started
+      contact-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks: [backend]
+
   api-gateway:
     build:
       context: .
@@ -162,11 +200,13 @@ services:
       ReverseProxy__Clusters__users-cluster__Destinations__user-management-service__Address: "http://user-management-service:8080"
       ReverseProxy__Clusters__contacts-cluster__Destinations__contact-service__Address: "http://contact-service:8080"
       ReverseProxy__Clusters__accounts-cluster__Destinations__account-service__Address: "http://account-service:8080"
+      ReverseProxy__Clusters__deals-cluster__Destinations__deal-service__Address: "http://deal-service:8080"
     depends_on:
       - auth-service
       - user-management-service
       - account-service
       - contact-service
+      - deal-service
     networks: [backend, frontend]
 
 networks:
@@ -178,3 +218,4 @@ volumes:
   user-db-data:
   account-db-data:
   contact-db-data:
+  deal-db-data:

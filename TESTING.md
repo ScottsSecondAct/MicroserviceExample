@@ -15,29 +15,35 @@ This document describes the three-layer testing strategy for this project: unit,
 
 ## Current State
 
-Four test projects, 128 tests. Unit layer complete. Integration and E2E not yet started.
+Ten test projects, 221 tests. Unit layer complete. Integration layer complete for all five services. E2E not yet started.
 
 | Component | Unit | Integration | E2E |
 |-----------|------|-------------|-----|
-| AuthService — services | ✅ | ❌ | ❌ |
-| AuthService — controllers | ✅ RegistrationController, LoginController | ❌ | ❌ |
-| AuthService — repository | ✅ | ❌ | ❌ |
-| AuthService — UserRoleClient | ✅ | ❌ | ❌ |
-| UserManagementService — services | ✅ | ❌ | ❌ |
-| UserManagementService — consumer | ✅ | ❌ | ❌ |
-| UserManagementService — controller | ✅ | ❌ | ❌ |
-| UserManagementService — repository | ✅ | ❌ | ❌ |
-| ContactService — services | ✅ | ❌ | ❌ |
-| ContactService — controller | ✅ | ❌ | ❌ |
-| ContactService — repository | ✅ | ❌ | ❌ |
-| ContactService — AccountClient | ✅ | ❌ | ❌ |
-| AccountService — services | ✅ | ❌ | ❌ |
-| AccountService — controller | ✅ | ❌ | ❌ |
-| AccountService — repository | ✅ | ❌ | ❌ |
+| AuthService — services | ✅ | ✅ | ❌ |
+| AuthService — controllers | ✅ RegistrationController, LoginController | ✅ | ❌ |
+| AuthService — repository | ✅ | ✅ | ❌ |
+| AuthService — UserRoleClient | ✅ | ✅ | ❌ |
+| UserManagementService — services | ✅ | ✅ | ❌ |
+| UserManagementService — consumer | ✅ | ✅ | ❌ |
+| UserManagementService — controller | ✅ | ✅ | ❌ |
+| UserManagementService — repository | ✅ | ✅ | ❌ |
+| ContactService — services | ✅ | ✅ | ❌ |
+| ContactService — controller | ✅ | ✅ | ❌ |
+| ContactService — repository | ✅ | ✅ | ❌ |
+| ContactService — AccountClient | ✅ | ✅ | ❌ |
+| AccountService — services | ✅ | ✅ | ❌ |
+| AccountService — controller | ✅ | ✅ | ❌ |
+| AccountService — repository | ✅ | ✅ | ❌ |
+| DealService — services | ✅ | ✅ | ❌ |
+| DealService — controllers | ✅ | ✅ | ❌ |
+| DealService — repository | ✅ | ✅ | ❌ |
+| DealService — AccountClient | ✅ | ✅ | ❌ |
+| DealService — ContactClient | ✅ | ✅ | ❌ |
+| DealService — ContactDeletedConsumer | ✅ | ✅ | ❌ |
 
-**128 tests across 20 files. Unit layer complete.**
+**221 tests total. 174 unit + 47 integration. All passing.**
 
-### Test count by project
+### Unit test count by project
 
 | Project | Tests | Files |
 |---------|-------|-------|
@@ -45,7 +51,19 @@ Four test projects, 128 tests. Unit layer complete. Integration and E2E not yet 
 | UserManagementService.Tests | 26 | 5 |
 | ContactService.Tests | 39 | 5 |
 | AccountService.Tests | 30 | 4 |
-| **Total** | **128** | **20** |
+| DealService.Tests | 46 | 7 |
+| **Total** | **174** | **27** |
+
+### Integration test count by project
+
+| Project | Tests |
+|---------|-------|
+| AuthService.IntegrationTests | 8 |
+| UserManagementService.IntegrationTests | 9 |
+| AccountService.IntegrationTests | 9 |
+| ContactService.IntegrationTests | 9 |
+| DealService.IntegrationTests | 12 |
+| **Total** | **47** |
 
 ---
 
@@ -238,7 +256,7 @@ E2E tests run against the full Docker Compose stack via the YARP gateway on `htt
 
 ### When to implement
 
-E2E infrastructure should be deferred until after v1.3 (Deals & Pipeline). The richest E2E scenario is the full sales flow: *register → create account → create contact → create deal → transition stage*. The investment in Docker Compose test orchestration pays off more when the scenarios are complete.
+v1.3 is complete, so the prerequisite is met. The richest E2E scenario is the full sales flow: *register → create account → create contact → create deal → transition stage*. Implement alongside v1.4 (Activities) or as a standalone effort once the team is ready to invest in Docker Compose test orchestration.
 
 ### Project structure
 
@@ -354,15 +372,11 @@ In CI, add a `test-e2e` job to the GitHub Actions release workflow that runs aft
 2. Repository tests — all four repositories using EF Core InMemory
 3. HTTP client tests — UserRoleClient, AccountClient using MockHttp
 
-### Do alongside v1.3 (integration tests, per service as built)
+### ✅ Done alongside v1.3 (integration tests, all services)
 
-Establish the `WebApplicationFactory` + Testcontainers + MassTransit harness pattern once for DealService, then backfill AccountService and ContactService at the same time. Writing integration tests while a service is fresh is significantly faster than retrofitting them later.
+All five integration test projects are complete: AccountService, ContactService, DealService, AuthService, and UserManagementService. Each uses the `WebApplicationFactory` + Testcontainers + MassTransit harness pattern. WireMock stubs downstream HTTP calls where needed.
 
-1. Set up `AccountService.IntegrationTests` and `ContactService.IntegrationTests` using the factory pattern above
-2. As DealService is built, create `DealService.IntegrationTests` alongside it
-3. Backfill `AuthService.IntegrationTests` and `UserManagementService.IntegrationTests` when convenient
-
-### Defer until after v1.3 (E2E infrastructure)
+### Defer until after v1.4 (E2E infrastructure)
 
 The `EndToEnd.Tests` project and Docker Compose test orchestration. The scenarios are richer and the investment pays off more once Deals are in the picture.
 

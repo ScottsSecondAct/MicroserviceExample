@@ -63,7 +63,7 @@ public class RegistrationServiceTests
 
     // Assert
     Assert.False(result.IsSuccess);
-    Assert.Equal(400, result.StatusCode);
+    Assert.Equal(409, result.StatusCode);
     _mockUserRepository.Verify(r => r.AddUserAsync(It.IsAny<User>()), Times.Never);
     _mockPublishEndpoint.Verify(
         p => p.Publish(It.IsAny<UserRegistered>(), It.IsAny<CancellationToken>()),

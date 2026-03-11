@@ -31,7 +31,7 @@ public class RegistationService : IRegistrationService
   {
     if (!await ValidateEmailAsync(email))
     {
-      return ServiceResult.Failure("Email is already registered.");
+      return ServiceResult.Failure("Email is already registered.", 409);
     }
 
     var user = new User
