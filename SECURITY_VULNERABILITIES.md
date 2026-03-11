@@ -10,7 +10,7 @@ This is not a theoretical checklist — every issue was identified by reading th
 
 ### 1. Downstream services are fully unauthenticated
 
-**Files:** `UserManagementService/Program.cs`, `AccountService/Program.cs`, `ContactService/Program.cs`
+**Files:** `UserManagementService/Program.cs`, `AccountService/Program.cs`, `ContactService/Program.cs`, `DealService/Program.cs`, `ActivityService/Program.cs`
 
 **Risk:** The API gateway validates JWTs before forwarding requests, but the downstream services themselves perform no authentication. Any process that can reach them on the Docker network — or that bypasses the gateway entirely — has unrestricted read/write access to all data. There is no defence in depth. A single misconfigured network rule, a container escape, or a compromised sidecar would give an attacker full access to all four databases.
 
@@ -78,7 +78,7 @@ Generate strong random passwords (e.g., `openssl rand -base64 32`) and document 
 
 ### 5. RabbitMQ default credentials used everywhere
 
-**Files:** `docker-compose.yml:86-87`, all five `Program.cs` files
+**Files:** `docker-compose.yml`, all six service `Program.cs` files
 
 ```yaml
 RabbitMQ__Username: "guest"
@@ -114,7 +114,7 @@ ports:
 
 ### 7. Swagger/OpenAPI enabled unconditionally in production
 
-**Files:** `AuthService/Program.cs:71-72`, `AccountService/Program.cs` (unconditional), `ContactService/Program.cs` (unconditional)
+**Files:** `AuthService/Program.cs`, `AccountService/Program.cs`, `ContactService/Program.cs`, `DealService/Program.cs`, `ActivityService/Program.cs` (all unconditional)
 
 ```csharp
 app.UseSwagger();       // no environment check
@@ -165,7 +165,7 @@ expires: DateTime.UtcNow.AddHours(2),
 
 ### 10. Docker containers run as root
 
-**Files:** All five `Dockerfile` files
+**Files:** All six `Dockerfile` files
 
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
@@ -190,7 +190,7 @@ ENTRYPOINT ["dotnet", "AuthService.dll"]
 
 ### 11. All inter-service communication is unencrypted HTTP
 
-**Files:** `docker-compose.yml` (all service addresses), all `appsettings.json` files
+**Files:** `docker-compose.yml` (all service addresses), all six `appsettings.json` files
 
 ```yaml
 ASPNETCORE_URLS: http://+:8080
@@ -285,7 +285,7 @@ Expose the detailed report only to internal monitoring systems.
 
 ### 16. Debug logging enabled in production
 
-**Files:** All five `Program.cs` files
+**Files:** All six service `Program.cs` files
 
 ```csharp
 builder.Logging.AddDebug();
@@ -332,7 +332,7 @@ JwtSettings__Audience: "YourAppUsers"
 
 ### 19. No request body size limits
 
-**Files:** All service `Program.cs` files
+**Files:** All six service `Program.cs` files
 
 **Risk:** ASP.NET Core's default request body size limit is 30MB. A malicious client can send large JSON payloads to any endpoint, causing excessive memory allocation and potential out-of-memory conditions — a denial of service attack requiring no authentication for the public registration and login endpoints.
 
@@ -351,7 +351,7 @@ Or apply per-endpoint using `[RequestSizeLimit(65536)]`.
 
 ### 20. OpenTelemetry exports traces to console
 
-**Files:** All five `Program.cs` files
+**Files:** All six service `Program.cs` files
 
 ```csharp
 .AddConsoleExporter()
@@ -369,7 +369,7 @@ Or apply per-endpoint using `[RequestSizeLimit(65536)]`.
 
 ### 21. No audit trail on CRM entities
 
-**Files:** All service entity models and repositories
+**Files:** All service entity models and repositories (Contact, Account, Deal, Activity)
 
 **Risk:** Hard deletes with no audit log make it impossible to determine who created, modified, or deleted a record. This is a compliance requirement for most data regulations (GDPR, SOC 2, HIPAA) and essential for forensic investigation after a breach or data integrity incident.
 
@@ -379,7 +379,7 @@ Or apply per-endpoint using `[RequestSizeLimit(65536)]`.
 
 ### 22. EnsureCreated() is not safe for production schema management
 
-**Files:** All five `Program.cs` files
+**Files:** All six service `Program.cs` files
 
 ```csharp
 db.Database.EnsureCreated();
@@ -393,7 +393,7 @@ db.Database.EnsureCreated();
 
 ### 23. No input length limits on entity string fields
 
-**Files:** All entity model classes (`User.cs`, `UserProfile.cs`, `Contact.cs`, `Account.cs`)
+**Files:** All entity model classes (`User.cs`, `UserProfile.cs`, `Contact.cs`, `Account.cs`, `Deal.cs`, `Activity.cs`)
 
 **Risk:** String fields like `Email`, `FirstName`, `LastName`, `Name`, `Website` have no `[MaxLength]` attributes. Without these, EF Core generates `text` columns in PostgreSQL with no length constraint. A client can submit strings of arbitrary length, consuming excessive storage and potentially triggering log injection if the strings end up in log messages.
 

@@ -15,7 +15,7 @@ This document describes the three-layer testing strategy for this project: unit,
 
 ## Current State
 
-Ten test projects, 221 tests. Unit layer complete. Integration layer complete for all five services. E2E not yet started.
+Twelve test projects, 262 tests. Unit layer complete. Integration layer complete for all six services. E2E not yet started.
 
 | Component | Unit | Integration | E2E |
 |-----------|------|-------------|-----|
@@ -40,8 +40,11 @@ Ten test projects, 221 tests. Unit layer complete. Integration layer complete fo
 | DealService — AccountClient | ✅ | ✅ | ❌ |
 | DealService — ContactClient | ✅ | ✅ | ❌ |
 | DealService — ContactDeletedConsumer | ✅ | ✅ | ❌ |
+| ActivityService — services | ✅ | ✅ | ❌ |
+| ActivityService — controller | ✅ | ✅ | ❌ |
+| ActivityService — repository | ✅ | ✅ | ❌ |
 
-**221 tests total. 174 unit + 47 integration. All passing.**
+**262 tests total. 204 unit + 58 integration. All passing.**
 
 ### Unit test count by project
 
@@ -52,7 +55,8 @@ Ten test projects, 221 tests. Unit layer complete. Integration layer complete fo
 | ContactService.Tests | 39 | 5 |
 | AccountService.Tests | 30 | 4 |
 | DealService.Tests | 46 | 7 |
-| **Total** | **174** | **27** |
+| ActivityService.Tests | 30 | 3 |
+| **Total** | **204** | **30** |
 
 ### Integration test count by project
 
@@ -63,7 +67,8 @@ Ten test projects, 221 tests. Unit layer complete. Integration layer complete fo
 | AccountService.IntegrationTests | 9 |
 | ContactService.IntegrationTests | 9 |
 | DealService.IntegrationTests | 12 |
-| **Total** | **47** |
+| ActivityService.IntegrationTests | 11 |
+| **Total** | **58** |
 
 ---
 
@@ -90,6 +95,10 @@ ContactService.Tests/Controllers/
 UserManagementService.Tests/Controllers/
   UsersControllerTests.cs        — 10 tests: CreateUserProfile (email validation),
                                    GetUserProfile, GetTeam, GetUserRole
+
+ActivityService.Tests/Controllers/
+  ActivitiesControllerTests.cs   — 8 tests: GetAll, GetById (found + 404), Create
+                                   (valid + empty subject), Update, Delete (found + 404)
 ```
 
 **Repositories** — fresh in-memory database per test via `Guid.NewGuid().ToString()` database name.
@@ -111,6 +120,25 @@ ContactService.Tests/Repository/
 AccountService.Tests/Repository/
   AccountRepositoryTests.cs           — 9 tests: GetAll ×2, GetById ×2, Add,
                                         Update, Delete, Delete-no-throw
+
+ActivityService.Tests/Repository/
+  ActivityRepositoryTests.cs          — 9 tests: Add + GetById, GetById not-found,
+                                        GetAll no filter, GetAll by contactId,
+                                        GetAll by type, Update, Delete, Delete-no-throw,
+                                        GetAll ordered by createdAt desc
+```
+
+**Services** — mock all dependencies; verify event publishing, validation, and state transitions.
+
+```
+ActivityService.Tests/Services/
+  ActivitiesServiceTests.cs      — 13 tests: Create valid (publishes ActivityLogged),
+                                   Create empty subject (no publish), Create verifies
+                                   event fields, GetById found + not-found, GetAll,
+                                   Update not-found, Update fields, Update Task first
+                                   completion (publishes TaskCompleted), Update already-
+                                   completed Task (no re-publish), Update non-Task type
+                                   completed (no publish), Delete found, Delete not-found
 ```
 
 **HTTP clients** — `RichardSzalay.MockHttp` mocks the `HttpMessageHandler` to test failure-handling logic without a real network.
@@ -127,7 +155,7 @@ ContactService.Tests/Services/
 
 ---
 
-## Layer 2 — Integration Tests
+## Layer 2 — Integration Tests ✅ Complete
 
 **New packages:**
 
@@ -140,20 +168,11 @@ ContactService.Tests/Services/
 
 Integration tests verify that the full HTTP pipeline of a single service works correctly against a real database. A `WebApplicationFactory<Program>` boots the service with a Testcontainers PostgreSQL instance substituted for the real database, and `MassTransit.Testing` substitutes for RabbitMQ. Downstream HTTP calls (e.g., ContactService → AccountService) are stubbed with WireMock.
 
-### New projects
-
-```
-AuthService/src/AuthService.IntegrationTests/
-UserManagementService/src/UserManagementService.IntegrationTests/
-ContactService/src/ContactService.IntegrationTests/
-AccountService/src/AccountService.IntegrationTests/
-```
-
 ### Factory pattern
 
 Each project has one factory class used as an `IClassFixture`. The factory:
 1. Starts a PostgreSQL Testcontainer
-2. Overrides the DbContext connection string
+2. Overrides the DbContext connection string via `builder.UseSetting()` before `ConfigureServices` (required so the health check's Npgsql registration sees the correct string)
 3. Replaces MassTransit with the in-memory test harness
 
 ```csharp
@@ -166,6 +185,8 @@ public class AccountServiceFactory : WebApplicationFactory<Program>, IAsyncLifet
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseSetting("ConnectionStrings:AccountDbConnection", _db.GetConnectionString());
+
         builder.ConfigureServices(services =>
         {
             services.RemoveDbContext<AccountDbContext>();
@@ -202,6 +223,7 @@ GET  /api/users/{id}/role              → 200 with role string
 GET  /api/users/team                   → 200, list of {userId, displayName, role}
 Consumer: publish UserRegistered       → profile row appears in DB
 Consumer: publish UserRegistered twice → idempotent, still one row
+GET  /health                           → 200 Healthy
 ```
 
 **AccountService.IntegrationTests**
@@ -238,6 +260,39 @@ GET  /api/contacts/{id} (missing)                   → 404
 GET  /health                                        → 200 Healthy
 ```
 
+**DealService.IntegrationTests**
+```
+WireMock stubs AccountService and ContactService for ID validation.
+
+POST /api/deals                        → 201, DealCreated published
+POST /api/deals (invalid accountId)    → 400, no event
+POST /api/deals (missing title)        → 400
+GET  /api/deals                        → 200, array
+GET  /api/deals/{id}                   → 200 with all fields
+GET  /api/deals/{id} (missing)         → 404
+PUT  /api/deals/{id} (stage change)    → 200, DealStageChanged published
+PUT  /api/deals/{id} (→ ClosedWon)     → 200, DealStageChanged + DealClosed published
+DELETE /api/deals/{id}                 → 204
+GET  /api/pipeline                     → 200, array of 5 stages
+Consumer: ContactDeleted               → deal-contact associations removed
+GET  /health                           → 200 Healthy
+```
+
+**ActivityService.IntegrationTests**
+```
+POST /api/activities                          → 201, ActivityLogged published
+POST /api/activities (empty subject)          → 400
+GET  /api/activities                          → 200, array
+GET  /api/activities/{id}                     → 200 with all fields
+GET  /api/activities/{id} (missing)           → 404
+GET  /api/activities?type=Task                → filtered list, only Task type returned
+PUT  /api/activities/{id}                     → 200, fields updated
+PUT  /api/activities/{id} (Task + completedAt) → 200, TaskCompleted published, completedAt set
+DELETE /api/activities/{id}                   → 204
+DELETE /api/activities/{id} (missing)         → 404
+GET  /health                                  → 200 Healthy
+```
+
 ### Test isolation
 
 - Each test class receives its own `PostgreSqlContainer` via `IClassFixture<ServiceFactory>`.
@@ -256,7 +311,7 @@ E2E tests run against the full Docker Compose stack via the YARP gateway on `htt
 
 ### When to implement
 
-v1.3 is complete, so the prerequisite is met. The richest E2E scenario is the full sales flow: *register → create account → create contact → create deal → transition stage*. Implement alongside v1.4 (Activities) or as a standalone effort once the team is ready to invest in Docker Compose test orchestration.
+v1.4 is complete. The richest E2E scenario is the full sales flow: *register → create account → create contact → create deal → transition stage → log activity*. Implement as a standalone effort once the team is ready to invest in Docker Compose test orchestration, or alongside v1.5 (Reporting).
 
 ### Project structure
 
@@ -269,6 +324,8 @@ EndToEnd.Tests/
   Flows/
     AuthFlowTests.cs
     AccountContactFlowTests.cs
+    DealFlowTests.cs
+    ActivityFlowTests.cs
     GatewayAuthTests.cs
 ```
 
@@ -322,23 +379,42 @@ Full lifecycle
 
 Invalid account reference
   → POST /contacts/api/contacts with random accountId → 400
+```
 
-Owner assignment
-  → Register two users
-  → Create contact, assign ownerId = second user's userId
-  → GET /contacts/api/contacts?ownerId={secondUserId} → contact appears in list
+**DealFlowTests**
+```
+Pipeline lifecycle
+  → Register + login, create account + contact
+  → POST /deals/api/deals → 201, capture dealId
+  → POST /deals/api/deals/{dealId}/contacts → 201
+  → PUT /deals/api/deals/{dealId} { stage: "ClosedWon" } → 200
+  → GET /pipeline/api/pipeline → ClosedWon column includes deal
+```
+
+**ActivityFlowTests**
+```
+Log and complete a task
+  → Register + login, create contact
+  → POST /activities/api/activities { type: "Task", subject: "Follow up", contactId } → 201
+  → GET /activities/api/activities?contactId={id}&type=Task → task appears, completedAt null
+  → PUT /activities/api/activities/{id} { completedAt: <now> } → 200
+  → GET /activities/api/activities/{id} → completedAt set
+
+Activity timeline per entity
+  → Log Call, Email, Note against a deal
+  → GET /activities/api/activities?dealId={id} → returns all three, ordered by createdAt desc
 ```
 
 **GatewayAuthTests**
 ```
 Unauthenticated access to protected routes
-  → GET /contacts/api/contacts (no token)  → 401
-  → GET /accounts/api/accounts (no token)  → 401
-  → POST /contacts/api/contacts (no token) → 401
+  → GET /contacts/api/contacts (no token)        → 401
+  → GET /accounts/api/accounts (no token)        → 401
+  → GET /activities/api/activities (no token)    → 401
 
 Public routes accessible without token
-  → POST /auth/api/registration/register   → 200 (not 401)
-  → POST /auth/api/login/login             → 200 or 400 (not 401)
+  → POST /auth/api/registration/register         → 200 (not 401)
+  → POST /auth/api/login/login                   → 200 or 400 (not 401)
 
 Gateway health
   → GET /health → 200, all downstream services report Healthy
@@ -372,13 +448,17 @@ In CI, add a `test-e2e` job to the GitHub Actions release workflow that runs aft
 2. Repository tests — all four repositories using EF Core InMemory
 3. HTTP client tests — UserRoleClient, AccountClient using MockHttp
 
-### ✅ Done alongside v1.3 (integration tests, all services)
+### ✅ Done alongside v1.3 (integration tests, all services through DealService)
 
-All five integration test projects are complete: AccountService, ContactService, DealService, AuthService, and UserManagementService. Each uses the `WebApplicationFactory` + Testcontainers + MassTransit harness pattern. WireMock stubs downstream HTTP calls where needed.
+All five integration test projects complete: AccountService, ContactService, DealService, AuthService, and UserManagementService. Each uses the `WebApplicationFactory` + Testcontainers + MassTransit harness pattern. WireMock stubs downstream HTTP calls where needed.
+
+### ✅ Done alongside v1.4 (ActivityService unit + integration tests)
+
+ActivityService.Tests (30 unit tests: services, controller, repository) and ActivityService.IntegrationTests (11 integration tests: full CRUD, type filtering, task completion event, health check).
 
 ### Defer until after v1.4 (E2E infrastructure)
 
-The `EndToEnd.Tests` project and Docker Compose test orchestration. The scenarios are richer and the investment pays off more once Deals are in the picture.
+The `EndToEnd.Tests` project and Docker Compose test orchestration. Scenarios now span six services and are rich enough to justify the infrastructure investment.
 
 ---
 

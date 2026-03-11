@@ -11,24 +11,28 @@ The interesting problems are in the seams. When a user registers, AuthService an
 
 This project was developed with AI assistance (Anthropic's Claude) as a design and implementation collaborator. Architecture decisions, service boundaries, and every tradeoff were made and understood by hand. The AI accelerated the work; it didn't replace the thinking.
 
-## Current State — v1.3 (Deals & Pipeline)
+## Current State — v1.4 (Activities)
 
-The core CRM is functional end-to-end: accounts, contacts, and a full sales pipeline.
+The core CRM is functional end-to-end: accounts, contacts, a full sales pipeline, and an activity log.
 
-- **DealService** — pipeline stages (Prospecting → Proposal → Negotiation → Closed Won / Closed Lost), full CRUD for deals, deal-contact associations with role (Decision Maker, Influencer, Champion), validates AccountId and ContactId synchronously, publishes `DealCreated`, `DealStageChanged`, `DealClosed`; subscribes to `ContactDeleted` to clean up associations
-- **SharedLibrary.Deals** — `DealStage` enum, `DealContactRole` enum, deal events
-- **Gateway routes** — `/deals/**` and `/pipeline/**` added to YARP with JWT authorization
-- **Frontend: Pipeline board** — Kanban view grouped by stage with HTML5 drag-and-drop for stage transitions and per-column value totals
-- **Frontend: Deal detail/form** — deal info, stage transitions, deal-contact association table, create/edit form with account/contact/owner selectors
+- **ActivityService** — full CRUD for five activity types (Call, Email, Meeting, Task, Note); all entity references (ContactId, DealId, AccountId) are optional; scheduled and completed timestamps for task tracking; publishes `ActivityLogged` on create and `TaskCompleted` when a Task is first marked complete
+- **SharedLibrary.Activities** — `ActivityType` enum, `ActivityLogged` and `TaskCompleted` events
+- **Gateway route** — `/activities/**` with JWT authorization
+- **Frontend: Activity timeline** — chronological activity feed on Contact, Deal, and Account detail pages; type-coded styling; inline task completion
+- **Frontend: Activity log form** — collapsible quick-add panel accessible from Contact, Deal, and Account detail pages; type selector, scheduled date picker for tasks
+- **Frontend: Task list** — `/activities/tasks` shows all open tasks owned by the current user with completion button and links to associated records
+
+v1.3 (Deals & Pipeline):
+- DealService with pipeline stages, deal-contact associations with role, stage-change events, and a `ContactDeleted` consumer. Kanban board with drag-and-drop in the frontend.
 
 v1.2 (Contacts & Accounts):
-- AccountService and ContactService with full CRUD, status lifecycle, domain events, and cross-service validation
-- React Router v6, TanStack Query v5, per-domain API modules, Contact and Account pages
+- AccountService and ContactService with full CRUD, status lifecycle, domain events, and cross-service validation.
+- React Router v6, TanStack Query v5, per-domain API modules, Contact and Account pages.
 
 v1.1 (Infrastructure Foundation):
-- YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry
+- YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry.
 
-**Testing:** 221 tests total — 174 unit tests and 47 integration tests across 10 test projects. All passing. See [TESTING.md](TESTING.md).
+**Testing:** 262 tests total — 204 unit tests and 58 integration tests across 12 test projects. All passing. See [TESTING.md](TESTING.md).
 
 See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
@@ -74,9 +78,15 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
       │                                                ├─ Consume ContactDeleted ◄── RabbitMQ
       │                                                └─ Publish DealCreated / StageChanged / Closed ──► RabbitMQ
       │
-      └── /pipeline/** ──────────────────────────► DealService :5290
-          (PathRemovePrefix: /pipeline, Auth)          │
-                                                       └─ GET /api/pipeline → deals grouped by stage
+      ├── /pipeline/** ──────────────────────────► DealService :5290
+      │   (PathRemovePrefix: /pipeline, Auth)          │
+      │                                                └─ GET /api/pipeline → deals grouped by stage
+      │
+      └── /activities/** ────────────────────────► ActivityService
+          (PathRemovePrefix: /activities, Auth)        │
+                                                       ├─ CRUD activities (Call/Email/Meeting/Task/Note)
+                                                       ├─ Optional ContactId / DealId / AccountId references
+                                                       └─ Publish ActivityLogged / TaskCompleted ──► RabbitMQ
 ```
 
 ### Services
@@ -120,6 +130,13 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 - Publishes `DealCreated`, `DealStageChanged`, `DealClosed`
 - `GET /api/pipeline` returns all stages with their deals and total value per column
 
+**ActivityService**
+- Owns activities: `Type`, `Subject`, `Notes`, optional `ContactId` / `DealId` / `AccountId` / `OwnerId`
+- Activity types: Call, Email, Meeting, Task, Note
+- Tasks carry `ScheduledAt` and `CompletedAt` timestamps
+- Publishes `ActivityLogged` on every create; publishes `TaskCompleted` the first time a Task is marked complete
+- Filterable list: `?type=`, `?contactId=`, `?dealId=`, `?accountId=`, `?ownerId=`
+
 **SharedLibrary.Auth**
 - `CreateUserProfileRequest` / `CreateUserProfileResponse` DTOs
 - `UserRole` enum: `Unassigned`, `Member`, `Admin`
@@ -139,6 +156,10 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 - `DealStage` enum: `Prospecting`, `Proposal`, `Negotiation`, `ClosedWon`, `ClosedLost`
 - `DealContactRole` enum: `DecisionMaker`, `Influencer`, `Champion`
 - `DealCreated`, `DealStageChanged`, `DealClosed` events
+
+**SharedLibrary.Activities**
+- `ActivityType` enum: `Call`, `Email`, `Meeting`, `Task`, `Note`
+- `ActivityLogged`, `TaskCompleted` events
 
 ### Layered pattern (per service)
 
@@ -180,6 +201,7 @@ dotnet run --project UserManagementService/src/UserManagementService/
 dotnet run --project AccountService/src/AccountService/
 dotnet run --project ContactService/src/ContactService/
 dotnet run --project DealService/src/DealService/
+dotnet run --project ActivityService/src/ActivityService/
 ```
 
 Set connection strings and JWT settings via user secrets or `appsettings.Development.json`. The `appsettings.Development.json` files in each service default to localhost ports for inter-service calls.
@@ -191,7 +213,7 @@ npm install
 npm run dev    # http://localhost:5173
 ```
 
-The Vite proxy routes all `/auth/*`, `/users/*`, `/contacts/*`, `/accounts/*`, `/deals/*`, and `/pipeline/*` traffic to the gateway on port 5000.
+The Vite proxy routes all `/auth/*`, `/users/*`, `/contacts/*`, `/accounts/*`, `/deals/*`, `/pipeline/*`, and `/activities/*` traffic to the gateway on port 5000.
 
 ### Run a single test class
 
@@ -293,13 +315,27 @@ Contact role values: `DecisionMaker`, `Influencer`, `Champion`
 |--------|------|-------------|
 | `GET` | `/pipeline/api/pipeline` | All stages with deals and total value per column |
 
+### Activity endpoints (`/activities/api/activities`) — requires Bearer token
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`    | `/activities/api/activities` | List activities (`?type=`, `?contactId=`, `?dealId=`, `?accountId=`, `?ownerId=`) |
+| `GET`    | `/activities/api/activities/{id}` | Get activity by ID |
+| `POST`   | `/activities/api/activities` | Create activity (publishes `ActivityLogged`) |
+| `PUT`    | `/activities/api/activities/{id}` | Update activity (publishes `TaskCompleted` when a Task is first completed) |
+| `DELETE` | `/activities/api/activities/{id}` | Delete activity |
+
+Type values: `Call`, `Email`, `Meeting`, `Task`, `Note`
+
+Setting `completedAt` on a `Task` for the first time publishes a `TaskCompleted` event. Subsequent updates to `completedAt` do not re-publish.
+
 ## Testing
 
-221 tests across 10 projects. All passing.
+262 tests across 12 projects. All passing.
 
-**Unit tests (174)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
+**Unit tests (204)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
 
-**Integration tests (47)** — `WebApplicationFactory<Program>` boots the real ASP.NET Core pipeline in-process. `Testcontainers.PostgreSql` provides a real PostgreSQL instance per test class. `MassTransit.Testing` (in-memory harness) replaces RabbitMQ. `WireMock.Net` stubs downstream HTTP services. Each service has its own integration test project under `*.IntegrationTests/`.
+**Integration tests (58)** — `WebApplicationFactory<Program>` boots the real ASP.NET Core pipeline in-process. `Testcontainers.PostgreSql` provides a real PostgreSQL instance per test class. `MassTransit.Testing` (in-memory harness) replaces RabbitMQ. `WireMock.Net` stubs downstream HTTP services. Each service has its own integration test project under `*.IntegrationTests/`.
 
 ## Roadmap
 
@@ -315,8 +351,8 @@ ContactService and AccountService with full CRUD and lifecycle state machines. R
 ### ✅ v1.3 — Deals & Pipeline
 DealService with pipeline stages, deal-contact associations, and a `ContactDeleted` consumer. Kanban board with drag-and-drop in the frontend. Integration tests for all five services.
 
-### v1.4 — Activities
-ActivityService (calls, emails, meetings, tasks, notes). Activity timeline on contact and deal detail pages.
+### ✅ v1.4 — Activities
+ActivityService (calls, emails, meetings, tasks, notes). Activity timeline on contact, deal, and account detail pages. Task list page. Activity log quick-add form.
 
 ### v1.5 — Reporting & Dashboards
 ReportingService subscribes to domain events and builds read-model projections. Dashboard with pipeline and activity charts.

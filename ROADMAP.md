@@ -66,7 +66,7 @@ The sales pipeline — the primary daily-use feature for sales reps.
 
 ---
 
-## v1.4 — Activities ✅ (backend + frontend)
+## v1.4 — Activities ✅
 
 The activity log ties contacts, deals, and reps together into a complete interaction history.
 
