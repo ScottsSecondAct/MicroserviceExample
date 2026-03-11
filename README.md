@@ -11,17 +11,23 @@ The interesting problems are in the seams. When a user registers, AuthService an
 
 This project was developed with AI assistance (Anthropic's Claude) as a design and implementation collaborator. Architecture decisions, service boundaries, and every tradeoff were made and understood by hand. The AI accelerated the work; it didn't replace the thinking.
 
-## Current State — v1.1 (Infrastructure Foundation)
+## Current State — v1.2 (Contacts & Accounts)
 
-The authentication system is complete and the full infrastructure foundation is in place:
+The full infrastructure foundation is in place and the first CRM entities are live:
 
+- **AccountService** — full CRUD for companies with firmographics (industry, size), address fields, and domain events (`AccountCreated`, `AccountDeleted`)
+- **ContactService** — full CRUD for contacts with a status lifecycle (Lead → Prospect → Customer / Churned), optional account linkage, owner assignment, and domain events (`ContactCreated`, `ContactStatusChanged`, `ContactDeleted`)
+- **SharedLibrary.Accounts / SharedLibrary.Contacts** — topic-scoped event packages consumed by downstream services
+- **Gateway routes** — `/contacts/**` and `/accounts/**` added to YARP with JWT authorization
+- **Frontend overhaul** — React Router v6 (BrowserRouter + Routes), TanStack Query v5, per-domain API modules (`auth.api.js`, `users.api.js`, `contacts.api.js`, `accounts.api.js`), Contact list/detail/form, Account list/detail/form with embedded contacts
+
+Infrastructure foundation (v1.1):
 - Two independently deployable services behind a YARP API gateway
 - Async registration: `UserRegistered` event published by AuthService, consumed by UserManagementService
 - Role duplication fixed: `Role` removed from `AuthService.User`; fetched live from UserManagementService on login
-- Docker Compose stack: both services, two PostgreSQL databases, RabbitMQ, and the gateway
+- Docker Compose stack with all services, four PostgreSQL databases, RabbitMQ, and the gateway
 - Health checks on all services; gateway aggregates downstream health at `/health`
 - OpenTelemetry distributed tracing with W3C `traceparent` propagation
-- SharedLibrary split into `SharedLibrary.Auth` and `SharedLibrary.Messaging`
 
 See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
@@ -43,10 +49,21 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
       │                                                         → GET /api/users/{id}/role ──► UserManagementService
       │                                                         → issue JWT { UserId, Email, Role }
       │
-      └── /users/** ──────────────────────────────► UserManagementService :5151
-          (PathRemovePrefix: /users)                   │
-                                                       └─ Consume UserRegistered ◄── RabbitMQ
-                                                           → create UserProfile { Role: Member }
+      ├── /users/**  ─────────────────────────────► UserManagementService :5151
+      │   (PathRemovePrefix: /users)                   │
+      │                                                └─ Consume UserRegistered ◄── RabbitMQ
+      │                                                    → create UserProfile { Role: Member }
+      │
+      ├── /contacts/** ──────────────────────────► ContactService :5167
+      │   (PathRemovePrefix: /contacts, Auth)          │
+      │                                                ├─ CRUD contacts with status lifecycle
+      │                                                ├─ Validate AccountId sync ──► AccountService
+      │                                                └─ Publish ContactCreated / StatusChanged / Deleted
+      │
+      └── /accounts/** ──────────────────────────► AccountService :5243
+          (PathRemovePrefix: /accounts, Auth)          │
+                                                       ├─ CRUD accounts with firmographics
+                                                       └─ Publish AccountCreated / AccountDeleted
 ```
 
 ### Services
@@ -69,6 +86,18 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 - CORS policy applied at the gateway
 - Aggregates downstream health at `/health`
 
+**AccountService** (HTTP :5243)
+- Owns companies: `Name`, `Industry`, `Size`, `Website`, address fields
+- Full CRUD at `/api/accounts`; publishes `AccountCreated` and `AccountDeleted`
+- Enums serialized as strings via `JsonStringEnumConverter`
+
+**ContactService** (HTTP :5167)
+- Owns contacts: `FirstName`, `LastName`, `Email`, `Phone`, `Status`, optional `AccountId` / `OwnerId`
+- Status lifecycle: Lead → Prospect → Customer → Churned
+- Validates `AccountId` synchronously against AccountService before creating (fail-open)
+- Publishes `ContactCreated`, `ContactStatusChanged`, `ContactDeleted`
+- Filterable list: `?status=`, `?ownerId=`, `?accountId=`
+
 **SharedLibrary.Auth**
 - `CreateUserProfileRequest` / `CreateUserProfileResponse` DTOs
 - `UserRole` enum: `Unassigned`, `Member`, `Admin`
@@ -76,6 +105,13 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 **SharedLibrary.Messaging**
 - `BaseEvent` record: `CorrelationId`, `OccurredAt`, `EventType`
 - `UserRegistered` event
+
+**SharedLibrary.Accounts**
+- `AccountCreated`, `AccountDeleted` events
+
+**SharedLibrary.Contacts**
+- `ContactStatus` enum: `Lead`, `Prospect`, `Customer`, `Churned`
+- `ContactCreated`, `ContactStatusChanged`, `ContactDeleted` events
 
 ### Layered pattern (per service)
 
@@ -125,7 +161,7 @@ npm install
 npm run dev    # http://localhost:5173
 ```
 
-The Vite proxy routes all `/auth/*` and `/users/*` traffic to the gateway on port 5000.
+The Vite proxy routes all `/auth/*`, `/users/*`, `/contacts/*`, and `/accounts/*` traffic to the gateway on port 5000.
 
 ### Run a single test class
 
@@ -194,8 +230,8 @@ Two-service auth system with synchronous registration, JWT issuance, and React f
 ### ✅ v1.1 — Infrastructure Foundation
 YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry, SharedLibrary split.
 
-### v1.2 — Contacts & Accounts *(next)*
-First CRM entities. ContactService and AccountService with full CRUD and lifecycle state machines. React Router and React Query replace the current `useState`-based frontend.
+### ✅ v1.2 — Contacts & Accounts
+ContactService and AccountService with full CRUD and lifecycle state machines. React Router v6, TanStack Query v5, and per-domain API modules replace the `useState`-based frontend.
 
 ### v1.3 — Deals & Pipeline
 DealService with pipeline stages and deal-contact associations. Kanban board in the frontend.
@@ -221,7 +257,7 @@ See [ROADMAP.md](ROADMAP.md) for detailed feature lists per version.
 - **Observability**: OpenTelemetry distributed tracing, W3C trace context propagation, health checks
 - **Docker**: Multi-stage Dockerfiles, Docker Compose with dependency ordering, service-name DNS, environment variable configuration
 - **Testing**: xUnit, Moq, FluentAssertions, EF Core InMemory; controller, service, repository, and consumer test layers
-- **React**: Hooks, token persistence in localStorage, multi-service API client, Vite dev proxy
+- **React**: React Router v6 (protected routes, nested layouts, `useNavigate`), TanStack Query v5 (`useQuery`, `useMutation`, cache invalidation), per-domain API client modules, Vite dev proxy
 
 ## Development Process & AI Collaboration
 

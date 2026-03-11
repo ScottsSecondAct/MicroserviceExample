@@ -7,4 +7,5 @@ public interface IUserProfileService
   Task<ServiceResult> CreateUserProfileAsync(CreateUserProfileRequest request);
   Task<ServiceResult> GetUserProfileAsync(Guid userId);
   Task<ServiceResult> GetUserRoleAsync(Guid userId);
+  Task<ServiceResult> GetTeamAsync();
 }

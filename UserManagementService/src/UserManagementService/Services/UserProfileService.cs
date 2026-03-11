@@ -3,6 +3,7 @@ using SharedLibrary.Enums;
 using UserManagementService.Models;
 using UserManagementService.Models.DTOs;
 using UserManagementService.Repository;
+using Microsoft.EntityFrameworkCore;
 
 namespace UserManagementService.Services;
 
@@ -59,5 +60,18 @@ public class UserProfileService : IUserProfileService
       UserId = profile.UserId,
       Role = profile.Role
     });
+  }
+
+  public async Task<ServiceResult> GetTeamAsync()
+  {
+    var profiles = await _repository.GetAllAsync();
+    var team = profiles.Select(p => new TeamMemberResponse
+    {
+      UserId = p.UserId,
+      DisplayName = p.DisplayName,
+      Role = p.Role
+    }).ToList();
+
+    return ServiceResult.Success(team);
   }
 }

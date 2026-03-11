@@ -19,6 +19,9 @@ public class UserProfileRepository : IUserProfileRepository
   public async Task<UserProfile?> GetByEmailAsync(string email) =>
     await _context.UserProfiles.FirstOrDefaultAsync(u => u.Email == email);
 
+  public async Task<List<UserProfile>> GetAllAsync() =>
+    await _context.UserProfiles.ToListAsync();
+
   public async Task AddAsync(UserProfile profile)
   {
     _context.UserProfiles.Add(profile);

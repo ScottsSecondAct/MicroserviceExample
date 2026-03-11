@@ -49,7 +49,13 @@ builder.Services.AddHealthChecks()
         name: "auth-service")
     .AddUrlGroup(
         new Uri($"{builder.Configuration["ReverseProxy:Clusters:users-cluster:Destinations:user-management-service:Address"]}/health"),
-        name: "user-management-service");
+        name: "user-management-service")
+    .AddUrlGroup(
+        new Uri($"{builder.Configuration["ReverseProxy:Clusters:contacts-cluster:Destinations:contact-service:Address"]}/health"),
+        name: "contact-service")
+    .AddUrlGroup(
+        new Uri($"{builder.Configuration["ReverseProxy:Clusters:accounts-cluster:Destinations:account-service:Address"]}/health"),
+        name: "account-service");
 
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()

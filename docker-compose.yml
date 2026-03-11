@@ -30,6 +30,36 @@ services:
       timeout: 5s
       retries: 10
 
+  account-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: accountdb
+      POSTGRES_USER: account_user
+      POSTGRES_PASSWORD: account_pass
+    volumes:
+      - account-db-data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U account_user -d accountdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  contact-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: contactdb
+      POSTGRES_USER: contact_user
+      POSTGRES_PASSWORD: contact_pass
+    volumes:
+      - contact-db-data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contact_user -d contactdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   rabbitmq:
     image: rabbitmq:3.13-management
     ports:
@@ -79,6 +109,43 @@ services:
         condition: service_healthy
     networks: [backend]
 
+  account-service:
+    build:
+      context: .
+      dockerfile: AccountService/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__AccountDbConnection: "Host=account-db;Port=5432;Database=accountdb;Username=account_user;Password=account_pass"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Username: "guest"
+      RabbitMQ__Password: "guest"
+    depends_on:
+      account-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [backend]
+
+  contact-service:
+    build:
+      context: .
+      dockerfile: ContactService/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__ContactDbConnection: "Host=contact-db;Port=5432;Database=contactdb;Username=contact_user;Password=contact_pass"
+      ServiceUrls__AccountService: "http://account-service:8080"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Username: "guest"
+      RabbitMQ__Password: "guest"
+    depends_on:
+      contact-db:
+        condition: service_healthy
+      account-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks: [backend]
+
   api-gateway:
     build:
       context: .
@@ -93,9 +160,13 @@ services:
       AllowedOrigins: "http://localhost:5173"
       ReverseProxy__Clusters__auth-cluster__Destinations__auth-service__Address: "http://auth-service:8080"
       ReverseProxy__Clusters__users-cluster__Destinations__user-management-service__Address: "http://user-management-service:8080"
+      ReverseProxy__Clusters__contacts-cluster__Destinations__contact-service__Address: "http://contact-service:8080"
+      ReverseProxy__Clusters__accounts-cluster__Destinations__account-service__Address: "http://account-service:8080"
     depends_on:
       - auth-service
       - user-management-service
+      - account-service
+      - contact-service
     networks: [backend, frontend]
 
 networks:
@@ -105,3 +176,5 @@ networks:
 volumes:
   auth-db-data:
   user-db-data:
+  account-db-data:
+  contact-db-data:

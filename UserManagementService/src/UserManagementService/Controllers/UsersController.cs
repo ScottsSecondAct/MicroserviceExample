@@ -50,6 +50,21 @@ public class UsersController : ControllerBase
     }
   }
 
+  [HttpGet("team")]
+  public async Task<IActionResult> GetTeam()
+  {
+    try
+    {
+      var result = await _userProfileService.GetTeamAsync();
+      return StatusCode(result.StatusCode, result.Data ?? result.Message);
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error retrieving team members");
+      return StatusCode(500, "An error occurred while retrieving team members.");
+    }
+  }
+
   [HttpGet("{userId:guid}/role")]
   public async Task<IActionResult> GetUserRole(Guid userId)
   {

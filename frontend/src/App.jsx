@@ -1,48 +1,41 @@
-import { useState } from 'react'
-import Login from './pages/Login.jsx'
-import Register from './pages/Register.jsx'
-import Profile from './pages/Profile.jsx'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext.jsx'
+import ProtectedRoute from './components/ProtectedRoute.jsx'
+import Layout from './components/Layout.jsx'
+import Login from './pages/auth/Login.jsx'
+import Register from './pages/auth/Register.jsx'
+import Profile from './pages/profile/Profile.jsx'
+import ContactList from './pages/contacts/ContactList.jsx'
+import ContactDetail from './pages/contacts/ContactDetail.jsx'
+import ContactForm from './pages/contacts/ContactForm.jsx'
+import AccountList from './pages/accounts/AccountList.jsx'
+import AccountDetail from './pages/accounts/AccountDetail.jsx'
+import AccountForm from './pages/accounts/AccountForm.jsx'
 
 export default function App() {
-  const [token, setToken] = useState(() => localStorage.getItem('token'))
-  const [page, setPage] = useState('login')
-
-  function handleLogin(newToken) {
-    localStorage.setItem('token', newToken)
-    setToken(newToken)
-  }
-
-  function handleLogout() {
-    localStorage.removeItem('token')
-    setToken(null)
-    setPage('login')
-  }
-
-  if (token) {
-    return <Profile token={token} onLogout={handleLogout} />
-  }
-
   return (
-    <div className="container">
-      <nav>
-        <button
-          className={page === 'login' ? 'active' : ''}
-          onClick={() => setPage('login')}
-        >
-          Login
-        </button>
-        <button
-          className={page === 'register' ? 'active' : ''}
-          onClick={() => setPage('register')}
-        >
-          Register
-        </button>
-      </nav>
-      {page === 'login' ? (
-        <Login onLogin={handleLogin} />
-      ) : (
-        <Register onRegistered={() => setPage('login')} />
-      )}
-    </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route index element={<Navigate to="/contacts" replace />} />
+              <Route path="/contacts" element={<ContactList />} />
+              <Route path="/contacts/new" element={<ContactForm />} />
+              <Route path="/contacts/:id" element={<ContactDetail />} />
+              <Route path="/contacts/:id/edit" element={<ContactForm />} />
+              <Route path="/accounts" element={<AccountList />} />
+              <Route path="/accounts/new" element={<AccountForm />} />
+              <Route path="/accounts/:id" element={<AccountDetail />} />
+              <Route path="/accounts/:id/edit" element={<AccountForm />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+          </Route>
+          <Route path="*" element={<Navigate to="/contacts" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }

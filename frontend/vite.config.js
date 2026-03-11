@@ -5,14 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/auth': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-      },
-      '/users': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-      },
+      '/auth': { target: 'http://localhost:5000', changeOrigin: true },
+      '/users': { target: 'http://localhost:5000', changeOrigin: true },
+      '/contacts': { target: 'http://localhost:5000', changeOrigin: true },
+      '/accounts': { target: 'http://localhost:5000', changeOrigin: true },
     },
   },
 })
