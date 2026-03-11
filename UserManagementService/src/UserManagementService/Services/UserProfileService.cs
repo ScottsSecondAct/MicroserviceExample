@@ -1,6 +1,7 @@
 using SharedLibrary.DTOs;
 using SharedLibrary.Enums;
 using UserManagementService.Models;
+using UserManagementService.Models.DTOs;
 using UserManagementService.Repository;
 
 namespace UserManagementService.Services;
@@ -45,5 +46,18 @@ public class UserProfileService : IUserProfileService
       return ServiceResult.Failure("User profile not found.", 404);
 
     return ServiceResult.Success(profile);
+  }
+
+  public async Task<ServiceResult> GetUserRoleAsync(Guid userId)
+  {
+    var profile = await _repository.GetByIdAsync(userId);
+    if (profile == null)
+      return ServiceResult.Failure("User profile not found.", 404);
+
+    return ServiceResult.Success(new UserRoleResponse
+    {
+      UserId = profile.UserId,
+      Role = profile.Role
+    });
   }
 }

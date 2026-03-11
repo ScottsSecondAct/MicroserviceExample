@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using AuthService.Models;
+using SharedLibrary.Enums;
 
 namespace AuthService.Services;
 
@@ -16,7 +17,7 @@ public class JwtTokenService : IJwtTokenService
     _configuration = configuration;
   }
 
-  public string GenerateJwtToken(User user)
+  public string GenerateJwtToken(User user, UserRole role)
   {
     var jwtSettings = _configuration.GetSection("JwtSettings");
 
@@ -26,26 +27,25 @@ public class JwtTokenService : IJwtTokenService
 
     if (string.IsNullOrEmpty(secretKey))
     {
-        throw new ArgumentNullException(nameof(secretKey), "SecretKey cannot be null or empty.");
+      throw new ArgumentNullException(nameof(secretKey), "SecretKey cannot be null or empty.");
     }
 
     var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
     var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-    // Define claims to include in the token
     var claims = new[]
     {
-              new Claim(JwtRegisteredClaimNames.Sub, user.Email),
-              new Claim("UserId", user.UserId.ToString()),
-              new Claim(ClaimTypes.Role, user.Role.ToString()),
-              new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-          };
+      new Claim(JwtRegisteredClaimNames.Sub, user.Email),
+      new Claim("UserId", user.UserId.ToString()),
+      new Claim(ClaimTypes.Role, role.ToString()),
+      new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+    };
 
     var token = new JwtSecurityToken(
         issuer,
         audience,
         claims,
-        expires: DateTime.UtcNow.AddHours(2), // Token expiration time
+        expires: DateTime.UtcNow.AddHours(2),
         signingCredentials: credentials
     );
 

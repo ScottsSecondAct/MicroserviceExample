@@ -1,0 +1,107 @@
+services:
+
+  auth-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: authdb
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d authdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  user-management-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: userdb
+      POSTGRES_USER: user_user
+      POSTGRES_PASSWORD: user_pass
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_user -d userdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "15672:15672"
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: AuthService/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__AuthDbConnection: "Host=auth-db;Port=5432;Database=authdb;Username=auth_user;Password=auth_pass"
+      JwtSettings__SecretKey: "${JWT_SECRET}"
+      JwtSettings__Issuer: "https://localhost"
+      JwtSettings__Audience: "YourAppUsers"
+      ServiceUrls__UserManagementService: "http://user-management-service:8080"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Username: "guest"
+      RabbitMQ__Password: "guest"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [backend]
+
+  user-management-service:
+    build:
+      context: .
+      dockerfile: UserManagementService/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__UserManagementDbConnection: "Host=user-management-db;Port=5432;Database=userdb;Username=user_user;Password=user_pass"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Username: "guest"
+      RabbitMQ__Password: "guest"
+    depends_on:
+      user-management-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [backend]
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ApiGateway/Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      JwtSettings__SecretKey: "${JWT_SECRET}"
+      JwtSettings__Issuer: "https://localhost"
+      JwtSettings__Audience: "YourAppUsers"
+      AllowedOrigins: "http://localhost:5173"
+      ReverseProxy__Clusters__auth-cluster__Destinations__auth-service__Address: "http://auth-service:8080"
+      ReverseProxy__Clusters__users-cluster__Destinations__user-management-service__Address: "http://user-management-service:8080"
+    depends_on:
+      - auth-service
+      - user-management-service
+    networks: [backend, frontend]
+
+networks:
+  backend:
+  frontend:
+
+volumes:
+  auth-db-data:
+  user-db-data:

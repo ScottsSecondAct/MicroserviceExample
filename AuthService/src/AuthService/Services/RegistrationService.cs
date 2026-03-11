@@ -1,27 +1,24 @@
 using AuthService.Models;
 using AuthService.Repository;
-using Microsoft.Extensions.Configuration;
-using SharedLibrary.DTOs;
+using MassTransit;
+using SharedLibrary.Messaging.Events;
 
 namespace AuthService.Services;
+
 public class RegistationService : IRegistrationService
 {
   private readonly IUserRepository _userRepository;
   private readonly IPasswordService _passwordService;
-  private readonly IHttpClientFactory _httpClientFactory;
-  private readonly string _userManagementServiceUrl;
+  private readonly IPublishEndpoint _publishEndpoint;
 
   public RegistationService(
       IUserRepository userRepository,
       IPasswordService passwordService,
-      IHttpClientFactory httpClientFactory,
-      IConfiguration configuration)
+      IPublishEndpoint publishEndpoint)
   {
     _userRepository = userRepository;
     _passwordService = passwordService;
-    _httpClientFactory = httpClientFactory;
-    _userManagementServiceUrl = configuration["ServiceUrls:UserManagementService"]
-        ?? throw new ArgumentNullException("ServiceUrls:UserManagementService");
+    _publishEndpoint = publishEndpoint;
   }
 
   public async Task<bool> ValidateEmailAsync(string email)
@@ -30,12 +27,6 @@ public class RegistationService : IRegistrationService
     return user == null;
   }
 
-  // <summary>
-  // Registers a new user.
-  // </summary>
-  // <param name="email">The email address of the user.</param>
-  // <param name="password">The password of the user.</param>
-  // <returns>A ServiceResult object containing the result of the registration.</returns>
   public async Task<ServiceResult> RegisterUserAsync(string email, string password)
   {
     if (!await ValidateEmailAsync(email))
@@ -50,31 +41,13 @@ public class RegistationService : IRegistrationService
       PasswordHash = _passwordService.HashPassword(password)
     };
 
-    // Notify the User Management Service that a new user has registered.
-    var createUserProfileRequest = new CreateUserProfileRequest
+    await _userRepository.AddUserAsync(user);
+
+    await _publishEndpoint.Publish(new UserRegistered
     {
       UserId = user.UserId,
       Email = user.Email
-    };
-
-    var client = _httpClientFactory.CreateClient();
-
-    var response = await client.PostAsJsonAsync($"{_userManagementServiceUrl}/api/users", createUserProfileRequest);
-
-    if (response == null || !response.IsSuccessStatusCode)
-    {
-      return ServiceResult.Failure("Failed to create user profile.");
-    }
-
-    var userProfileResponse = await response.Content.ReadFromJsonAsync<CreateUserProfileResponse>();
-    if (userProfileResponse == null)
-    {
-      return ServiceResult.Failure("Failed to parse user profile response.");
-    }
-
-    user.Role = userProfileResponse.Role;
-
-    await _userRepository.AddUserAsync(user);
+    });
 
     return ServiceResult.Success(user.UserId, "User registered successfully.");
   }

@@ -23,14 +23,14 @@ Working two-service authentication system with a React frontend.
 
 Prerequisite for all CRM work. No new features — only the infrastructure that makes adding services safe and reliable.
 
-- [ ] **Fix role duplication** — remove `Role` from `AuthService.User`; on login, fetch current role from UserManagementService synchronously before minting the JWT
-- [ ] **Async registration** — convert `RegistrationService` from a synchronous HTTP call to publishing a `UserRegistered` event; UserManagementService becomes a consumer instead of being called directly
-- [ ] **RabbitMQ + MassTransit** — add to Docker Compose; establish event publishing/consuming conventions (CorrelationId, OccurredAt, EventType base fields)
-- [ ] **YARP API Gateway** — single entry point for all services; centralize JWT validation, routing, and CORS; update Vite proxy to target gateway only
-- [ ] **Docker Compose** — containerize both services and PostgreSQL; service-name-based DNS replaces hardcoded `ServiceUrls` config
-- [ ] **Health checks** — `AddHealthChecks()` with DB and RabbitMQ probes on all services; gateway aggregates downstream health
-- [ ] **OpenTelemetry** — distributed tracing across services; W3C `traceparent` header propagation through HTTP calls and message headers
-- [ ] **Split SharedLibrary** — break into topic packages (`SharedLibrary.Auth`, `SharedLibrary.Messaging`) so a change to one domain's events doesn't force a rebuild of unrelated services
+- [x] **Fix role duplication** — remove `Role` from `AuthService.User`; on login, fetch current role from UserManagementService synchronously before minting the JWT
+- [x] **Async registration** — convert `RegistrationService` from a synchronous HTTP call to publishing a `UserRegistered` event; UserManagementService becomes a consumer instead of being called directly
+- [x] **RabbitMQ + MassTransit** — add to Docker Compose; establish event publishing/consuming conventions (CorrelationId, OccurredAt, EventType base fields)
+- [x] **YARP API Gateway** — single entry point for all services; centralize JWT validation, routing, and CORS; update Vite proxy to target gateway only
+- [x] **Docker Compose** — containerize both services and PostgreSQL; service-name-based DNS replaces hardcoded `ServiceUrls` config
+- [x] **Health checks** — `AddHealthChecks()` with DB and RabbitMQ probes on all services; gateway aggregates downstream health
+- [x] **OpenTelemetry** — distributed tracing across services; W3C `traceparent` header propagation through HTTP calls and message headers
+- [x] **Split SharedLibrary** — break into topic packages (`SharedLibrary.Auth`, `SharedLibrary.Messaging`) so a change to one domain's events doesn't force a rebuild of unrelated services
 
 ---
 

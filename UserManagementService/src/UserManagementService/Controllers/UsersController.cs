@@ -49,4 +49,19 @@ public class UsersController : ControllerBase
       return StatusCode(500, "An error occurred while retrieving the user profile.");
     }
   }
+
+  [HttpGet("{userId:guid}/role")]
+  public async Task<IActionResult> GetUserRole(Guid userId)
+  {
+    try
+    {
+      var result = await _userProfileService.GetUserRoleAsync(userId);
+      return StatusCode(result.StatusCode, result.Data ?? result.Message);
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error retrieving role for user {UserId}", userId);
+      return StatusCode(500, "An error occurred while retrieving the user role.");
+    }
+  }
 }

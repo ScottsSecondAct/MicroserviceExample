@@ -1,55 +1,81 @@
 # MicroserviceExample
 [![Open Source](https://img.shields.io/badge/Open%20Source-Yes-green.svg)](https://github.com/ScottsSecondAct/MicroserviceExample) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) ![AI Assisted](https://img.shields.io/badge/AI%20Assisted-Claude-blue?logo=anthropic) [![Release](https://github.com/ScottsSecondAct/MicroserviceExample/actions/workflows/release.yml/badge.svg)](https://github.com/ScottsSecondAct/MicroserviceExample/actions/workflows/release.yml)
 
-A working two-service microservices system in **ASP.NET Core (.NET 9)** — authentication, user profile management, JWT-secured inter-service communication, and a React frontend. Built to demonstrate real microservice patterns rather than toy examples.
+A production-patterned microservices system evolving toward a full CRM in **ASP.NET Core (.NET 9)**. Built to demonstrate real distributed system design rather than toy examples: independent services with separate databases, a YARP API gateway, async event-driven communication via RabbitMQ and MassTransit, JWT authentication, distributed tracing with OpenTelemetry, and a React frontend.
 
 ## Why This Project
 
-Most microservice tutorials show a diagram with boxes and arrows, then implement a single monolith with a split folder structure. This project implements the real thing: two independently deployable services, each with its own database, communicating over HTTP with shared DTOs.
+Most microservice tutorials show a diagram with boxes and arrows, then implement a single monolith with a split folder structure. This project implements the real thing: independently deployable services, each with its own database, an API gateway as the single entry point, and a message broker decoupling inter-service workflows.
 
-The interesting problems are in the seams. When a user registers, AuthService and UserManagementService must agree on who owns the user's role — and they can't share a database to coordinate. The JWT token must carry enough claims for AuthService to answer `GET /me` without a database round-trip, yet the canonical profile lives in UserManagementService. These are the actual design tensions in distributed systems, not toy problems.
+The interesting problems are in the seams. When a user registers, AuthService and UserManagementService must agree on who owns the user's role — and they can't share a database to coordinate. The JWT must carry enough claims for `GET /me` without a round-trip, yet the canonical profile lives in a different service. Registration can't block if UserManagementService is slow — so the sync HTTP call became an async event. These are real distributed system tensions, not toy problems.
 
 This project was developed with AI assistance (Anthropic's Claude) as a design and implementation collaborator. Architecture decisions, service boundaries, and every tradeoff were made and understood by hand. The AI accelerated the work; it didn't replace the thinking.
+
+## Current State — v1.1 (Infrastructure Foundation)
+
+The authentication system is complete and the full infrastructure foundation is in place:
+
+- Two independently deployable services behind a YARP API gateway
+- Async registration: `UserRegistered` event published by AuthService, consumed by UserManagementService
+- Role duplication fixed: `Role` removed from `AuthService.User`; fetched live from UserManagementService on login
+- Docker Compose stack: both services, two PostgreSQL databases, RabbitMQ, and the gateway
+- Health checks on all services; gateway aggregates downstream health at `/health`
+- OpenTelemetry distributed tracing with W3C `traceparent` propagation
+- SharedLibrary split into `SharedLibrary.Auth` and `SharedLibrary.Messaging`
+
+See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
 ## Architecture
 
 ```
-  Client (React)
+  Browser (React :5173)
       │
-      ├── POST /auth/api/registration/register ──► AuthService :5188
+      │  Vite dev proxy
+      ▼
+  ApiGateway :5000  (YARP — JWT validation, routing, CORS)
+      │
+      ├── /auth/**  ──────────────────────────────► AuthService :5188
+      │   (PathRemovePrefix: /auth)                    │
+      │                                                ├─ Register: hash password → save User
+      │                                                │           → publish UserRegistered ──► RabbitMQ
       │                                                │
-      │                                                ├─ hash password
-      │                                                ├─ save User (email, hash)
-      │                                                └─ POST /api/users ──► UserManagementService :5151
-      │                                                                            └─ create UserProfile
-      │                                                                            └─ return { role: Member }
+      │                                                └─ Login: verify password
+      │                                                         → GET /api/users/{id}/role ──► UserManagementService
+      │                                                         → issue JWT { UserId, Email, Role }
       │
-      ├── POST /auth/api/login/login ─────────────► AuthService :5188
-      │                                                └─ verify password → issue JWT
-      │
-      ├── GET  /auth/api/login/me ─────────────────► AuthService :5188
-      │                                                └─ decode JWT claims → { userId, email, role }
-      │
-      └── GET  /users/api/users/{userId} ──────────► UserManagementService :5151
-                                                       └─ return UserProfile
+      └── /users/** ──────────────────────────────► UserManagementService :5151
+          (PathRemovePrefix: /users)                   │
+                                                       └─ Consume UserRegistered ◄── RabbitMQ
+                                                           → create UserProfile { Role: Member }
 ```
 
 ### Services
 
 **AuthService** (HTTP :5188 / HTTPS :7043)
 - Owns authentication: registration, login, and JWT issuance
-- Calls UserManagementService synchronously on registration to create the user profile and receive the assigned role
+- Registration saves the user and publishes a `UserRegistered` event via RabbitMQ; no longer blocks on UserManagementService
+- Login fetches the current role from UserManagementService synchronously before minting the JWT
 - JWT tokens carry `UserId`, `Email`, and `Role` claims; expire after 2 hours
 
 **UserManagementService** (HTTP :5151 / HTTPS :7158)
 - Owns user profiles: `UserId`, `Email`, `Role`, `DisplayName`, `CreatedAt`
-- Only entry point from outside: `GET /api/users/{userId}`
-- `POST /api/users` is for AuthService's internal use only
+- Consumes `UserRegistered` events from RabbitMQ to create profiles asynchronously
+- Exposes `GET /api/users/{userId}/role` for login-time role resolution by AuthService
+- `POST /api/users` remains for direct profile creation (no longer called by AuthService in the happy path)
 
-**SharedLibrary**
+**ApiGateway** (HTTP :5000)
+- YARP reverse proxy — single entry point for all clients
+- Centralizes JWT Bearer validation; downstream services don't validate tokens independently
+- CORS policy applied at the gateway
+- Aggregates downstream health at `/health`
+
+**SharedLibrary.Auth**
 - `CreateUserProfileRequest` / `CreateUserProfileResponse` DTOs
 - `UserRole` enum: `Unassigned`, `Member`, `Admin`
-- No external dependencies; referenced by both services
+
+**SharedLibrary.Messaging**
+- `BaseEvent` record: `CorrelationId`, `OccurredAt`, `EventType`
+- `UserRegistered` event
 
 ### Layered pattern (per service)
 
@@ -61,49 +87,66 @@ Each layer is defined by an interface, enabling test doubles at any boundary.
 
 ## Build & Run
 
-**Requirements:** .NET 9 SDK, PostgreSQL
+### Docker (recommended)
 
 ```sh
-# Clone and build
-git clone https://github.com/ScottsSecondAct/MicroserviceExample
-cd MicroserviceExample
-dotnet build MicroserviceExample.sln
+cp .env.example .env
+# Edit .env and set JWT_SECRET to a long random string
 
-# Run tests
-dotnet test MicroserviceExample.sln
-
-# Run a single service
-dotnet run --project AuthService/src/AuthService/
-dotnet run --project UserManagementService/src/UserManagementService/
-
-# Run a single test class
-dotnet test --filter "FullyQualifiedName~LoginServiceTests" \
-  AuthService/src/AuthService.Tests/AuthService.Tests.csproj
+docker compose up --build
 ```
 
-Configure `ConnectionStrings:UserManagementDbConnection` in `UserManagementService/src/UserManagementService/appsettings.json` and the equivalent in AuthService before running. The AuthService base URL for UserManagementService is set via `ServiceUrls:UserManagementService` (defaults to `https://usermanagementservice`).
+Services start in dependency order (databases and RabbitMQ first). The schema is applied automatically on first startup via `EnsureCreated()`.
 
-### Frontend
+- API Gateway: http://localhost:5000
+- RabbitMQ management UI: http://localhost:15672 (guest / guest)
+- Frontend: `cd frontend && npm install && npm run dev` → http://localhost:5173
+
+### Local (without Docker)
+
+**Requirements:** .NET 9 SDK, PostgreSQL, RabbitMQ
 
 ```sh
+dotnet build MicroserviceExample.sln
+dotnet test MicroserviceExample.sln
+
+# Run services (each in a separate terminal)
+dotnet run --project ApiGateway/src/ApiGateway/
+dotnet run --project AuthService/src/AuthService/
+dotnet run --project UserManagementService/src/UserManagementService/
+```
+
+Set connection strings and JWT settings via user secrets or `appsettings.Development.json`. The `appsettings.Development.json` files in each service default to localhost ports for inter-service calls.
+
+```sh
+# Frontend
 cd frontend
 npm install
 npm run dev    # http://localhost:5173
 ```
 
-Vite proxies `/auth/*` to `localhost:5188` and `/users/*` to `localhost:5151`, so no CORS configuration is needed for local development.
+The Vite proxy routes all `/auth/*` and `/users/*` traffic to the gateway on port 5000.
+
+### Run a single test class
+
+```sh
+dotnet test --filter "FullyQualifiedName~LoginServiceTests" \
+  AuthService/src/AuthService.Tests/AuthService.Tests.csproj
+```
 
 ## API Reference
 
-### AuthService
+All requests go through the gateway (`http://localhost:5000`). The gateway strips the path prefix before forwarding.
+
+### Auth endpoints (`/auth/api/...`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/registration/register` | — | Register a new user |
-| `POST` | `/api/login/login` | — | Login and receive a JWT |
-| `GET`  | `/api/login/me` | Bearer | Current user from JWT claims |
+| `POST` | `/auth/api/registration/register` | — | Register a new user |
+| `POST` | `/auth/api/login/login` | — | Login and receive a JWT |
+| `GET`  | `/auth/api/login/me` | Bearer | Current user from JWT claims |
 
-**Register** `POST /api/registration/register`
+**Register** `POST /auth/api/registration/register`
 ```json
 // Request
 { "email": "user@example.com", "password": "secret123" }
@@ -111,8 +154,9 @@ Vite proxies `/auth/*` to `localhost:5188` and `/users/*` to `localhost:5151`, s
 // Response 200
 { "message": "User registered successfully." }
 ```
+Profile creation happens asynchronously — UserManagementService processes the `UserRegistered` event from RabbitMQ.
 
-**Login** `POST /api/login/login`
+**Login** `POST /auth/api/login/login`
 ```json
 // Request
 { "email": "user@example.com", "password": "secret123" }
@@ -120,56 +164,76 @@ Vite proxies `/auth/*` to `localhost:5188` and `/users/*` to `localhost:5151`, s
 // Response 200
 { "token": "<jwt>" }
 ```
+Role is fetched live from UserManagementService on each login.
 
-**Me** `GET /api/login/me`
+**Me** `GET /auth/api/login/me`
 ```json
 // Response 200
 { "userId": "<guid>", "email": "user@example.com", "role": "Member" }
 ```
 
-### UserManagementService
+### User Management endpoints (`/users/api/...`) — requires Bearer token
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET`  | `/api/users/{userId}` | Fetch user profile |
-| `POST` | `/api/users` | Create profile (AuthService internal) |
+| `GET`  | `/users/api/users/{userId}` | Fetch full user profile |
+| `GET`  | `/users/api/users/{userId}/role` | Fetch role only (used by AuthService on login) |
+| `POST` | `/users/api/users` | Create profile (internal / event consumer fallback) |
 
 ## Testing
 
 - **xUnit** for test structure, **Moq** for mocking interfaces, **FluentAssertions** for readable assertions
-- **EF Core InMemory** provider for repository and DbContext tests without a real database
-- Tests cover controllers, services, and repositories; test files mirror the source structure under `*.Tests/` projects
+- **EF Core InMemory** provider for repository tests without a real database
+- Tests cover controllers, services, repositories, and MassTransit consumers; test files mirror source structure under `*.Tests/` projects
 
-## Known Limitations & Potential Improvements
+## Roadmap
 
-- **Async messaging** — registration is tightly coupled; if UserManagementService is down, registration fails. A message broker (RabbitMQ, Kafka) would decouple them.
-- **API Gateway** — clients hit each service directly. A gateway (YARP, Ocelot) would centralize routing and auth validation.
-- **Centralized secrets** — JWT key and connection strings are in `appsettings.json`. A secrets manager or environment variable injection would be more production-appropriate.
-- **Health checks** — no `/health` endpoints. `AddHealthChecks()` is needed for container orchestration.
-- **Distributed tracing** — OpenTelemetry would allow tracing a registration request across both services.
-- **Docker / docker-compose** — no containerization; a `docker-compose.yml` with both services and PostgreSQL would make local development self-contained.
-- **Role ownership** — AuthService caches `Role` on its own `User` entity, duplicating UserManagementService's source of truth.
+### ✅ v1.0 — Authentication baseline
+Two-service auth system with synchronous registration, JWT issuance, and React frontend.
+
+### ✅ v1.1 — Infrastructure Foundation
+YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry, SharedLibrary split.
+
+### v1.2 — Contacts & Accounts *(next)*
+First CRM entities. ContactService and AccountService with full CRUD and lifecycle state machines. React Router and React Query replace the current `useState`-based frontend.
+
+### v1.3 — Deals & Pipeline
+DealService with pipeline stages and deal-contact associations. Kanban board in the frontend.
+
+### v1.4 — Activities
+ActivityService (calls, emails, meetings, tasks, notes). Activity timeline on contact and deal detail pages.
+
+### v1.5 — Reporting & Dashboards
+ReportingService subscribes to domain events and builds read-model projections. Dashboard with pipeline and activity charts.
+
+### v2.0 — Hardening
+Refresh tokens, structured logging with correlation IDs, dead-letter queue handling, rate limiting, soft delete, integration test suite.
+
+See [ROADMAP.md](ROADMAP.md) for detailed feature lists per version.
+
+## Skills Demonstrated
+
+- **ASP.NET Core**: Controller routing, dependency injection, middleware pipeline, JWT Bearer authentication, typed `HttpClient`
+- **Microservice design**: Database-per-service, API gateway (YARP), async messaging, event-driven architecture, service boundary decisions, sync vs. async communication tradeoffs
+- **MassTransit + RabbitMQ**: Event publishing, consumer pattern, idempotent message handling
+- **Entity Framework Core**: Code-first models, PostgreSQL with Npgsql, repository pattern
+- **Security**: Password hashing (PBKDF2), JWT generation and validation, claims-based identity, centralized auth at the gateway
+- **Observability**: OpenTelemetry distributed tracing, W3C trace context propagation, health checks
+- **Docker**: Multi-stage Dockerfiles, Docker Compose with dependency ordering, service-name DNS, environment variable configuration
+- **Testing**: xUnit, Moq, FluentAssertions, EF Core InMemory; controller, service, repository, and consumer test layers
+- **React**: Hooks, token persistence in localStorage, multi-service API client, Vite dev proxy
 
 ## Development Process & AI Collaboration
 
 This project was built with AI assistance (Claude) as a design partner and implementation accelerator:
 
-- **Service boundaries**: Deciding what each service owns — especially who holds the user's role and how it flows across the registration sequence — was an explicit design discussion, not an ad-hoc implementation choice.
-- **Shared library design**: The tradeoff between a shared library (tight compile-time coupling) and duplicated DTOs (loose coupling, more drift risk) was weighed deliberately for a learning project.
-- **Test architecture**: The decision to test each layer independently via interfaces, and to use EF Core InMemory rather than mocking DbContext directly, came from reasoning about what each test should actually verify.
+- **Service boundaries**: Deciding what each service owns — especially who holds the user's role and how it flows through registration and login — was an explicit design discussion, not an ad-hoc implementation choice.
+- **Sync vs. async decisions**: The decision to make login's role-fetch synchronous (caller can't proceed without it) but registration async (profile creation is a downstream side-effect) reflects a deliberate rule applied consistently across the architecture.
+- **Shared library design**: The tradeoff between a monolithic shared library (tight compile-time coupling) and topic packages (only reference what you consume) was resolved by splitting into `SharedLibrary.Auth` and `SharedLibrary.Messaging`.
+- **Test architecture**: Testing each layer independently via interfaces, and using EF Core InMemory rather than mocking DbContext directly, came from reasoning about what each test should actually verify.
 
 Every line was reviewed and understood before integration.
-
-## Skills Demonstrated
-
-- **ASP.NET Core**: Controller routing, dependency injection, middleware pipeline, JWT Bearer authentication, `HttpClientFactory` for typed clients
-- **Microservice design**: Database-per-service, inter-service HTTP communication, shared DTO library, service boundary decisions
-- **Entity Framework Core**: Code-first models, PostgreSQL with Npgsql, repository pattern over DbContext
-- **Security**: Password hashing, JWT token generation and validation, claims-based identity, `[Authorize]` attribute enforcement
-- **Testing**: xUnit, Moq, FluentAssertions, EF Core InMemory; controller, service, and repository test layers
-- **React**: Hooks (`useState`, `useEffect`), token persistence, multi-service API client, Vite dev proxy
 
 ## License
 
 MIT — Copyright (c) 2026 Scott Davis
-

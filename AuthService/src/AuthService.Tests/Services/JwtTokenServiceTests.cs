@@ -2,6 +2,7 @@ using System;
 using AuthService.Models;
 using AuthService.Services;
 using Microsoft.Extensions.Configuration;
+using SharedLibrary.Enums;
 using Xunit;
 
 public class JwtTokenServiceTests
@@ -11,11 +12,11 @@ public class JwtTokenServiceTests
   public JwtTokenServiceTests()
   {
     var inMemorySettings = new Dictionary<string, string?>
-        {
-            { "JwtSettings:SecretKey", "0OxuaniZJXKKmN1TD1bsolnr3rwNK9bOTIczA6Xrsik=" },
-            { "JwtSettings:Issuer", "https://localhost" },
-            { "JwtSettings:Audience", "YourAppUsers" }
-        };
+    {
+      { "JwtSettings:SecretKey", "0OxuaniZJXKKmN1TD1bsolnr3rwNK9bOTIczA6Xrsik=" },
+      { "JwtSettings:Issuer", "https://localhost" },
+      { "JwtSettings:Audience", "YourAppUsers" }
+    };
 
     var configuration = new ConfigurationBuilder()
         .AddInMemoryCollection(inMemorySettings)
@@ -31,7 +32,7 @@ public class JwtTokenServiceTests
     var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com" };
 
     // Act
-    var token = _jwtTokenService.GenerateJwtToken(user);
+    var token = _jwtTokenService.GenerateJwtToken(user, UserRole.Member);
 
     // Assert
     Assert.NotNull(token);

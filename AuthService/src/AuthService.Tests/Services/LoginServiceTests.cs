@@ -11,6 +11,7 @@ public class LoginServiceTests
   private readonly Mock<IUserRepository> _mockUserRepository;
   private readonly Mock<IPasswordService> _mockPasswordService;
   private readonly Mock<IJwtTokenService> _mockJwtTokenService;
+  private readonly Mock<IUserRoleClient> _mockUserRoleClient;
   private readonly Mock<ILogger<LoginService>> _mockLogger;
   private readonly LoginService _service;
 
@@ -19,12 +20,14 @@ public class LoginServiceTests
     _mockUserRepository = new Mock<IUserRepository>();
     _mockPasswordService = new Mock<IPasswordService>();
     _mockJwtTokenService = new Mock<IJwtTokenService>();
+    _mockUserRoleClient = new Mock<IUserRoleClient>();
     _mockLogger = new Mock<ILogger<LoginService>>();
 
     _service = new LoginService(
         _mockUserRepository.Object,
         _mockPasswordService.Object,
         _mockJwtTokenService.Object,
+        _mockUserRoleClient.Object,
         _mockLogger.Object);
   }
 
@@ -32,12 +35,13 @@ public class LoginServiceTests
   public async Task LoginAsync_ShouldReturnSuccess_WithToken_WhenCredentialsAreValid()
   {
     // Arrange
-    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com", PasswordHash = "hashed", Role = UserRole.Member };
+    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com", PasswordHash = "hashed" };
     var request = new LoginRequest { Email = "test@example.com", Password = "SecurePassword123" };
 
     _mockUserRepository.Setup(r => r.GetUserByEmailAsync(request.Email)).ReturnsAsync(user);
     _mockPasswordService.Setup(p => p.VerifyPassword(request.Password, user.PasswordHash)).Returns(true);
-    _mockJwtTokenService.Setup(j => j.GenerateJwtToken(user)).Returns("jwt-token-string");
+    _mockUserRoleClient.Setup(r => r.GetRoleAsync(user.UserId)).ReturnsAsync(UserRole.Member);
+    _mockJwtTokenService.Setup(j => j.GenerateJwtToken(user, UserRole.Member)).Returns("jwt-token-string");
 
     // Act
     var result = await _service.LoginAsync(request);
@@ -82,7 +86,7 @@ public class LoginServiceTests
   public async Task LoginAsync_ShouldReturnFailure_WhenPasswordIsIncorrect()
   {
     // Arrange
-    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com", PasswordHash = "hashed", Role = UserRole.Member };
+    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com", PasswordHash = "hashed" };
     var request = new LoginRequest { Email = "test@example.com", Password = "WrongPassword" };
 
     _mockUserRepository.Setup(r => r.GetUserByEmailAsync(request.Email)).ReturnsAsync(user);

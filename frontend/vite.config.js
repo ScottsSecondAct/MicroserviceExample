@@ -6,12 +6,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/auth': {
-        target: 'http://localhost:5188',
-        rewrite: (path) => path.replace(/^\/auth/, ''),
+        target: 'http://localhost:5000',
+        changeOrigin: true,
       },
       '/users': {
-        target: 'http://localhost:5151',
-        rewrite: (path) => path.replace(/^\/users/, ''),
+        target: 'http://localhost:5000',
+        changeOrigin: true,
       },
     },
   },
