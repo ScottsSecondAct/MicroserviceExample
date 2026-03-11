@@ -150,6 +150,8 @@ dotnet test MicroserviceExample.sln
 dotnet run --project ApiGateway/src/ApiGateway/
 dotnet run --project AuthService/src/AuthService/
 dotnet run --project UserManagementService/src/UserManagementService/
+dotnet run --project AccountService/src/AccountService/
+dotnet run --project ContactService/src/ContactService/
 ```
 
 Set connection strings and JWT settings via user secrets or `appsettings.Development.json`. The `appsettings.Development.json` files in each service default to localhost ports for inter-service calls.
@@ -214,7 +216,33 @@ Role is fetched live from UserManagementService on each login.
 |--------|------|-------------|
 | `GET`  | `/users/api/users/{userId}` | Fetch full user profile |
 | `GET`  | `/users/api/users/{userId}/role` | Fetch role only (used by AuthService on login) |
+| `GET`  | `/users/api/users/team` | Lightweight list for owner assignment dropdowns |
 | `POST` | `/users/api/users` | Create profile (internal / event consumer fallback) |
+
+### Contact endpoints (`/contacts/api/contacts`) — requires Bearer token
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`    | `/contacts/api/contacts` | List contacts (`?status=`, `?ownerId=`, `?accountId=`) |
+| `GET`    | `/contacts/api/contacts/{id}` | Get contact by ID |
+| `POST`   | `/contacts/api/contacts` | Create contact |
+| `PUT`    | `/contacts/api/contacts/{id}` | Update contact (partial — only set fields are updated) |
+| `DELETE` | `/contacts/api/contacts/{id}` | Delete contact |
+
+Status values: `Lead`, `Prospect`, `Customer`, `Churned`
+
+### Account endpoints (`/accounts/api/accounts`) — requires Bearer token
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`    | `/accounts/api/accounts` | List all accounts |
+| `GET`    | `/accounts/api/accounts/{id}` | Get account by ID |
+| `POST`   | `/accounts/api/accounts` | Create account |
+| `PUT`    | `/accounts/api/accounts/{id}` | Update account |
+| `DELETE` | `/accounts/api/accounts/{id}` | Delete account |
+
+Industry values: `Technology`, `Finance`, `Healthcare`, `Retail`, `Manufacturing`, `Education`, `Other`
+Size values: `Small`, `Medium`, `Large`, `Enterprise`
 
 ## Testing
 

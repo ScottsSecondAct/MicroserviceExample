@@ -34,20 +34,20 @@ Prerequisite for all CRM work. No new features — only the infrastructure that 
 
 ---
 
-## v1.2 — Contacts & Accounts
+## v1.2 — Contacts & Accounts ✅
 
 Core CRM entities. The building blocks every other CRM feature depends on.
 
-- [ ] **ContactService** — full CRUD; status lifecycle (Lead → Prospect → Customer → Churned); owner assignment; validates AccountId against AccountService on create/update; publishes `ContactCreated`, `ContactStatusChanged`, `ContactDeleted`
-- [ ] **AccountService** — full CRUD; firmographic fields (industry, size, website, address); publishes `AccountCreated`, `AccountDeleted`
-- [ ] **SharedLibrary.Contacts / SharedLibrary.Accounts** — event packages for new services
-- [ ] **UserManagementService: team endpoint** — `GET /api/users/team` returning lightweight projections (UserId, DisplayName, Role) for owner assignment dropdowns
-- [ ] **Gateway routes** — `/api/contacts/**` and `/api/accounts/**`
-- [ ] **Frontend: React Router** — replace `useState`-based page switching with React Router v6
-- [ ] **Frontend: React Query** — replace manual fetch calls with TanStack Query for caching and background refetching
-- [ ] **Frontend: per-domain API client modules** — replace flat `api.js` with `contacts.api.js`, `accounts.api.js`, etc., all sharing a common `apiClient` base that attaches the JWT header
-- [ ] **Frontend: Contact module** — list (search + filter by status/owner), detail page, create/edit form
-- [ ] **Frontend: Account module** — list, detail page (with associated contacts), create/edit form
+- [x] **ContactService** — full CRUD; status lifecycle (Lead → Prospect → Customer → Churned); owner assignment; validates AccountId against AccountService on create/update; publishes `ContactCreated`, `ContactStatusChanged`, `ContactDeleted`; filterable list (`?status`, `?ownerId`, `?accountId`)
+- [x] **AccountService** — full CRUD; firmographic fields (industry, size, website, address); publishes `AccountCreated`, `AccountDeleted`; enums serialized as strings
+- [x] **SharedLibrary.Contacts / SharedLibrary.Accounts** — topic-scoped event packages for new services
+- [x] **UserManagementService: team endpoint** — `GET /api/users/team` returning lightweight projections (UserId, DisplayName, Role) for owner assignment dropdowns
+- [x] **Gateway routes** — `/contacts/**` and `/accounts/**` with JWT authorization policy; PathRemovePrefix transforms
+- [x] **Frontend: React Router** — React Router v6 with BrowserRouter, nested routes, ProtectedRoute, and Layout with NavLink active state
+- [x] **Frontend: React Query** — TanStack Query v5 (`useQuery`, `useMutation`, cache invalidation on mutations)
+- [x] **Frontend: per-domain API client modules** — `apiClient.js` base (JWT header injection) + `auth.api.js`, `users.api.js`, `contacts.api.js`, `accounts.api.js`
+- [x] **Frontend: Contact module** — list with status/owner filter dropdowns, detail with status lifecycle transition buttons, create/edit form with account and owner selects
+- [x] **Frontend: Account module** — list, detail with embedded contacts table, create/edit form with address section
 
 ---
 
