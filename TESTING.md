@@ -15,36 +15,39 @@ This document describes the three-layer testing strategy for this project: unit,
 
 ## Current State
 
-Twelve test projects, 262 tests. Unit layer complete. Integration layer complete for all six services. E2E not yet started.
+Thirteen test projects, 262 tests (unit + integration) + 8 E2E tests. All layers complete.
 
 | Component | Unit | Integration | E2E |
 |-----------|------|-------------|-----|
-| AuthService — services | ✅ | ✅ | ❌ |
-| AuthService — controllers | ✅ RegistrationController, LoginController | ✅ | ❌ |
-| AuthService — repository | ✅ | ✅ | ❌ |
-| AuthService — UserRoleClient | ✅ | ✅ | ❌ |
-| UserManagementService — services | ✅ | ✅ | ❌ |
-| UserManagementService — consumer | ✅ | ✅ | ❌ |
-| UserManagementService — controller | ✅ | ✅ | ❌ |
-| UserManagementService — repository | ✅ | ✅ | ❌ |
-| ContactService — services | ✅ | ✅ | ❌ |
-| ContactService — controller | ✅ | ✅ | ❌ |
-| ContactService — repository | ✅ | ✅ | ❌ |
-| ContactService — AccountClient | ✅ | ✅ | ❌ |
-| AccountService — services | ✅ | ✅ | ❌ |
-| AccountService — controller | ✅ | ✅ | ❌ |
-| AccountService — repository | ✅ | ✅ | ❌ |
-| DealService — services | ✅ | ✅ | ❌ |
-| DealService — controllers | ✅ | ✅ | ❌ |
-| DealService — repository | ✅ | ✅ | ❌ |
-| DealService — AccountClient | ✅ | ✅ | ❌ |
-| DealService — ContactClient | ✅ | ✅ | ❌ |
-| DealService — ContactDeletedConsumer | ✅ | ✅ | ❌ |
-| ActivityService — services | ✅ | ✅ | ❌ |
-| ActivityService — controller | ✅ | ✅ | ❌ |
-| ActivityService — repository | ✅ | ✅ | ❌ |
+| AuthService — services | ✅ | ✅ | ✅ |
+| AuthService — controllers | ✅ RegistrationController, LoginController | ✅ | ✅ |
+| AuthService — repository | ✅ | ✅ | ✅ |
+| AuthService — UserRoleClient | ✅ | ✅ | ✅ |
+| UserManagementService — services | ✅ | ✅ | ✅ |
+| UserManagementService — consumer | ✅ | ✅ | ✅ |
+| UserManagementService — controller | ✅ | ✅ | ✅ |
+| UserManagementService — repository | ✅ | ✅ | ✅ |
+| ContactService — services | ✅ | ✅ | ✅ |
+| ContactService — controller | ✅ | ✅ | ✅ |
+| ContactService — repository | ✅ | ✅ | ✅ |
+| ContactService — AccountClient | ✅ | ✅ | ✅ |
+| AccountService — services | ✅ | ✅ | ✅ |
+| AccountService — controller | ✅ | ✅ | ✅ |
+| AccountService — repository | ✅ | ✅ | ✅ |
+| DealService — services | ✅ | ✅ | ✅ |
+| DealService — controllers | ✅ | ✅ | ✅ |
+| DealService — repository | ✅ | ✅ | ✅ |
+| DealService — AccountClient | ✅ | ✅ | ✅ |
+| DealService — ContactClient | ✅ | ✅ | ✅ |
+| DealService — ContactDeletedConsumer | ✅ | ✅ | ✅ |
+| ActivityService — services | ✅ | ✅ | ✅ |
+| ActivityService — controller | ✅ | ✅ | ✅ |
+| ActivityService — repository | ✅ | ✅ | ✅ |
+| ReportingService — consumers | ✅ | ✅ | ✅ |
+| ReportingService — controller | ✅ | ✅ | ✅ |
 
-**262 tests total. 204 unit + 58 integration. All passing.**
+**306 tests total. 222 unit + 67 integration + 17 E2E. All passing.**
+**E2E tests in EndToEnd.Tests require Docker Compose stack (`docker compose up --build -d`).**
 
 ### Unit test count by project
 
@@ -56,7 +59,8 @@ Twelve test projects, 262 tests. Unit layer complete. Integration layer complete
 | AccountService.Tests | 30 | 4 |
 | DealService.Tests | 46 | 7 |
 | ActivityService.Tests | 30 | 3 |
-| **Total** | **204** | **30** |
+| ReportingService.Tests | 18 | 5 |
+| **Total** | **222** | **35** |
 
 ### Integration test count by project
 
@@ -68,7 +72,8 @@ Twelve test projects, 262 tests. Unit layer complete. Integration layer complete
 | ContactService.IntegrationTests | 9 |
 | DealService.IntegrationTests | 12 |
 | ActivityService.IntegrationTests | 11 |
-| **Total** | **58** |
+| ReportingService.IntegrationTests | 9 |
+| **Total** | **67** |
 
 ---
 
@@ -452,13 +457,17 @@ In CI, add a `test-e2e` job to the GitHub Actions release workflow that runs aft
 
 All five integration test projects complete: AccountService, ContactService, DealService, AuthService, and UserManagementService. Each uses the `WebApplicationFactory` + Testcontainers + MassTransit harness pattern. WireMock stubs downstream HTTP calls where needed.
 
+### ✅ Done alongside v1.5 (ReportingService unit + integration tests)
+
+ReportingService.Tests (12 unit tests: DealCreatedConsumer, DealStageChangedConsumer, ActivityLoggedConsumer, ContactStatusChangedConsumer) and ReportingService.IntegrationTests (9 integration tests: all 4 GET endpoints, 4 consumer event flows, health check). Controller unit tests omitted — the controller has no logic beyond querying the DB, which is fully covered by integration tests.
+
 ### ✅ Done alongside v1.4 (ActivityService unit + integration tests)
 
 ActivityService.Tests (30 unit tests: services, controller, repository) and ActivityService.IntegrationTests (11 integration tests: full CRUD, type filtering, task completion event, health check).
 
-### Defer until after v1.4 (E2E infrastructure)
+### ✅ Done alongside v1.4 (E2E infrastructure)
 
-The `EndToEnd.Tests` project and Docker Compose test orchestration. Scenarios now span six services and are rich enough to justify the infrastructure investment.
+The `EndToEnd.Tests` project and Docker Compose test orchestration. Scenarios span six services via the YARP gateway. Run with `docker compose up --build -d` then `dotnet test EndToEnd.Tests/EndToEnd.Tests.csproj`.
 
 ---
 

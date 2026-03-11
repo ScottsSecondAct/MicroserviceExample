@@ -15,6 +15,7 @@ import Pipeline from './pages/deals/Pipeline.jsx'
 import DealDetail from './pages/deals/DealDetail.jsx'
 import DealForm from './pages/deals/DealForm.jsx'
 import TaskList from './pages/activities/TaskList.jsx'
+import Dashboard from './pages/dashboard/Dashboard.jsx'
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
               <Route path="/deals/:id" element={<DealDetail />} />
               <Route path="/deals/:id/edit" element={<DealForm />} />
               <Route path="/activities/tasks" element={<TaskList />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
           </Route>

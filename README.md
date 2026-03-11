@@ -11,16 +11,18 @@ The interesting problems are in the seams. When a user registers, AuthService an
 
 This project was developed with AI assistance (Anthropic's Claude) as a design and implementation collaborator. Architecture decisions, service boundaries, and every tradeoff were made and understood by hand. The AI accelerated the work; it didn't replace the thinking.
 
-## Current State — v1.4 (Activities)
+## Current State — v1.5 (Reporting & Dashboards)
 
-The core CRM is functional end-to-end: accounts, contacts, a full sales pipeline, and an activity log.
+The full CRM is operational end-to-end: accounts, contacts, a sales pipeline, an activity log, and a reporting dashboard backed by an event-driven read model.
 
-- **ActivityService** — full CRUD for five activity types (Call, Email, Meeting, Task, Note); all entity references (ContactId, DealId, AccountId) are optional; scheduled and completed timestamps for task tracking; publishes `ActivityLogged` on create and `TaskCompleted` when a Task is first marked complete
-- **SharedLibrary.Activities** — `ActivityType` enum, `ActivityLogged` and `TaskCompleted` events
-- **Gateway route** — `/activities/**` with JWT authorization
-- **Frontend: Activity timeline** — chronological activity feed on Contact, Deal, and Account detail pages; type-coded styling; inline task completion
-- **Frontend: Activity log form** — collapsible quick-add panel accessible from Contact, Deal, and Account detail pages; type selector, scheduled date picker for tasks
-- **Frontend: Task list** — `/activities/tasks` shows all open tasks owned by the current user with completion button and links to associated records
+- **ReportingService** — subscribes to `DealCreated`, `DealStageChanged`, `DealClosed`, `ActivityLogged`, `ContactStatusChanged`; maintains denormalized read-model projections (pipeline value by stage, activity counts by rep, contact funnel by status); read-only API at `/api/reports/pipeline|activities|contacts|dashboard`
+- **SharedLibrary** unchanged — ReportingService consumes existing events from SharedLibrary.Deals, SharedLibrary.Activities, and SharedLibrary.Contacts
+- **Gateway route** — `/reports/**` with JWT authorization
+- **Frontend: Dashboard** — pipeline bar chart (deal count + value by stage), contact funnel table (count by status), activity counts by rep
+
+v1.4 (Activities):
+- ActivityService — full CRUD for five activity types (Call, Email, Meeting, Task, Note); all entity references (ContactId, DealId, AccountId) are optional; scheduled and completed timestamps for task tracking; publishes `ActivityLogged` on create and `TaskCompleted` when a Task is first marked complete
+- Frontend: Activity timeline on Contact, Deal, and Account detail pages; Activity log quick-add form; Task list page.
 
 v1.3 (Deals & Pipeline):
 - DealService with pipeline stages, deal-contact associations with role, stage-change events, and a `ContactDeleted` consumer. Kanban board with drag-and-drop in the frontend.
@@ -32,7 +34,7 @@ v1.2 (Contacts & Accounts):
 v1.1 (Infrastructure Foundation):
 - YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry.
 
-**Testing:** 262 tests total — 204 unit tests and 58 integration tests across 12 test projects. All passing. See [TESTING.md](TESTING.md).
+**Testing:** 306 tests total — 222 unit tests, 67 integration tests across 15 test projects, and 17 E2E tests. All passing. See [TESTING.md](TESTING.md).
 
 See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
@@ -354,8 +356,8 @@ DealService with pipeline stages, deal-contact associations, and a `ContactDelet
 ### ✅ v1.4 — Activities
 ActivityService (calls, emails, meetings, tasks, notes). Activity timeline on contact, deal, and account detail pages. Task list page. Activity log quick-add form.
 
-### v1.5 — Reporting & Dashboards
-ReportingService subscribes to domain events and builds read-model projections. Dashboard with pipeline and activity charts.
+### ✅ v1.5 — Reporting & Dashboards
+ReportingService subscribes to domain events and builds read-model projections. Dashboard with pipeline value by stage, contact funnel, and activity counts by rep.
 
 ### v2.0 — Hardening
 Refresh tokens, structured logging with correlation IDs, dead-letter queue handling, rate limiting, soft delete, integration test suite.

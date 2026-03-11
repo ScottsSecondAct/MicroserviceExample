@@ -9,6 +9,10 @@ export default defineConfig({
       '/users': { target: 'http://localhost:5000', changeOrigin: true },
       '/contacts': { target: 'http://localhost:5000', changeOrigin: true },
       '/accounts': { target: 'http://localhost:5000', changeOrigin: true },
+      '/deals': { target: 'http://localhost:5000', changeOrigin: true },
+      '/pipeline': { target: 'http://localhost:5000', changeOrigin: true },
+      '/activities': { target: 'http://localhost:5000', changeOrigin: true },
+      '/reports': { target: 'http://localhost:5000', changeOrigin: true },
     },
   },
 })

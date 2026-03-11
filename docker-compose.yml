@@ -216,6 +216,38 @@ services:
         condition: service_healthy
     networks: [backend]
 
+  reporting-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: reportingdb
+      POSTGRES_USER: reporting_user
+      POSTGRES_PASSWORD: reporting_pass
+    volumes:
+      - reporting-db-data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reporting_user -d reportingdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  reporting-service:
+    build:
+      context: .
+      dockerfile: ReportingService/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__ReportingDbConnection: "Host=reporting-db;Port=5432;Database=reportingdb;Username=reporting_user;Password=reporting_pass"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Username: "guest"
+      RabbitMQ__Password: "guest"
+    depends_on:
+      reporting-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [backend]
+
   api-gateway:
     build:
       context: .
@@ -234,6 +266,7 @@ services:
       ReverseProxy__Clusters__accounts-cluster__Destinations__account-service__Address: "http://account-service:8080"
       ReverseProxy__Clusters__deals-cluster__Destinations__deal-service__Address: "http://deal-service:8080"
       ReverseProxy__Clusters__activities-cluster__Destinations__activity-service__Address: "http://activity-service:8080"
+      ReverseProxy__Clusters__reports-cluster__Destinations__reporting-service__Address: "http://reporting-service:8080"
     depends_on:
       - auth-service
       - user-management-service
@@ -241,6 +274,7 @@ services:
       - contact-service
       - deal-service
       - activity-service
+      - reporting-service
     networks: [backend, frontend]
 
 networks:
@@ -254,3 +288,4 @@ volumes:
   contact-db-data:
   deal-db-data:
   activity-db-data:
+  reporting-db-data:

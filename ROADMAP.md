@@ -79,13 +79,13 @@ The activity log ties contacts, deals, and reps together into a complete interac
 
 ---
 
-## v1.5 — Reporting & Dashboards
+## v1.5 — Reporting & Dashboards ✅
 
 Visibility into pipeline health and rep activity, powered by an event-driven read model.
 
-- [ ] **ReportingService** — subscribes to `DealCreated`, `DealStageChanged`, `DealClosed`, `ActivityLogged`, `ContactStatusChanged`; maintains denormalized projections (pipeline value by stage, activity counts by rep, contact funnel by status); no external write API
-- [ ] **Gateway routes** — `/api/reports/**`
-- [ ] **Frontend: Dashboard** — pipeline summary chart (value by stage), activity counts per rep, recent contacts and deals
+- [x] **ReportingService** — subscribes to `DealCreated`, `DealStageChanged`, `DealClosed`, `ActivityLogged`, `ContactStatusChanged`; maintains denormalized projections (pipeline value by stage, activity counts by rep, contact funnel by status); no external write API
+- [x] **Gateway routes** — `/reports/**` with JWT authorization policy
+- [x] **Frontend: Dashboard** — pipeline summary chart (value by stage), activity counts per rep, contact funnel by status
 
 Dashboard data will lag source services by seconds due to the event-driven projection model. This is acceptable for all reporting use cases.
 
