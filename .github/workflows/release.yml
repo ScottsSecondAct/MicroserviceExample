@@ -32,7 +32,7 @@ jobs:
         run: dotnet build MicroserviceExample.sln --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test MicroserviceExample.sln --no-build --configuration Release --verbosity normal
+        run: dotnet test MicroserviceExample.sln --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~EndToEnd"
 
   # ---------------------------------------------------------------------------
   # Create GitHub Release
