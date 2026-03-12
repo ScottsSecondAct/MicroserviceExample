@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { contactsApi } from '../../api/contacts.api.js'
 import { accountsApi } from '../../api/accounts.api.js'
 import { usersApi } from '../../api/users.api.js'
+import Breadcrumb from '../../components/Breadcrumb.jsx'
 
 const STATUSES = ['Lead', 'Prospect', 'Customer', 'Churned']
 
@@ -73,8 +74,20 @@ export default function ContactForm() {
     mutation.mutate(payload)
   }
 
+  const breadcrumbItems = isEdit && existing
+    ? [
+        { label: 'Contacts', to: '/contacts' },
+        { label: `${existing.firstName} ${existing.lastName}`, to: `/contacts/${id}` },
+        { label: 'Edit' },
+      ]
+    : [
+        { label: 'Contacts', to: '/contacts' },
+        { label: 'New Contact' },
+      ]
+
   return (
     <div>
+      <Breadcrumb items={breadcrumbItems} />
       <h1>{isEdit ? 'Edit Contact' : 'New Contact'}</h1>
       <div className="card">
         <form onSubmit={handleSubmit} className="edit-form">

@@ -398,6 +398,32 @@ a:hover { text-decoration: underline; }
 .btn-sm { padding: 0.3rem 0.65rem; font-size: 13px; }
 .btn-group { display: flex; gap: 0.5rem; }
 
+/* ── Breadcrumb ── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  font-size: 13px;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.breadcrumb-link {
+  color: #6b7280;
+  text-decoration: none;
+}
+.breadcrumb-link:hover { color: #2563eb; text-decoration: underline; }
+
+.breadcrumb-sep { color: #9ca3af; }
+
+.breadcrumb-current { color: #374151; font-weight: 500; }
+
 /* ── Page header ── */
 .page-header {
   display: flex;

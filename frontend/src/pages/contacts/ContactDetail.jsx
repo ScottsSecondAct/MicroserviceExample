@@ -5,6 +5,7 @@ import { accountsApi } from '../../api/accounts.api.js'
 import { usersApi } from '../../api/users.api.js'
 import ActivityTimeline from '../../components/ActivityTimeline.jsx'
 import ActivityLogForm from '../../components/ActivityLogForm.jsx'
+import Breadcrumb from '../../components/Breadcrumb.jsx'
 
 const STATUS_TRANSITIONS = {
   Lead: ['Prospect', 'Churned'],
@@ -64,6 +65,10 @@ export default function ContactDetail() {
 
   return (
     <div>
+      <Breadcrumb items={[
+        { label: 'Contacts', to: '/contacts' },
+        { label: `${contact.firstName} ${contact.lastName}` },
+      ]} />
       <div className="page-header">
         <h1>{contact.firstName} {contact.lastName}</h1>
         <div className="btn-group">

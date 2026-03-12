@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { accountsApi } from '../../api/accounts.api.js'
+import Breadcrumb from '../../components/Breadcrumb.jsx'
 
 const INDUSTRIES = ['Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing', 'Education', 'Other']
 const SIZES = ['Small', 'Medium', 'Large', 'Enterprise']
@@ -73,8 +74,20 @@ export default function AccountForm() {
     mutation.mutate(payload)
   }
 
+  const breadcrumbItems = isEdit && existing
+    ? [
+        { label: 'Accounts', to: '/accounts' },
+        { label: existing.name, to: `/accounts/${id}` },
+        { label: 'Edit' },
+      ]
+    : [
+        { label: 'Accounts', to: '/accounts' },
+        { label: 'New Account' },
+      ]
+
   return (
     <div>
+      <Breadcrumb items={breadcrumbItems} />
       <h1>{isEdit ? 'Edit Account' : 'New Account'}</h1>
       <div className="card">
         <form onSubmit={handleSubmit} className="edit-form">
