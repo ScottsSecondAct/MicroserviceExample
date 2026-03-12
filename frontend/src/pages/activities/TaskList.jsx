@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { activitiesApi } from '../../api/activities.api.js'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { Button } from '../../components/ui/button.jsx'
+import { Skeleton } from '../../components/ui/skeleton.jsx'
+import { Card, CardContent } from '../../components/ui/card.jsx'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.jsx'
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -28,90 +32,106 @@ export default function TaskList() {
   const incompleteTasks = tasks.filter((t) => !t.completedAt)
   const completedTasks = tasks.filter((t) => t.completedAt)
 
-  if (isLoading) return <p className="loading">Loading…</p>
-  if (error) return <p className="form-error">{error.message}</p>
+  if (isLoading) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-5">
+          <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
+        </div>
+        <Card className="p-4 flex flex-col gap-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+        </Card>
+      </div>
+    )
+  }
+
+  if (error) return <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error.message}</p>
 
   return (
     <div>
-      <div className="page-header">
-        <h1>My Tasks</h1>
-        <span style={{ color: '#6b7280', fontSize: 13 }}>
-          {incompleteTasks.length} open
-        </span>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
+        <span className="text-sm text-gray-500">{incompleteTasks.length} open</span>
       </div>
 
       {incompleteTasks.length === 0 ? (
-        <div className="card">
-          <p className="empty">No open tasks. You're all caught up.</p>
-        </div>
+        <Card>
+          <CardContent className="py-6">
+            <p className="text-sm text-gray-400">No open tasks. You're all caught up.</p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="card">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>Scheduled</th>
-                <th>Linked To</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+        <Card className="p-0 overflow-hidden mb-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Subject</TableHead>
+                <TableHead>Scheduled</TableHead>
+                <TableHead>Linked To</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {incompleteTasks.map((t) => (
-                <tr key={t.activityId} style={{ cursor: 'default' }}>
-                  <td>{t.subject}</td>
-                  <td>{formatDate(t.scheduledAt)}</td>
-                  <td>
-                    <span style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {t.contactId && <Link to={`/contacts/${t.contactId}`}>Contact</Link>}
-                      {t.dealId && <Link to={`/deals/${t.dealId}`}>Deal</Link>}
-                      {t.accountId && <Link to={`/accounts/${t.accountId}`}>Account</Link>}
+                <TableRow key={t.activityId} className="cursor-default">
+                  <TableCell className="font-medium">{t.subject}</TableCell>
+                  <TableCell>{formatDate(t.scheduledAt)}</TableCell>
+                  <TableCell>
+                    <span className="flex gap-2 flex-wrap">
+                      {t.contactId && <Link to={`/contacts/${t.contactId}`} className="text-blue-600 hover:underline text-xs">Contact</Link>}
+                      {t.dealId && <Link to={`/deals/${t.dealId}`} className="text-blue-600 hover:underline text-xs">Deal</Link>}
+                      {t.accountId && <Link to={`/accounts/${t.accountId}`} className="text-blue-600 hover:underline text-xs">Account</Link>}
                       {!t.contactId && !t.dealId && !t.accountId && '—'}
                     </span>
-                  </td>
-                  <td>
-                    <button
-                      className="btn btn-sm btn-primary"
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
                       disabled={completeMutation.isPending}
                       onClick={() => completeMutation.mutate(t.activityId)}
                     >
                       Complete
-                    </button>
-                  </td>
-                </tr>
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       {completedTasks.length > 0 && (
-        <details style={{ marginTop: '1.5rem' }}>
-          <summary style={{ cursor: 'pointer', color: '#6b7280', fontSize: 13, marginBottom: '0.75rem' }}>
+        <details>
+          <summary className="cursor-pointer text-sm text-gray-500 mb-3 select-none">
             {completedTasks.length} completed task{completedTasks.length !== 1 ? 's' : ''}
           </summary>
-          <div className="card">
-            <table className="data-table">
-              <thead>
-                <tr><th>Subject</th><th>Completed</th><th>Linked To</th></tr>
-              </thead>
-              <tbody>
+          <Card className="p-0 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Completed</TableHead>
+                  <TableHead>Linked To</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {completedTasks.map((t) => (
-                  <tr key={t.activityId} style={{ cursor: 'default', opacity: 0.6 }}>
-                    <td style={{ textDecoration: 'line-through' }}>{t.subject}</td>
-                    <td>{formatDate(t.completedAt)}</td>
-                    <td>
-                      <span style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {t.contactId && <Link to={`/contacts/${t.contactId}`}>Contact</Link>}
-                        {t.dealId && <Link to={`/deals/${t.dealId}`}>Deal</Link>}
-                        {t.accountId && <Link to={`/accounts/${t.accountId}`}>Account</Link>}
+                  <TableRow key={t.activityId} className="cursor-default opacity-60">
+                    <TableCell className="line-through">{t.subject}</TableCell>
+                    <TableCell>{formatDate(t.completedAt)}</TableCell>
+                    <TableCell>
+                      <span className="flex gap-2 flex-wrap">
+                        {t.contactId && <Link to={`/contacts/${t.contactId}`} className="text-blue-600 hover:underline text-xs">Contact</Link>}
+                        {t.dealId && <Link to={`/deals/${t.dealId}`} className="text-blue-600 hover:underline text-xs">Deal</Link>}
+                        {t.accountId && <Link to={`/accounts/${t.accountId}`} className="text-blue-600 hover:underline text-xs">Account</Link>}
                         {!t.contactId && !t.dealId && !t.accountId && '—'}
                       </span>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </Card>
         </details>
       )}
     </div>

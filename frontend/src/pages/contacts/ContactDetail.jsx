@@ -6,12 +6,33 @@ import { usersApi } from '../../api/users.api.js'
 import ActivityTimeline from '../../components/ActivityTimeline.jsx'
 import ActivityLogForm from '../../components/ActivityLogForm.jsx'
 import Breadcrumb from '../../components/Breadcrumb.jsx'
+import { Button } from '../../components/ui/button.jsx'
+import { Badge } from '../../components/ui/badge.jsx'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.jsx'
+import { Skeleton } from '../../components/ui/skeleton.jsx'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../../components/ui/dialog.jsx'
+import { toast } from '../../hooks/use-toast.js'
 
 const STATUS_TRANSITIONS = {
   Lead: ['Prospect', 'Churned'],
   Prospect: ['Customer', 'Churned'],
   Customer: ['Churned'],
   Churned: ['Lead'],
+}
+
+const STATUS_VARIANT = {
+  Lead: 'lead',
+  Prospect: 'prospect',
+  Customer: 'customer',
+  Churned: 'churned',
 }
 
 export default function ContactDetail() {
@@ -37,7 +58,12 @@ export default function ContactDetail() {
 
   const updateMutation = useMutation({
     mutationFn: (data) => contactsApi.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contact', id] }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['contact', id] })
+      if (variables.status) {
+        toast({ title: 'Status updated', description: `Contact moved to ${variables.status}`, variant: 'success' })
+      }
+    },
   })
 
   const deleteMutation = useMutation({
@@ -48,16 +74,15 @@ export default function ContactDetail() {
     },
   })
 
-  function handleStatusChange(newStatus) {
-    updateMutation.mutate({ status: newStatus })
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-48 w-full rounded-lg" />
+      </div>
+    )
   }
-
-  function handleDelete() {
-    if (window.confirm('Delete this contact?')) deleteMutation.mutate()
-  }
-
-  if (isLoading) return <p className="loading">Loading…</p>
-  if (error) return <p className="form-error">{error.message}</p>
+  if (error) return <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error.message}</p>
   if (!contact) return null
 
   const owner = team.find((m) => m.userId === contact.ownerId)
@@ -69,26 +94,52 @@ export default function ContactDetail() {
         { label: 'Contacts', to: '/contacts' },
         { label: `${contact.firstName} ${contact.lastName}` },
       ]} />
-      <div className="page-header">
-        <h1>{contact.firstName} {contact.lastName}</h1>
-        <div className="btn-group">
-          <button className="btn btn-secondary" onClick={() => navigate(`/contacts/${id}/edit`)}>
-            Edit
-          </button>
-          <button className="btn btn-danger" onClick={handleDelete} disabled={deleteMutation.isPending}>
-            Delete
-          </button>
+
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-2xl font-bold text-gray-900">{contact.firstName} {contact.lastName}</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate(`/contacts/${id}/edit`)}>Edit</Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="destructive">Delete</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete contact?</DialogTitle>
+                <DialogDescription>
+                  This will permanently delete {contact.firstName} {contact.lastName} and all associated data. This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={(e) => e.currentTarget.closest('[role=dialog]')?.querySelector('[aria-label=Close]')?.click()}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => deleteMutation.mutate()}
+                >
+                  {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
       {nextStatuses.length > 0 && (
-        <div className="status-actions">
+        <div className="flex items-center gap-2 mb-5 text-sm text-gray-500">
           <span>Move to:</span>
           {nextStatuses.map((s) => (
             <button
               key={s}
-              className={`btn badge-btn badge-${s.toLowerCase()}`}
-              onClick={() => handleStatusChange(s)}
+              className={`px-3 py-0.5 text-xs font-semibold rounded-full border-[1.5px] cursor-pointer hover:opacity-75 transition-opacity disabled:opacity-50 ${
+                s === 'Lead' ? 'border-blue-600 text-blue-600' :
+                s === 'Prospect' ? 'border-amber-600 text-amber-800' :
+                s === 'Customer' ? 'border-emerald-600 text-emerald-700' :
+                'border-gray-400 text-gray-500'
+              }`}
+              onClick={() => updateMutation.mutate({ status: s })}
               disabled={updateMutation.isPending}
             >
               {s}
@@ -97,27 +148,60 @@ export default function ContactDetail() {
         </div>
       )}
 
-      <div className="card">
-        <table className="detail-table">
-          <tbody>
-            <tr><th>Status</th><td><span className={`badge badge-${contact.status.toLowerCase()}`}>{contact.status}</span></td></tr>
-            <tr><th>Email</th><td>{contact.email}</td></tr>
-            <tr><th>Phone</th><td>{contact.phone ?? '—'}</td></tr>
-            <tr><th>Account</th><td>{account ? <Link to={`/accounts/${account.accountId}`}>{account.name}</Link> : (contact.accountId ? contact.accountId : '—')}</td></tr>
-            <tr><th>Owner</th><td>{owner?.displayName ?? (contact.ownerId ? contact.ownerId : '—')}</td></tr>
-            <tr><th>Created</th><td>{new Date(contact.createdAt).toLocaleString()}</td></tr>
-            <tr><th>Updated</th><td>{new Date(contact.updatedAt).toLocaleString()}</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <Card className="mb-4">
+        <CardContent className="pt-6">
+          <table className="w-full text-sm">
+            <tbody>
+              <tr>
+                <th className="text-left w-36 py-2 pr-3 text-gray-500 font-medium align-top">Status</th>
+                <td className="py-2 text-gray-900">
+                  <Badge variant={STATUS_VARIANT[contact.status] ?? 'default'}>{contact.status}</Badge>
+                </td>
+              </tr>
+              <tr>
+                <th className="text-left py-2 pr-3 text-gray-500 font-medium align-top">Email</th>
+                <td className="py-2 text-gray-900">{contact.email}</td>
+              </tr>
+              <tr>
+                <th className="text-left py-2 pr-3 text-gray-500 font-medium align-top">Phone</th>
+                <td className="py-2 text-gray-900">{contact.phone ?? '—'}</td>
+              </tr>
+              <tr>
+                <th className="text-left py-2 pr-3 text-gray-500 font-medium align-top">Account</th>
+                <td className="py-2 text-gray-900">
+                  {account
+                    ? <Link to={`/accounts/${account.accountId}`} className="text-blue-600 hover:underline">{account.name}</Link>
+                    : (contact.accountId ? contact.accountId : '—')}
+                </td>
+              </tr>
+              <tr>
+                <th className="text-left py-2 pr-3 text-gray-500 font-medium align-top">Owner</th>
+                <td className="py-2 text-gray-900">{owner?.displayName ?? (contact.ownerId ? contact.ownerId : '—')}</td>
+              </tr>
+              <tr>
+                <th className="text-left py-2 pr-3 text-gray-500 font-medium align-top">Created</th>
+                <td className="py-2 text-gray-900">{new Date(contact.createdAt).toLocaleString()}</td>
+              </tr>
+              <tr>
+                <th className="text-left py-2 pr-3 text-gray-500 font-medium align-top">Updated</th>
+                <td className="py-2 text-gray-900">{new Date(contact.updatedAt).toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Activity</h2>
-          <ActivityLogForm contactId={id} queryKey="contact-activities" />
-        </div>
-        <ActivityTimeline contactId={id} queryKey="contact-activities" />
-      </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Activity</CardTitle>
+            <ActivityLogForm contactId={id} queryKey="contact-activities" />
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <ActivityTimeline contactId={id} queryKey="contact-activities" />
+        </CardContent>
+      </Card>
     </div>
   )
 }

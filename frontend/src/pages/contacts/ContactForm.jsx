@@ -5,9 +5,19 @@ import { contactsApi } from '../../api/contacts.api.js'
 import { accountsApi } from '../../api/accounts.api.js'
 import { usersApi } from '../../api/users.api.js'
 import Breadcrumb from '../../components/Breadcrumb.jsx'
+import { Button } from '../../components/ui/button.jsx'
+import { Input } from '../../components/ui/input.jsx'
+import { Label } from '../../components/ui/label.jsx'
+import { Card, CardContent } from '../../components/ui/card.jsx'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select.jsx'
 
 const STATUSES = ['Lead', 'Prospect', 'Customer', 'Churned']
-
 const EMPTY = { firstName: '', lastName: '', email: '', phone: '', status: 'Lead', accountId: '', ownerId: '' }
 
 export default function ContactForm() {
@@ -66,12 +76,11 @@ export default function ContactForm() {
   function handleSubmit(e) {
     e.preventDefault()
     setError(null)
-    const payload = {
+    mutation.mutate({
       ...fields,
       accountId: fields.accountId || null,
       ownerId: fields.ownerId || null,
-    }
-    mutation.mutate(payload)
+    })
   }
 
   const breadcrumbItems = isEdit && existing
@@ -88,62 +97,75 @@ export default function ContactForm() {
   return (
     <div>
       <Breadcrumb items={breadcrumbItems} />
-      <h1>{isEdit ? 'Edit Contact' : 'New Contact'}</h1>
-      <div className="card">
-        <form onSubmit={handleSubmit} className="edit-form">
-          {error && <p className="form-error">{error}</p>}
-          <div className="form-row">
-            <label>
-              First Name *
-              <input value={fields.firstName} onChange={(e) => set('firstName', e.target.value)} required />
-            </label>
-            <label>
-              Last Name *
-              <input value={fields.lastName} onChange={(e) => set('lastName', e.target.value)} required />
-            </label>
-          </div>
-          <div className="form-row">
-            <label>
-              Email *
-              <input type="email" value={fields.email} onChange={(e) => set('email', e.target.value)} required />
-            </label>
-            <label>
-              Phone
-              <input type="tel" value={fields.phone} onChange={(e) => set('phone', e.target.value)} />
-            </label>
-          </div>
-          <div className="form-row">
-            <label>
-              Status
-              <select value={fields.status} onChange={(e) => set('status', e.target.value)}>
-                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </label>
-            <label>
-              Account
-              <select value={fields.accountId} onChange={(e) => set('accountId', e.target.value)}>
-                <option value="">— None —</option>
-                {accounts.map((a) => <option key={a.accountId} value={a.accountId}>{a.name}</option>)}
-              </select>
-            </label>
-          </div>
-          <label>
-            Owner
-            <select value={fields.ownerId} onChange={(e) => set('ownerId', e.target.value)}>
-              <option value="">— Unassigned —</option>
-              {team.map((m) => <option key={m.userId} value={m.userId}>{m.displayName || m.userId}</option>)}
-            </select>
-          </label>
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create contact'}
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigate(-1)}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-5">
+        {isEdit ? 'Edit Contact' : 'New Contact'}
+      </h1>
+      <Card>
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>First Name *</Label>
+                <Input value={fields.firstName} onChange={(e) => set('firstName', e.target.value)} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Last Name *</Label>
+                <Input value={fields.lastName} onChange={(e) => set('lastName', e.target.value)} required />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>Email *</Label>
+                <Input type="email" value={fields.email} onChange={(e) => set('email', e.target.value)} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Phone</Label>
+                <Input type="tel" value={fields.phone} onChange={(e) => set('phone', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>Status</Label>
+                <Select value={fields.status} onValueChange={(v) => set('status', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Account</Label>
+                <Select value={fields.accountId || '_none'} onValueChange={(v) => set('accountId', v === '_none' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— None —</SelectItem>
+                    {accounts.map((a) => <SelectItem key={a.accountId} value={a.accountId}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Owner</Label>
+              <Select value={fields.ownerId || '_unassigned'} onValueChange={(v) => set('ownerId', v === '_unassigned' ? '' : v)}>
+                <SelectTrigger><SelectValue placeholder="— Unassigned —" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_unassigned">— Unassigned —</SelectItem>
+                  {team.map((m) => <SelectItem key={m.userId} value={m.userId}>{m.displayName || m.userId}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create contact'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

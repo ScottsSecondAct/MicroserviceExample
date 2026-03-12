@@ -1,74 +1,28 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { Users, Building2, BarChart3, CheckSquare, LayoutDashboard, ChevronLeft, ChevronRight } from 'lucide-react'
 import TopBar from './TopBar.jsx'
-
-const icons = {
-  contacts: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>
-  ),
-  accounts: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-    </svg>
-  ),
-  pipeline: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="5" height="18" rx="1"/>
-      <rect x="9.5" y="8" width="5" height="13" rx="1"/>
-      <rect x="17" y="5" width="5" height="16" rx="1"/>
-    </svg>
-  ),
-  tasks: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 11l3 3L22 4"/>
-      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-    </svg>
-  ),
-  dashboard: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1"/>
-      <rect x="14" y="3" width="7" height="7" rx="1"/>
-      <rect x="14" y="14" width="7" height="7" rx="1"/>
-      <rect x="3" y="14" width="7" height="7" rx="1"/>
-    </svg>
-  ),
-  collapse: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 18l-6-6 6-6"/>
-    </svg>
-  ),
-  expand: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18l6-6-6-6"/>
-    </svg>
-  ),
-}
+import { cn } from '../lib/utils'
 
 const navGroups = [
   {
     label: 'CRM',
     items: [
-      { to: '/contacts', label: 'Contacts', icon: 'contacts' },
-      { to: '/accounts', label: 'Accounts', icon: 'accounts' },
-      { to: '/deals', label: 'Pipeline', icon: 'pipeline' },
+      { to: '/contacts', label: 'Contacts', Icon: Users },
+      { to: '/accounts', label: 'Accounts', Icon: Building2 },
+      { to: '/deals', label: 'Pipeline', Icon: BarChart3 },
     ],
   },
   {
     label: 'Productivity',
     items: [
-      { to: '/activities/tasks', label: 'Tasks', icon: 'tasks' },
+      { to: '/activities/tasks', label: 'Tasks', Icon: CheckSquare },
     ],
   },
   {
     label: 'Insights',
     items: [
-      { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+      { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
     ],
   },
 ]
@@ -77,35 +31,60 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className={`app-shell${collapsed ? ' sidebar-collapsed' : ''}`}>
+    <div className="flex flex-col min-h-screen">
       <TopBar />
 
-      <div className="app-body">
-        <aside className="left-sidebar">
-          <div className="sidebar-header">
-            {!collapsed && <div className="nav-brand">CRM</div>}
+      <div className="flex flex-1 min-h-0">
+        {/* Sidebar */}
+        <aside
+          className={cn(
+            'flex flex-col flex-shrink-0 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out sticky top-14 h-[calc(100vh-56px)] z-10 overflow-hidden',
+            collapsed ? 'w-16' : 'w-60'
+          )}
+        >
+          {/* Sidebar header */}
+          <div
+            className={cn(
+              'flex items-center h-14 border-b border-sidebar-border flex-shrink-0 px-4',
+              collapsed ? 'justify-center' : 'justify-between'
+            )}
+          >
+            {!collapsed && (
+              <span className="text-lg font-bold tracking-wide text-white select-none">CRM</span>
+            )}
             <button
-              className="sidebar-toggle"
+              className="text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent rounded p-1 flex items-center transition-colors"
               onClick={() => setCollapsed(c => !c)}
               title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              {collapsed ? icons.expand : icons.collapse}
+              {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
             </button>
           </div>
 
-          <nav className="sidebar-nav">
+          {/* Nav */}
+          <nav className="flex-1 overflow-y-auto py-3">
             {navGroups.map(group => (
-              <div key={group.label} className="nav-group">
-                {!collapsed && <div className="nav-group-label">{group.label}</div>}
-                {group.items.map(item => (
+              <div key={group.label} className="mb-1">
+                {!collapsed && (
+                  <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-widest text-sidebar-muted select-none">
+                    {group.label}
+                  </div>
+                )}
+                {group.items.map(({ to, label, Icon }) => (
                   <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className="sidebar-link"
-                    title={collapsed ? item.label : undefined}
+                    key={to}
+                    to={to}
+                    title={collapsed ? label : undefined}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-2.5 py-2 text-sm font-medium text-slate-400 hover:bg-slate-700 hover:text-slate-100 transition-colors no-underline',
+                        collapsed ? 'justify-center px-0' : 'px-4',
+                        isActive && 'bg-blue-600 text-white hover:bg-blue-600/90 hover:text-white'
+                      )
+                    }
                   >
-                    <span className="sidebar-icon">{icons[item.icon]}</span>
-                    {!collapsed && <span className="sidebar-label">{item.label}</span>}
+                    <Icon size={18} className="flex-shrink-0" />
+                    {!collapsed && <span>{label}</span>}
                   </NavLink>
                 ))}
               </div>
@@ -113,7 +92,8 @@ export default function Layout() {
           </nav>
         </aside>
 
-        <main className="main-content">
+        {/* Main content */}
+        <main className="flex-1 min-w-0 p-6 bg-gray-50">
           <Outlet />
         </main>
       </div>
