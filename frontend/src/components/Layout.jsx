@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext.jsx'
+import { NavLink, Outlet } from 'react-router-dom'
+import TopBar from './TopBar.jsx'
 
 const icons = {
   contacts: (
@@ -38,12 +38,6 @@ const icons = {
       <rect x="3" y="14" width="7" height="7" rx="1"/>
     </svg>
   ),
-  profile: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-      <circle cx="12" cy="7" r="4"/>
-    </svg>
-  ),
   collapse: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M15 18l-6-6 6-6"/>
@@ -52,13 +46,6 @@ const icons = {
   expand: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 18l6-6-6-6"/>
-    </svg>
-  ),
-  logout: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-      <polyline points="16 17 21 12 16 7"/>
-      <line x1="21" y1="12" x2="9" y2="12"/>
     </svg>
   ),
 }
@@ -87,73 +74,49 @@ const navGroups = [
 ]
 
 export default function Layout() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
-
-  function handleLogout() {
-    logout()
-    navigate('/login')
-  }
 
   return (
     <div className={`app-shell${collapsed ? ' sidebar-collapsed' : ''}`}>
-      <aside className="left-sidebar">
-        <div className="sidebar-header">
-          {!collapsed && <div className="nav-brand">CRM</div>}
-          <button
-            className="sidebar-toggle"
-            onClick={() => setCollapsed(c => !c)}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? icons.expand : icons.collapse}
-          </button>
-        </div>
+      <TopBar />
 
-        <nav className="sidebar-nav">
-          {navGroups.map(group => (
-            <div key={group.label} className="nav-group">
-              {!collapsed && <div className="nav-group-label">{group.label}</div>}
-              {group.items.map(item => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className="sidebar-link"
-                  title={collapsed ? item.label : undefined}
-                >
-                  <span className="sidebar-icon">{icons[item.icon]}</span>
-                  {!collapsed && <span className="sidebar-label">{item.label}</span>}
-                </NavLink>
-              ))}
-            </div>
-          ))}
-        </nav>
+      <div className="app-body">
+        <aside className="left-sidebar">
+          <div className="sidebar-header">
+            {!collapsed && <div className="nav-brand">CRM</div>}
+            <button
+              className="sidebar-toggle"
+              onClick={() => setCollapsed(c => !c)}
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {collapsed ? icons.expand : icons.collapse}
+            </button>
+          </div>
 
-        <div className="sidebar-footer">
-          <NavLink
-            to="/profile"
-            className="sidebar-link"
-            title={collapsed ? 'Profile' : undefined}
-          >
-            <span className="sidebar-icon">{icons.profile}</span>
-            {!collapsed && (
-              <span className="sidebar-label sidebar-email">{user?.email ?? 'Profile'}</span>
-            )}
-          </NavLink>
-          <button
-            className="sidebar-logout"
-            onClick={handleLogout}
-            title={collapsed ? 'Logout' : undefined}
-          >
-            <span className="sidebar-icon">{icons.logout}</span>
-            {!collapsed && <span className="sidebar-label">Logout</span>}
-          </button>
-        </div>
-      </aside>
+          <nav className="sidebar-nav">
+            {navGroups.map(group => (
+              <div key={group.label} className="nav-group">
+                {!collapsed && <div className="nav-group-label">{group.label}</div>}
+                {group.items.map(item => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className="sidebar-link"
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <span className="sidebar-icon">{icons[item.icon]}</span>
+                    {!collapsed && <span className="sidebar-label">{item.label}</span>}
+                  </NavLink>
+                ))}
+              </div>
+            ))}
+          </nav>
+        </aside>
 
-      <main className="main-content">
-        <Outlet />
-      </main>
+        <main className="main-content">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }
