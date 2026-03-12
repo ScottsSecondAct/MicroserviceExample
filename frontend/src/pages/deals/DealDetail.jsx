@@ -6,6 +6,7 @@ import { contactsApi } from '../../api/contacts.api.js'
 import { accountsApi } from '../../api/accounts.api.js'
 import ActivityTimeline from '../../components/ActivityTimeline.jsx'
 import ActivityLogForm from '../../components/ActivityLogForm.jsx'
+import Breadcrumb from '../../components/Breadcrumb.jsx'
 
 const STAGES = ['Prospecting', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost']
 const ROLES = ['DecisionMaker', 'Influencer', 'Champion']
@@ -68,6 +69,10 @@ export default function DealDetail() {
 
   return (
     <div style={{ maxWidth: '800px' }}>
+      <Breadcrumb items={[
+        { label: 'Pipeline', to: '/deals' },
+        { label: deal.title },
+      ]} />
       <div className="page-header">
         <div>
           <h1>{deal.title}</h1>

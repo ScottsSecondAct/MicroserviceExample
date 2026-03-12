@@ -4,6 +4,7 @@ import { accountsApi } from '../../api/accounts.api.js'
 import { contactsApi } from '../../api/contacts.api.js'
 import ActivityLogForm from '../../components/ActivityLogForm.jsx'
 import ActivityTimeline from '../../components/ActivityTimeline.jsx'
+import Breadcrumb from '../../components/Breadcrumb.jsx'
 
 export default function AccountDetail() {
   const { id } = useParams()
@@ -39,6 +40,10 @@ export default function AccountDetail() {
 
   return (
     <div>
+      <Breadcrumb items={[
+        { label: 'Accounts', to: '/accounts' },
+        { label: account.name },
+      ]} />
       <div className="page-header">
         <h1>{account.name}</h1>
         <div className="btn-group">

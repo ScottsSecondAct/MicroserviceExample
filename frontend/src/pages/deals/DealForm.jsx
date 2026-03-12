@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { dealsApi } from '../../api/deals.api.js'
 import { accountsApi } from '../../api/accounts.api.js'
 import { usersApi } from '../../api/users.api.js'
+import Breadcrumb from '../../components/Breadcrumb.jsx'
 
 const STAGES = ['Prospecting', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost']
 
@@ -83,8 +84,20 @@ export default function DealForm() {
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
 
+  const breadcrumbItems = isEdit && existing
+    ? [
+        { label: 'Pipeline', to: '/deals' },
+        { label: existing.title, to: `/deals/${id}` },
+        { label: 'Edit' },
+      ]
+    : [
+        { label: 'Pipeline', to: '/deals' },
+        { label: 'New Deal' },
+      ]
+
   return (
     <div style={{ maxWidth: '520px' }}>
+      <Breadcrumb items={breadcrumbItems} />
       <h1>{isEdit ? 'Edit Deal' : 'New Deal'}</h1>
 
       {error && <p className="form-error">{error}</p>}
