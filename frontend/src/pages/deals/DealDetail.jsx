@@ -105,9 +105,39 @@ export default function DealDetail() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4 max-w-2xl">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-32 w-full rounded-lg" />
-        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-4 w-44" />
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-16 rounded-md" />
+            <Skeleton className="h-9 w-16 rounded-md" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="pt-4 pb-4">
+                <Skeleton className="h-3 w-24 mb-2" />
+                <Skeleton className="h-5 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader><Skeleton className="h-5 w-40" /></CardHeader>
+          <CardContent className="pt-0 flex flex-col gap-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="flex gap-4">
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-7 w-16 rounded-md" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     )
   }

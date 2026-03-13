@@ -68,8 +68,35 @@ export default function AccountDetail() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4">
-        <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-4 w-44" />
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-48" />
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-16 rounded-md" />
+            <Skeleton className="h-9 w-16 rounded-md" />
+          </div>
+        </div>
+        <Card>
+          <CardHeader><Skeleton className="h-5 w-16" /></CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-col gap-4">
+              {['Industry', 'Size', 'Website', 'Address', 'Created', 'Updated'].map((field) => (
+                <div key={field} className="flex gap-4">
+                  <Skeleton className="h-4 w-28 flex-shrink-0" />
+                  <Skeleton className="h-4 flex-1 max-w-xs" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><Skeleton className="h-5 w-28" /></CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-col gap-3">
+              {[1, 2].map((i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
