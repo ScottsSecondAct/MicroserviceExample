@@ -60,6 +60,29 @@ using (var scope = app.Services.CreateScope())
 {
   var db = scope.ServiceProvider.GetRequiredService<UserManagementDbContext>();
   db.Database.EnsureCreated();
+
+  // Seed default admin profile if not present
+  var adminConfig = app.Configuration.GetSection("DefaultAdmin");
+  var adminIdStr = adminConfig["UserId"];
+  var adminEmail = adminConfig["Email"];
+  var adminDisplayName = adminConfig["DisplayName"] ?? "Default Admin";
+  if (!string.IsNullOrEmpty(adminIdStr) && !string.IsNullOrEmpty(adminEmail))
+  {
+    var adminId = Guid.Parse(adminIdStr);
+    if (!db.UserProfiles.Any(u => u.UserId == adminId))
+    {
+      db.UserProfiles.Add(new UserManagementService.Models.UserProfile
+      {
+        UserId = adminId,
+        Email = adminEmail,
+        DisplayName = adminDisplayName,
+        Role = SharedLibrary.Enums.UserRole.Admin,
+        CreatedAt = DateTime.UtcNow,
+        IsActive = true
+      });
+      db.SaveChanges();
+    }
+  }
 }
 
 if (app.Environment.IsDevelopment())

@@ -98,6 +98,27 @@ using (var scope = app.Services.CreateScope())
 {
   var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
   db.Database.EnsureCreated();
+
+  // Seed default admin user if not present
+  var adminConfig = app.Configuration.GetSection("DefaultAdmin");
+  var adminIdStr = adminConfig["UserId"];
+  var adminEmail = adminConfig["Email"];
+  var adminPassword = adminConfig["Password"];
+  if (!string.IsNullOrEmpty(adminIdStr) && !string.IsNullOrEmpty(adminEmail) && !string.IsNullOrEmpty(adminPassword))
+  {
+    var adminId = Guid.Parse(adminIdStr);
+    if (!db.Users.Any(u => u.UserId == adminId))
+    {
+      var passwordService = scope.ServiceProvider.GetRequiredService<IPasswordService>();
+      db.Users.Add(new AuthService.Models.User
+      {
+        UserId = adminId,
+        Email = adminEmail,
+        PasswordHash = passwordService.HashPassword(adminPassword)
+      });
+      db.SaveChanges();
+    }
+  }
 }
 
 app.UseRouting();
