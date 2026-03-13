@@ -1,6 +1,26 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { PlusCircle } from 'lucide-react'
 import { activitiesApi } from '../api/activities.api.js'
+import { Button } from './ui/button.jsx'
+import { Input } from './ui/input.jsx'
+import { Textarea } from './ui/textarea.jsx'
+import { Label } from './ui/label.jsx'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetClose,
+} from './ui/sheet.jsx'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select.jsx'
 
 const TYPES = ['Call', 'Email', 'Meeting', 'Task', 'Note']
 
@@ -44,51 +64,79 @@ export default function ActivityLogForm({ contactId, dealId, accountId, queryKey
   }
 
   return (
-    <div className="activity-log-form">
-      {!open ? (
-        <button className="btn btn-secondary btn-sm" onClick={() => setOpen(true)}>
-          + Log Activity
-        </button>
-      ) : (
-        <form className="activity-form-panel" onSubmit={handleSubmit}>
-          <div className="activity-form-row">
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <input
-              placeholder="Subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <textarea
-            placeholder="Notes (optional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-          />
-          {type === 'Task' && (
-            <label>
-              Scheduled
-              <input
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
+    <>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <PlusCircle size={14} />
+        Log Activity
+      </Button>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
+          <SheetHeader>
+            <SheetTitle>Log Activity</SheetTitle>
+          </SheetHeader>
+
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 gap-4 mt-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Type</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Subject *</Label>
+              <Input
+                placeholder="What happened?"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                autoFocus
               />
-            </label>
-          )}
-          {error && <p className="form-error">{error}</p>}
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={createMutation.isPending}>
-              Save
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => { setOpen(false); setError('') }}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Notes</Label>
+              <Textarea
+                placeholder="Additional notes (optional)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            {type === 'Task' && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Scheduled At</Label>
+                <Input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                />
+              </div>
+            )}
+
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error}</p>
+            )}
+
+            <SheetFooter className="mt-auto pt-4 border-t">
+              <SheetClose asChild>
+                <Button type="button" variant="outline">Cancel</Button>
+              </SheetClose>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? 'Saving…' : 'Save Activity'}
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }

@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '../../api/auth.api.js'
+import { Button } from '../../components/ui/button.jsx'
+import { Input } from '../../components/ui/input.jsx'
+import { Label } from '../../components/ui/label.jsx'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.jsx'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -27,39 +31,58 @@ export default function Register() {
   }
 
   return (
-    <div className="auth-page">
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <h2>Create account</h2>
-        {error && <p className="form-error">{error}</p>}
-        {success && <p className="form-success">{success}</p>}
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            autoComplete="new-password"
-          />
-        </label>
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? 'Creating account…' : 'Create account'}
-        </button>
-        <p className="auth-link">
-          Already have an account? <Link to="/login">Sign in</Link>
-        </p>
-      </form>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <Card className="w-full max-w-sm shadow-md">
+        <CardHeader>
+          <CardTitle className="text-xl">Create account</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
+                {error}
+              </p>
+            )}
+            {success && (
+              <p className="text-sm text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md border border-emerald-200">
+                {success}
+              </p>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                autoComplete="new-password"
+              />
+            </div>
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? 'Creating account…' : 'Create account'}
+            </Button>
+            <p className="text-sm text-gray-500 text-center">
+              Already have an account?{' '}
+              <Link to="/login" className="text-blue-600 hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

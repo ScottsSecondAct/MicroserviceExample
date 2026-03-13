@@ -5,6 +5,17 @@ import { dealsApi } from '../../api/deals.api.js'
 import { accountsApi } from '../../api/accounts.api.js'
 import { usersApi } from '../../api/users.api.js'
 import Breadcrumb from '../../components/Breadcrumb.jsx'
+import { Button } from '../../components/ui/button.jsx'
+import { Input } from '../../components/ui/input.jsx'
+import { Label } from '../../components/ui/label.jsx'
+import { Card, CardContent } from '../../components/ui/card.jsx'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select.jsx'
 
 const STAGES = ['Prospecting', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost']
 
@@ -49,9 +60,7 @@ export default function DealForm() {
         stage: existing.stage ?? 'Prospecting',
         value: existing.value ?? '',
         probability: existing.probability ?? '',
-        expectedCloseDate: existing.expectedCloseDate
-          ? existing.expectedCloseDate.slice(0, 10)
-          : '',
+        expectedCloseDate: existing.expectedCloseDate ? existing.expectedCloseDate.slice(0, 10) : '',
         ownerId: existing.ownerId ?? '',
       })
     }
@@ -66,6 +75,9 @@ export default function DealForm() {
     },
     onError: (err) => setError(err.message),
   })
+
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
+  const setSelect = (field) => (value) => setForm((f) => ({ ...f, [field]: value === '_none' ? '' : value }))
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -82,8 +94,6 @@ export default function DealForm() {
     })
   }
 
-  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
-
   const breadcrumbItems = isEdit && existing
     ? [
         { label: 'Pipeline', to: '/deals' },
@@ -96,67 +106,79 @@ export default function DealForm() {
       ]
 
   return (
-    <div style={{ maxWidth: '520px' }}>
+    <div className="max-w-lg">
       <Breadcrumb items={breadcrumbItems} />
-      <h1>{isEdit ? 'Edit Deal' : 'New Deal'}</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-5">{isEdit ? 'Edit Deal' : 'New Deal'}</h1>
 
-      {error && <p className="form-error">{error}</p>}
+      <Card>
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
+            )}
 
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label>Title *</label>
-          <input value={form.title} onChange={set('title')} required />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Title *</Label>
+              <Input value={form.title} onChange={set('title')} required />
+            </div>
 
-        <div className="form-group">
-          <label>Account</label>
-          <select value={form.accountId} onChange={set('accountId')}>
-            <option value="">— None —</option>
-            {accounts.map((a) => (
-              <option key={a.accountId} value={a.accountId}>{a.name}</option>
-            ))}
-          </select>
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Account</Label>
+              <Select value={form.accountId || '_none'} onValueChange={setSelect('accountId')}>
+                <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— None —</SelectItem>
+                  {accounts.map((a) => <SelectItem key={a.accountId} value={a.accountId}>{a.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="form-group">
-          <label>Stage</label>
-          <select value={form.stage} onChange={set('stage')}>
-            {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Stage</Label>
+              <Select value={form.stage} onValueChange={(v) => setForm((f) => ({ ...f, stage: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="form-group">
-          <label>Value ($)</label>
-          <input type="number" min="0" step="0.01" value={form.value} onChange={set('value')} />
-        </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>Value ($)</Label>
+                <Input type="number" min="0" step="0.01" value={form.value} onChange={set('value')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Probability (%)</Label>
+                <Input type="number" min="0" max="100" value={form.probability} onChange={set('probability')} />
+              </div>
+            </div>
 
-        <div className="form-group">
-          <label>Probability (%)</label>
-          <input type="number" min="0" max="100" value={form.probability} onChange={set('probability')} />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Expected Close Date</Label>
+              <Input type="date" value={form.expectedCloseDate} onChange={set('expectedCloseDate')} />
+            </div>
 
-        <div className="form-group">
-          <label>Expected Close Date</label>
-          <input type="date" value={form.expectedCloseDate} onChange={set('expectedCloseDate')} />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Owner</Label>
+              <Select value={form.ownerId || '_unassigned'} onValueChange={setSelect('ownerId')}>
+                <SelectTrigger><SelectValue placeholder="— Unassigned —" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_unassigned">— Unassigned —</SelectItem>
+                  {team.map((m) => <SelectItem key={m.userId} value={m.userId}>{m.displayName || m.userId}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="form-group">
-          <label>Owner</label>
-          <select value={form.ownerId} onChange={set('ownerId')}>
-            <option value="">— Unassigned —</option>
-            {team.map((m) => (
-              <option key={m.userId} value={m.userId}>{m.displayName || m.userId}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button type="submit" className="btn btn-primary" disabled={mutation.isPending}>
-            {isEdit ? 'Save Changes' : 'Create Deal'}
-          </button>
-          <button type="button" className="btn" onClick={() => navigate(-1)}>Cancel</button>
-        </div>
-      </form>
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" disabled={mutation.isPending}>
+                {isEdit ? 'Save Changes' : 'Create Deal'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

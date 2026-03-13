@@ -1,20 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { activitiesApi } from '../api/activities.api.js'
+import { Button } from './ui/button.jsx'
+import { Skeleton } from './ui/skeleton.jsx'
 
-const TYPE_COLORS = {
-  Call: 'activity-call',
-  Email: 'activity-email',
-  Meeting: 'activity-meeting',
-  Task: 'activity-task',
-  Note: 'activity-note',
+const TYPE_BORDER = {
+  Call:    'border-l-blue-500',
+  Email:   'border-l-violet-500',
+  Meeting: 'border-l-amber-500',
+  Task:    'border-l-emerald-500',
+  Note:    'border-l-gray-400',
 }
 
 const TYPE_ICONS = {
-  Call: '📞',
-  Email: '✉️',
+  Call:    '📞',
+  Email:   '✉️',
   Meeting: '🤝',
-  Task: '✓',
-  Note: '📝',
+  Task:    '✓',
+  Note:    '📝',
 }
 
 function formatDate(iso) {
@@ -47,41 +49,63 @@ export default function ActivityTimeline({ contactId, dealId, accountId, queryKe
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryKey ?? 'activities', params] }),
   })
 
-  if (isLoading) return <p className="loading">Loading activities…</p>
-  if (activities.length === 0) return <p className="empty">No activities yet.</p>
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-3">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-16 w-full rounded-lg" />
+        ))}
+      </div>
+    )
+  }
+
+  if (activities.length === 0) {
+    return <p className="text-sm text-gray-400 py-2">No activities yet.</p>
+  }
 
   return (
-    <div className="activity-timeline">
+    <div className="flex flex-col gap-3">
       {activities.map((a) => (
-        <div key={a.activityId} className={`activity-item ${TYPE_COLORS[a.type] ?? ''}`}>
-          <div className="activity-icon">{TYPE_ICONS[a.type] ?? '•'}</div>
-          <div className="activity-body">
-            <div className="activity-header">
-              <span className="activity-type">{a.type}</span>
+        <div
+          key={a.activityId}
+          className={`flex gap-3 p-3 rounded-lg border-l-[3px] bg-gray-50 ${TYPE_BORDER[a.type] ?? 'border-l-gray-300'}`}
+        >
+          <div className="text-base w-6 flex-shrink-0 pt-px">{TYPE_ICONS[a.type] ?? '•'}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                {a.type}
+              </span>
               {a.type === 'Task' && (
                 a.completedAt
-                  ? <span className="activity-done">Completed {formatDate(a.completedAt)}</span>
-                  : <button
-                      className="btn btn-sm btn-secondary"
+                  ? <span className="text-xs text-emerald-600">Completed {formatDate(a.completedAt)}</span>
+                  : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-xs px-2"
                       disabled={completeMutation.isPending}
                       onClick={() => completeMutation.mutate(a.activityId)}
                     >
                       Mark complete
-                    </button>
+                    </Button>
+                  )
               )}
-              <span className="activity-date">{formatDate(a.createdAt)}</span>
-              <button
-                className="btn btn-sm btn-danger"
+              <span className="ml-auto text-xs text-gray-400">{formatDate(a.createdAt)}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(a.activityId)}
               >
                 ×
-              </button>
+              </Button>
             </div>
-            <p className="activity-subject">{a.subject}</p>
-            {a.notes && <p className="activity-notes">{a.notes}</p>}
+            <p className="text-sm font-medium text-gray-900 m-0">{a.subject}</p>
+            {a.notes && <p className="text-sm text-gray-500 mt-0.5">{a.notes}</p>}
             {a.scheduledAt && !a.completedAt && (
-              <p className="activity-scheduled">Scheduled: {formatDate(a.scheduledAt)}</p>
+              <p className="text-xs text-amber-600 mt-0.5">Scheduled: {formatDate(a.scheduledAt)}</p>
             )}
           </div>
         </div>

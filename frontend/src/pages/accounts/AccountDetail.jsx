@@ -5,6 +5,27 @@ import { contactsApi } from '../../api/contacts.api.js'
 import ActivityLogForm from '../../components/ActivityLogForm.jsx'
 import ActivityTimeline from '../../components/ActivityTimeline.jsx'
 import Breadcrumb from '../../components/Breadcrumb.jsx'
+import { Button } from '../../components/ui/button.jsx'
+import { Badge } from '../../components/ui/badge.jsx'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.jsx'
+import { Skeleton } from '../../components/ui/skeleton.jsx'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.jsx'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../../components/ui/dialog.jsx'
+
+const STATUS_VARIANT = {
+  Lead: 'lead',
+  Prospect: 'prospect',
+  Customer: 'customer',
+  Churned: 'churned',
+}
 
 export default function AccountDetail() {
   const { id } = useParams()
@@ -30,13 +51,18 @@ export default function AccountDetail() {
     },
   })
 
-  function handleDelete() {
-    if (window.confirm('Delete this account?')) deleteMutation.mutate()
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-48 w-full rounded-lg" />
+      </div>
+    )
   }
-
-  if (isLoading) return <p className="loading">Loading…</p>
-  if (error) return <p className="form-error">{error.message}</p>
+  if (error) return <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error.message}</p>
   if (!account) return null
+
+  const addressParts = [account.street, account.city, account.state, account.postalCode, account.country].filter(Boolean)
 
   return (
     <div>
@@ -44,66 +70,107 @@ export default function AccountDetail() {
         { label: 'Accounts', to: '/accounts' },
         { label: account.name },
       ]} />
-      <div className="page-header">
-        <h1>{account.name}</h1>
-        <div className="btn-group">
-          <button className="btn btn-secondary" onClick={() => navigate(`/accounts/${id}/edit`)}>
-            Edit
-          </button>
-          <button className="btn btn-danger" onClick={handleDelete} disabled={deleteMutation.isPending}>
-            Delete
-          </button>
+
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-2xl font-bold text-gray-900">{account.name}</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate(`/accounts/${id}/edit`)}>Edit</Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="destructive">Delete</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete account?</DialogTitle>
+                <DialogDescription>
+                  This will permanently delete <strong>{account.name}</strong> and all associated data. This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={(e) => e.currentTarget.closest('[role=dialog]')?.querySelector('[aria-label=Close]')?.click()}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => deleteMutation.mutate()}
+                >
+                  {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
-      <div className="card">
-        <h2 className="card-title">Details</h2>
-        <table className="detail-table">
-          <tbody>
-            <tr><th>Industry</th><td>{account.industry ?? '—'}</td></tr>
-            <tr><th>Size</th><td>{account.size ?? '—'}</td></tr>
-            <tr><th>Website</th><td>{account.website ? <a href={account.website} target="_blank" rel="noreferrer">{account.website}</a> : '—'}</td></tr>
-            <tr><th>Address</th><td>{[account.street, account.city, account.state, account.postalCode, account.country].filter(Boolean).join(', ') || '—'}</td></tr>
-            <tr><th>Created</th><td>{new Date(account.createdAt).toLocaleString()}</td></tr>
-            <tr><th>Updated</th><td>{new Date(account.updatedAt).toLocaleString()}</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Contacts ({contacts.length})</h2>
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/contacts/new`)}>
-            + Add Contact
-          </button>
-        </div>
-        {contacts.length === 0 ? (
-          <p className="empty">No contacts linked to this account.</p>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr><th>Name</th><th>Email</th><th>Status</th></tr>
-            </thead>
+      <Card className="mb-4">
+        <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+        <CardContent className="pt-0">
+          <table className="w-full text-sm">
             <tbody>
-              {contacts.map((c) => (
-                <tr key={c.contactId} onClick={() => navigate(`/contacts/${c.contactId}`)}>
-                  <td><Link to={`/contacts/${c.contactId}`}>{c.firstName} {c.lastName}</Link></td>
-                  <td>{c.email}</td>
-                  <td><span className={`badge badge-${c.status.toLowerCase()}`}>{c.status}</span></td>
-                </tr>
-              ))}
+              <tr><th className="text-left w-36 py-2 pr-3 text-gray-500 font-medium">Industry</th><td className="py-2">{account.industry ?? '—'}</td></tr>
+              <tr><th className="text-left py-2 pr-3 text-gray-500 font-medium">Size</th><td className="py-2">{account.size ?? '—'}</td></tr>
+              <tr><th className="text-left py-2 pr-3 text-gray-500 font-medium">Website</th>
+                <td className="py-2">
+                  {account.website ? <a href={account.website} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{account.website}</a> : '—'}
+                </td>
+              </tr>
+              <tr><th className="text-left py-2 pr-3 text-gray-500 font-medium">Address</th><td className="py-2">{addressParts.length > 0 ? addressParts.join(', ') : '—'}</td></tr>
+              <tr><th className="text-left py-2 pr-3 text-gray-500 font-medium">Created</th><td className="py-2">{new Date(account.createdAt).toLocaleString()}</td></tr>
+              <tr><th className="text-left py-2 pr-3 text-gray-500 font-medium">Updated</th><td className="py-2">{new Date(account.updatedAt).toLocaleString()}</td></tr>
             </tbody>
           </table>
-        )}
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title">Activity</h2>
-          <ActivityLogForm accountId={id} queryKey="account-activities" />
-        </div>
-        <ActivityTimeline accountId={id} queryKey="account-activities" />
-      </div>
+      <Card className="mb-4">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Contacts ({contacts.length})</CardTitle>
+            <Button size="sm" variant="outline" onClick={() => navigate('/contacts/new')}>+ Add Contact</Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {contacts.length === 0 ? (
+            <p className="text-sm text-gray-400">No contacts linked to this account.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {contacts.map((c) => (
+                  <TableRow key={c.contactId} className="cursor-pointer" onClick={() => navigate(`/contacts/${c.contactId}`)}>
+                    <TableCell>
+                      <Link to={`/contacts/${c.contactId}`} className="text-blue-600 hover:underline no-underline" onClick={(e) => e.stopPropagation()}>
+                        {c.firstName} {c.lastName}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{c.email}</TableCell>
+                    <TableCell><Badge variant={STATUS_VARIANT[c.status] ?? 'default'}>{c.status}</Badge></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Activity</CardTitle>
+            <ActivityLogForm accountId={id} queryKey="account-activities" />
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <ActivityTimeline accountId={id} queryKey="account-activities" />
+        </CardContent>
+      </Card>
     </div>
   )
 }

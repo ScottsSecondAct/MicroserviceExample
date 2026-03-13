@@ -3,6 +3,17 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { accountsApi } from '../../api/accounts.api.js'
 import Breadcrumb from '../../components/Breadcrumb.jsx'
+import { Button } from '../../components/ui/button.jsx'
+import { Input } from '../../components/ui/input.jsx'
+import { Label } from '../../components/ui/label.jsx'
+import { Card, CardContent } from '../../components/ui/card.jsx'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select.jsx'
 
 const INDUSTRIES = ['Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing', 'Education', 'Other']
 const SIZES = ['Small', 'Medium', 'Large', 'Enterprise']
@@ -60,7 +71,7 @@ export default function AccountForm() {
   function handleSubmit(e) {
     e.preventDefault()
     setError(null)
-    const payload = {
+    mutation.mutate({
       ...fields,
       industry: fields.industry || null,
       size: fields.size || null,
@@ -70,8 +81,7 @@ export default function AccountForm() {
       state: fields.state || null,
       postalCode: fields.postalCode || null,
       country: fields.country || null,
-    }
-    mutation.mutate(payload)
+    })
   }
 
   const breadcrumbItems = isEdit && existing
@@ -88,69 +98,79 @@ export default function AccountForm() {
   return (
     <div>
       <Breadcrumb items={breadcrumbItems} />
-      <h1>{isEdit ? 'Edit Account' : 'New Account'}</h1>
-      <div className="card">
-        <form onSubmit={handleSubmit} className="edit-form">
-          {error && <p className="form-error">{error}</p>}
-          <label>
-            Name *
-            <input value={fields.name} onChange={(e) => set('name', e.target.value)} required />
-          </label>
-          <div className="form-row">
-            <label>
-              Industry
-              <select value={fields.industry} onChange={(e) => set('industry', e.target.value)}>
-                <option value="">— Select —</option>
-                {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
-              </select>
-            </label>
-            <label>
-              Size
-              <select value={fields.size} onChange={(e) => set('size', e.target.value)}>
-                <option value="">— Select —</option>
-                {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </label>
-          </div>
-          <label>
-            Website
-            <input type="url" value={fields.website} onChange={(e) => set('website', e.target.value)} placeholder="https://" />
-          </label>
-          <h3>Address</h3>
-          <label>
-            Street
-            <input value={fields.street} onChange={(e) => set('street', e.target.value)} />
-          </label>
-          <div className="form-row">
-            <label>
-              City
-              <input value={fields.city} onChange={(e) => set('city', e.target.value)} />
-            </label>
-            <label>
-              State / Region
-              <input value={fields.state} onChange={(e) => set('state', e.target.value)} />
-            </label>
-          </div>
-          <div className="form-row">
-            <label>
-              Postal Code
-              <input value={fields.postalCode} onChange={(e) => set('postalCode', e.target.value)} />
-            </label>
-            <label>
-              Country
-              <input value={fields.country} onChange={(e) => set('country', e.target.value)} />
-            </label>
-          </div>
-          <div className="form-actions">
-            <button type="submit" className="btn btn-primary" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create account'}
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigate(-1)}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-5">
+        {isEdit ? 'Edit Account' : 'New Account'}
+      </h1>
+      <Card>
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <Label>Name *</Label>
+              <Input value={fields.name} onChange={(e) => set('name', e.target.value)} required />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>Industry</Label>
+                <Select value={fields.industry || '_none'} onValueChange={(v) => set('industry', v === '_none' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="— Select —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— Select —</SelectItem>
+                    {INDUSTRIES.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Size</Label>
+                <Select value={fields.size || '_none'} onValueChange={(v) => set('size', v === '_none' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="— Select —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— Select —</SelectItem>
+                    {SIZES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Website</Label>
+              <Input type="url" value={fields.website} onChange={(e) => set('website', e.target.value)} placeholder="https://" />
+            </div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Address</p>
+            <div className="flex flex-col gap-1.5">
+              <Label>Street</Label>
+              <Input value={fields.street} onChange={(e) => set('street', e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>City</Label>
+                <Input value={fields.city} onChange={(e) => set('city', e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>State / Region</Label>
+                <Input value={fields.state} onChange={(e) => set('state', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>Postal Code</Label>
+                <Input value={fields.postalCode} onChange={(e) => set('postalCode', e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Country</Label>
+                <Input value={fields.country} onChange={(e) => set('country', e.target.value)} />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create account'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }
