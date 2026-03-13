@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { Pencil, Trash2 } from 'lucide-react'
 import { accountsApi } from '../../api/accounts.api.js'
+import { toast } from '../../hooks/use-toast.js'
 import AccountForm from './AccountForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
@@ -45,17 +46,21 @@ export default function AccountList() {
     mutationFn: (id) => accountsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      toast({ variant: 'success', title: 'Account deleted' })
       setDeleteTarget(null)
     },
+    onError: (err) => toast({ variant: 'destructive', title: 'Delete failed', description: err.message }),
   })
 
   const bulkDeleteMutation = useMutation({
     mutationFn: (ids) => Promise.all([...ids].map((id) => accountsApi.delete(id))),
-    onSuccess: () => {
+    onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      toast({ variant: 'success', title: `${[...ids].length} account${[...ids].length !== 1 ? 's' : ''} deleted` })
       clearSelection()
       setBulkDeleteOpen(false)
     },
+    onError: (err) => toast({ variant: 'destructive', title: 'Bulk delete failed', description: err.message }),
   })
 
   const { sortedData: sortedAccounts, sortKey, sortDir, handleSort } = useSortableTable(accounts, 'name')

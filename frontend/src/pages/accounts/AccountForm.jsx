@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select.jsx'
+import { toast } from '../../hooks/use-toast.js'
 
 const INDUSTRIES = ['Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing', 'Education', 'Other']
 const SIZES = ['Small', 'Medium', 'Large', 'Enterprise']
@@ -31,7 +32,6 @@ export default function AccountForm({ onSuccess, onClose, id: idProp }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [fields, setFields] = useState(EMPTY)
-  const [error, setError] = useState(null)
 
   const { data: existing } = useQuery({
     queryKey: ['account', id],
@@ -61,13 +61,14 @@ export default function AccountForm({ onSuccess, onClose, id: idProp }) {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       if (isEdit) queryClient.invalidateQueries({ queryKey: ['account', id] })
+      toast({ variant: 'success', title: isEdit ? 'Account updated' : 'Account created' })
       if (onSuccess) {
         onSuccess(result)
       } else {
         navigate(isEdit ? `/accounts/${id}` : `/accounts/${result.accountId}`)
       }
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => toast({ variant: 'destructive', title: 'Save failed', description: err.message }),
   })
 
   function set(field, value) {
@@ -76,7 +77,6 @@ export default function AccountForm({ onSuccess, onClose, id: idProp }) {
 
   function handleSubmit(e) {
     e.preventDefault()
-    setError(null)
     mutation.mutate({
       ...fields,
       industry: fields.industry || null,
@@ -103,9 +103,6 @@ export default function AccountForm({ onSuccess, onClose, id: idProp }) {
 
   const formFields = (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
-      )}
       <div className="flex flex-col gap-1.5">
         <Label>Name *</Label>
         <Input value={fields.name} onChange={(e) => set('name', e.target.value)} required />

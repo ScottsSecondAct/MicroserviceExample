@@ -79,8 +79,10 @@ export default function ContactDetail() {
     mutationFn: () => contactsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      toast({ variant: 'success', title: 'Contact deleted' })
       navigate('/contacts')
     },
+    onError: (err) => toast({ variant: 'destructive', title: 'Delete failed', description: err.message }),
   })
 
   if (isLoading) {
