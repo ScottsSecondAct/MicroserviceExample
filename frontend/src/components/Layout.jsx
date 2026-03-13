@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Users, Building2, BarChart3, CheckSquare, LayoutDashboard, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Users, Building2, BarChart3, CheckSquare, LayoutDashboard, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react'
 import TopBar from './TopBar.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { cn } from '../lib/utils'
 
 const navGroups = [
@@ -27,8 +28,17 @@ const navGroups = [
   },
 ]
 
+const adminNavGroup = {
+  label: 'Admin',
+  items: [
+    { to: '/admin/users', label: 'Users', Icon: ShieldCheck },
+  ],
+}
+
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'Admin'
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -63,7 +73,7 @@ export default function Layout() {
 
           {/* Nav */}
           <nav className="flex-1 overflow-y-auto py-3">
-            {navGroups.map(group => (
+            {[...navGroups, ...(isAdmin ? [adminNavGroup] : [])].map(group => (
               <div key={group.label} className="mb-1">
                 {!collapsed && (
                   <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-widest text-sidebar-muted select-none">
