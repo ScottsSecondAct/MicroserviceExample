@@ -1,5 +1,18 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, TrendingDown, Minus, DollarSign, BarChart3, Users, Activity } from 'lucide-react'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  FunnelChart,
+  Funnel,
+  LabelList,
+} from 'recharts'
 import { reportsApi } from '../../api/reports.api.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
@@ -60,28 +73,43 @@ function StatCard({ label, value, icon, trend, subLabel }) {
   )
 }
 
-function PipelineBar({ stage, dealCount, totalValue, maxValue }) {
-  const pct = maxValue > 0 ? (totalValue / maxValue) * 100 : 0
+// Custom tooltip for the Pipeline BarChart
+function PipelineTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+  const { stage, dealCount, totalValue } = payload[0].payload
   return (
-    <div className="flex items-center gap-3 py-2">
-      <div className="w-28 text-sm text-gray-700 font-medium truncate">{stage}</div>
-      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-blue-500 rounded-full transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <div className="flex gap-3 text-xs text-gray-500 tabular-nums w-32 text-right justify-end">
-        <span>{dealCount} deal{dealCount !== 1 ? 's' : ''}</span>
-        <span>${totalValue.toLocaleString()}</span>
-      </div>
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-sm">
+      <p className="font-semibold text-gray-900 mb-1">{stage}</p>
+      <p className="text-gray-500">{dealCount} deal{dealCount !== 1 ? 's' : ''}</p>
+      <p className="text-blue-600 font-medium">${totalValue.toLocaleString()}</p>
     </div>
   )
 }
 
+// Custom tooltip for the Contact Funnel
+function FunnelTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+  const entry = payload[0].payload
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-sm">
+      <p className="font-semibold text-gray-900">{entry.status}</p>
+      <p className="text-gray-500">{entry.count} contact{entry.count !== 1 ? 's' : ''}</p>
+    </div>
+  )
+}
+
+const STAGE_COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#ec4899']
+const STAGE_COLORS_ACTIVE = ['#1d4ed8', '#4338ca', '#7c3aed', '#9333ea', '#db2777']
+
+const FUNNEL_COLORS = ['#3b82f6', '#6366f1', '#10b981', '#f43f5e']
+const FUNNEL_COLORS_ACTIVE = ['#1d4ed8', '#4338ca', '#059669', '#e11d48']
+
 const OPEN_STAGES = new Set(['Prospecting', 'Proposal', 'Negotiation'])
 
 export default function Dashboard() {
+  const [selectedStage, setSelectedStage] = useState(null)
+  const [selectedStatus, setSelectedStatus] = useState(null)
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard'],
     queryFn: reportsApi.dashboard,
@@ -166,10 +194,19 @@ export default function Dashboard() {
     },
   ]
 
-  const maxPipelineValue = Math.max(...pipeline.map(p => p.totalValue), 1)
-
   const statusOrder = ['Lead', 'Prospect', 'Customer', 'Churned']
   const funnelOrdered = statusOrder.map(s => contacts.find(c => c.status === s) ?? { status: s, count: 0 })
+
+  const handleStageClick = (data) => {
+    if (!data?.activePayload?.[0]) return
+    const stage = data.activePayload[0].payload.stage
+    setSelectedStage(prev => prev === stage ? null : stage)
+  }
+
+  const handleFunnelClick = (entry) => {
+    if (!entry?.status) return
+    setSelectedStatus(prev => prev === entry.status ? null : entry.status)
+  }
 
   return (
     <div>
@@ -190,51 +227,129 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Pipeline summary */}
+        {/* Pipeline by Stage — interactive horizontal BarChart */}
         <Card>
           <CardHeader><CardTitle>Pipeline by Stage</CardTitle></CardHeader>
           <CardContent className="pt-0">
             {pipeline.length === 0 ? (
               <p className="text-sm text-gray-400">No deals yet.</p>
             ) : (
-              <div>
-                {pipeline.map(p => (
-                  <PipelineBar
-                    key={p.stage}
-                    stage={p.stage}
-                    dealCount={p.dealCount}
-                    totalValue={p.totalValue}
-                    maxValue={maxPipelineValue}
-                  />
-                ))}
-              </div>
+              <>
+                <ResponsiveContainer width="100%" height={pipeline.length * 44 + 20}>
+                  <BarChart
+                    data={pipeline}
+                    layout="vertical"
+                    margin={{ top: 4, right: 12, bottom: 4, left: 0 }}
+                    onClick={handleStageClick}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <XAxis
+                      type="number"
+                      tickFormatter={(v) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="stage"
+                      width={90}
+                      tick={{ fontSize: 12, fill: '#374151' }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<PipelineTooltip />} cursor={{ fill: '#f8fafc' }} />
+                    <Bar dataKey="totalValue" radius={[0, 4, 4, 0]}>
+                      {pipeline.map((entry, i) => (
+                        <Cell
+                          key={entry.stage}
+                          fill={
+                            selectedStage === entry.stage
+                              ? STAGE_COLORS_ACTIVE[i % STAGE_COLORS_ACTIVE.length]
+                              : STAGE_COLORS[i % STAGE_COLORS.length]
+                          }
+                          opacity={selectedStage && selectedStage !== entry.stage ? 0.45 : 1}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                {selectedStage && (() => {
+                  const p = pipeline.find(p => p.stage === selectedStage)
+                  return (
+                    <div className="mt-2 px-3 py-2 bg-blue-50 rounded-md text-sm flex items-center justify-between">
+                      <span className="font-medium text-blue-800">{p.stage}</span>
+                      <span className="text-blue-700">{p.dealCount} deal{p.dealCount !== 1 ? 's' : ''} · ${p.totalValue.toLocaleString()}</span>
+                    </div>
+                  )
+                })()}
+              </>
             )}
           </CardContent>
         </Card>
 
-        {/* Contact funnel */}
+        {/* Contact Funnel — interactive FunnelChart */}
         <Card>
           <CardHeader><CardTitle>Contact Funnel</CardTitle></CardHeader>
           <CardContent className="pt-0">
             {totalContacts === 0 ? (
               <p className="text-sm text-gray-400">No status transitions recorded yet.</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Count</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {funnelOrdered.map(c => (
-                    <TableRow key={c.status}>
-                      <TableCell>{c.status}</TableCell>
-                      <TableCell className="tabular-nums">{c.count}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <>
+                <ResponsiveContainer width="100%" height={220}>
+                  <FunnelChart>
+                    <Tooltip content={<FunnelTooltip />} />
+                    <Funnel
+                      dataKey="count"
+                      data={funnelOrdered}
+                      isAnimationActive
+                      onClick={handleFunnelClick}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <LabelList
+                        position="center"
+                        content={({ x, y, width, height, index }) => {
+                          if (!width || width < 40) return null
+                          const entry = funnelOrdered[index]
+                          return (
+                            <text
+                              x={x + width / 2}
+                              y={y + height / 2}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              fontSize={12}
+                              fill="white"
+                              fontWeight={500}
+                            >
+                              {entry?.status}
+                            </text>
+                          )
+                        }}
+                      />
+                      {funnelOrdered.map((entry, i) => (
+                        <Cell
+                          key={entry.status}
+                          fill={
+                            selectedStatus === entry.status
+                              ? FUNNEL_COLORS_ACTIVE[i % FUNNEL_COLORS_ACTIVE.length]
+                              : FUNNEL_COLORS[i % FUNNEL_COLORS.length]
+                          }
+                          opacity={selectedStatus && selectedStatus !== entry.status ? 0.45 : 1}
+                        />
+                      ))}
+                    </Funnel>
+                  </FunnelChart>
+                </ResponsiveContainer>
+                {selectedStatus && (() => {
+                  const c = funnelOrdered.find(c => c.status === selectedStatus)
+                  return (
+                    <div className="mt-2 px-3 py-2 bg-blue-50 rounded-md text-sm flex items-center justify-between">
+                      <span className="font-medium text-blue-800">{c.status}</span>
+                      <span className="text-blue-700">{c.count} contact{c.count !== 1 ? 's' : ''}</span>
+                    </div>
+                  )
+                })()}
+              </>
             )}
           </CardContent>
         </Card>
