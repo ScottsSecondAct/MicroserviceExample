@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
 import { Card, CardContent } from '../../components/ui/card.jsx'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.jsx'
-import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.js'
+import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
 
 function formatDate(iso) {
   if (!iso) return '—'
