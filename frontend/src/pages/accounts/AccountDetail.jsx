@@ -20,7 +20,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '../../components/ui/dialog.jsx'
 import {
   Sheet,
@@ -43,6 +42,7 @@ export default function AccountDetail() {
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
   const [addContactOpen, setAddContactOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const { data: account, isLoading, error } = useQuery({
     queryKey: ['account', id],
@@ -116,31 +116,7 @@ export default function AccountDetail() {
         <h1 className="text-2xl font-bold text-gray-900">{account.name}</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setEditOpen(true)}>Edit</Button>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="destructive">Delete</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete account?</DialogTitle>
-                <DialogDescription>
-                  This will permanently delete <strong>{account.name}</strong> and all associated data. This action cannot be undone.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={(e) => e.currentTarget.closest('[role=dialog]')?.querySelector('[aria-label=Close]')?.click()}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  disabled={deleteMutation.isPending}
-                  onClick={() => deleteMutation.mutate()}
-                >
-                  {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button variant="destructive" onClick={() => setDeleteOpen(true)}>Delete</Button>
         </div>
       </div>
 
@@ -244,6 +220,30 @@ export default function AccountDetail() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Delete Account Confirmation Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete account?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong>{account.name}</strong> and all associated data. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
