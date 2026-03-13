@@ -1,7 +1,16 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { activitiesApi } from '../api/activities.api.js'
 import { Button } from './ui/button.jsx'
 import { Skeleton } from './ui/skeleton.jsx'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog.jsx'
 
 const TYPE_BORDER = {
   Call:    'border-l-blue-500',
@@ -28,6 +37,7 @@ function formatDate(iso) {
 
 export default function ActivityTimeline({ contactId, dealId, accountId, queryKey }) {
   const queryClient = useQueryClient()
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const params = {}
   if (contactId) params.contactId = contactId
@@ -46,7 +56,10 @@ export default function ActivityTimeline({ contactId, dealId, accountId, queryKe
 
   const deleteMutation = useMutation({
     mutationFn: (id) => activitiesApi.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [queryKey ?? 'activities', params] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [queryKey ?? 'activities', params] })
+      setDeleteTarget(null)
+    },
   })
 
   if (isLoading) {
@@ -64,52 +77,78 @@ export default function ActivityTimeline({ contactId, dealId, accountId, queryKe
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {activities.map((a) => (
-        <div
-          key={a.activityId}
-          className={`flex gap-3 p-3 rounded-lg border-l-[3px] bg-gray-50 ${TYPE_BORDER[a.type] ?? 'border-l-gray-300'}`}
-        >
-          <div className="text-base w-6 flex-shrink-0 pt-px">{TYPE_ICONS[a.type] ?? '•'}</div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                {a.type}
-              </span>
-              {a.type === 'Task' && (
-                a.completedAt
-                  ? <span className="text-xs text-emerald-600">Completed {formatDate(a.completedAt)}</span>
-                  : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 text-xs px-2"
-                      disabled={completeMutation.isPending}
-                      onClick={() => completeMutation.mutate(a.activityId)}
-                    >
-                      Mark complete
-                    </Button>
-                  )
+    <>
+      <div className="flex flex-col gap-3">
+        {activities.map((a) => (
+          <div
+            key={a.activityId}
+            className={`flex gap-3 p-3 rounded-lg border-l-[3px] bg-gray-50 ${TYPE_BORDER[a.type] ?? 'border-l-gray-300'}`}
+          >
+            <div className="text-base w-6 flex-shrink-0 pt-px">{TYPE_ICONS[a.type] ?? '•'}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                  {a.type}
+                </span>
+                {a.type === 'Task' && (
+                  a.completedAt
+                    ? <span className="text-xs text-emerald-600">Completed {formatDate(a.completedAt)}</span>
+                    : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-xs px-2"
+                        disabled={completeMutation.isPending}
+                        onClick={() => completeMutation.mutate(a.activityId)}
+                      >
+                        Mark complete
+                      </Button>
+                    )
+                )}
+                <span className="ml-auto text-xs text-gray-400">{formatDate(a.createdAt)}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                  onClick={() => setDeleteTarget(a)}
+                >
+                  ×
+                </Button>
+              </div>
+              <p className="text-sm font-medium text-gray-900 m-0">{a.subject}</p>
+              {a.notes && <p className="text-sm text-gray-500 mt-0.5">{a.notes}</p>}
+              {a.scheduledAt && !a.completedAt && (
+                <p className="text-xs text-amber-600 mt-0.5">Scheduled: {formatDate(a.scheduledAt)}</p>
               )}
-              <span className="ml-auto text-xs text-gray-400">{formatDate(a.createdAt)}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50"
-                disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate(a.activityId)}
-              >
-                ×
-              </Button>
             </div>
-            <p className="text-sm font-medium text-gray-900 m-0">{a.subject}</p>
-            {a.notes && <p className="text-sm text-gray-500 mt-0.5">{a.notes}</p>}
-            {a.scheduledAt && !a.completedAt && (
-              <p className="text-xs text-amber-600 mt-0.5">Scheduled: {formatDate(a.scheduledAt)}</p>
-            )}
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Activity</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{' '}
+              <strong>"{deleteTarget?.subject}"</strong>?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(deleteTarget.activityId)}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

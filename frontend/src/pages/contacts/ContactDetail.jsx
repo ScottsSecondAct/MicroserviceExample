@@ -19,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '../../components/ui/dialog.jsx'
 import {
   Sheet,
@@ -48,6 +47,7 @@ export default function ContactDetail() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const { data: contact, isLoading, error } = useQuery({
     queryKey: ['contact', id],
@@ -135,31 +135,7 @@ export default function ContactDetail() {
         <h1 className="text-2xl font-bold text-gray-900">{contact.firstName} {contact.lastName}</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setEditOpen(true)}>Edit</Button>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="destructive">Delete</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete contact?</DialogTitle>
-                <DialogDescription>
-                  This will permanently delete {contact.firstName} {contact.lastName} and all associated data. This action cannot be undone.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={(e) => e.currentTarget.closest('[role=dialog]')?.querySelector('[aria-label=Close]')?.click()}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  disabled={deleteMutation.isPending}
-                  onClick={() => deleteMutation.mutate()}
-                >
-                  {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button variant="destructive" onClick={() => setDeleteOpen(true)}>Delete</Button>
         </div>
       </div>
 
@@ -253,6 +229,30 @@ export default function ContactDetail() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Delete Contact Confirmation Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete contact?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong>{contact.firstName} {contact.lastName}</strong> and all associated data. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

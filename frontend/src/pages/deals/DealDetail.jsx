@@ -21,7 +21,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '../../components/ui/dialog.jsx'
 import {
   Select,
@@ -48,6 +47,8 @@ export default function DealDetail() {
   const [contactId, setContactId] = useState('')
   const [contactRole, setContactRole] = useState('Influencer')
   const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState(null)
 
   const { data: deal, isLoading, error } = useQuery({
     queryKey: ['deal', id],
@@ -98,6 +99,7 @@ export default function DealDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deal', id] })
       toast({ variant: 'success', title: 'Contact removed' })
+      setRemoveTarget(null)
     },
     onError: (err) => toast({ variant: 'destructive', title: 'Failed to remove contact', description: err.message }),
   })
@@ -167,27 +169,7 @@ export default function DealDetail() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setEditOpen(true)}>Edit</Button>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="destructive">Delete</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete deal?</DialogTitle>
-                <DialogDescription>
-                  This will permanently delete <strong>{deal.title}</strong>. This action cannot be undone.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={(e) => e.currentTarget.closest('[role=dialog]')?.querySelector('[aria-label=Close]')?.click()}>
-                  Cancel
-                </Button>
-                <Button variant="destructive" onClick={() => deleteDeal.mutate()} disabled={deleteDeal.isPending}>
-                  {deleteDeal.isPending ? 'Deleting…' : 'Delete'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button variant="destructive" onClick={() => setDeleteOpen(true)}>Delete</Button>
         </div>
       </div>
 
@@ -253,7 +235,7 @@ export default function DealDetail() {
                       </TableCell>
                       <TableCell>{dc.role}</TableCell>
                       <TableCell>
-                        <Button size="sm" variant="destructive" onClick={() => removeContact.mutate(dc.contactId)}>
+                        <Button size="sm" variant="destructive" onClick={() => setRemoveTarget(dc)}>
                           Remove
                         </Button>
                       </TableCell>
@@ -321,6 +303,57 @@ export default function DealDetail() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Delete Deal Confirmation Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete deal?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong>{deal.title}</strong>. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteDeal.isPending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => deleteDeal.mutate()} disabled={deleteDeal.isPending}>
+              {deleteDeal.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Deal-Contact Confirmation Dialog */}
+      <Dialog open={!!removeTarget} onOpenChange={(open) => { if (!open) setRemoveTarget(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove contact?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove{' '}
+              <strong>
+                {(() => {
+                  const c = allContacts.find((c) => c.contactId === removeTarget?.contactId)
+                  return c ? `${c.firstName} ${c.lastName}` : 'this contact'
+                })()}
+              </strong>{' '}
+              from this deal? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoveTarget(null)} disabled={removeContact.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={removeContact.isPending}
+              onClick={() => removeContact.mutate(removeTarget.contactId)}
+            >
+              {removeContact.isPending ? 'Removing…' : 'Remove'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
