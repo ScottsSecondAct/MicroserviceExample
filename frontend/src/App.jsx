@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import AdminRoute from './components/AdminRoute.jsx'
 import Layout from './components/Layout.jsx'
 import Login from './pages/auth/Login.jsx'
 import Register from './pages/auth/Register.jsx'
@@ -16,6 +17,7 @@ import DealDetail from './pages/deals/DealDetail.jsx'
 import DealForm from './pages/deals/DealForm.jsx'
 import TaskList from './pages/activities/TaskList.jsx'
 import Dashboard from './pages/dashboard/Dashboard.jsx'
+import AdminUserList from './pages/admin/AdminUserList.jsx'
 
 export default function App() {
   return (
@@ -42,6 +44,9 @@ export default function App() {
               <Route path="/activities/tasks" element={<TaskList />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/profile" element={<Profile />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin/users" element={<AdminUserList />} />
+              </Route>
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/contacts" replace />} />
