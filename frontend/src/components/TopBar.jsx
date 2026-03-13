@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, Bell, ChevronDown, User, LogOut } from 'lucide-react'
+import { Search, Bell, ChevronDown, User, LogOut, Menu } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import {
   DropdownMenu,
@@ -20,7 +20,7 @@ function getInitials(email) {
   return local.slice(0, 2).toUpperCase()
 }
 
-export default function TopBar() {
+export default function TopBar({ onMenuClick }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
@@ -38,9 +38,18 @@ export default function TopBar() {
   const initials = getInitials(user?.email)
 
   return (
-    <header className="h-14 sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-5 gap-4 flex-shrink-0">
+    <header className="h-14 sticky top-0 z-20 bg-white border-b border-gray-200 flex items-center justify-between px-3 md:px-5 gap-2 md:gap-4 flex-shrink-0">
+      {/* Hamburger — mobile only */}
+      <button
+        className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors flex-shrink-0"
+        onClick={onMenuClick}
+        aria-label="Open navigation menu"
+      >
+        <Menu size={20} />
+      </button>
+
       {/* Search */}
-      <div className="flex-1 max-w-md">
+      <div className="flex-1 max-w-md min-w-0">
         <form className="relative flex items-center" onSubmit={handleSearchSubmit} role="search">
           <Search className="absolute left-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
           <input
