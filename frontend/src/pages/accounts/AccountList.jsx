@@ -13,6 +13,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../../components/ui/sheet.jsx'
+import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.js'
 
 export default function AccountList() {
   const navigate = useNavigate()
@@ -22,6 +23,8 @@ export default function AccountList() {
     queryKey: ['accounts'],
     queryFn: accountsApi.list,
   })
+
+  const { sortedData: sortedAccounts, sortKey, sortDir, handleSort } = useSortableTable(accounts, 'name')
 
   return (
     <div>
@@ -43,15 +46,23 @@ export default function AccountList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Industry</TableHead>
-                <TableHead>Size</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('name')}>
+                  Name <SortIcon active={sortKey === 'name'} dir={sortDir} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('industry')}>
+                  Industry <SortIcon active={sortKey === 'industry'} dir={sortDir} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('size')}>
+                  Size <SortIcon active={sortKey === 'size'} dir={sortDir} />
+                </TableHead>
                 <TableHead>Website</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('createdAt')}>
+                  Created <SortIcon active={sortKey === 'createdAt'} dir={sortDir} />
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {accounts.map((a) => (
+              {sortedAccounts.map((a) => (
                 <TableRow
                   key={a.accountId}
                   className="cursor-pointer"
