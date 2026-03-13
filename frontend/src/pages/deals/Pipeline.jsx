@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { TrendingUp } from 'lucide-react'
 import { dealsApi } from '../../api/deals.api.js'
 import DealForm from './DealForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
+import { EmptyState } from '../../components/EmptyState.jsx'
 import {
   Sheet,
   SheetContent,
@@ -76,6 +78,8 @@ export default function Pipeline() {
     e.dataTransfer.dropEffect = 'move'
   }
 
+  const totalDeals = board.reduce((sum, col) => sum + col.deals.length, 0)
+
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
@@ -83,6 +87,14 @@ export default function Pipeline() {
         <Button onClick={() => setSheetOpen(true)}>+ New Deal</Button>
       </div>
 
+      {totalDeals === 0 ? (
+        <EmptyState
+          icon={<TrendingUp size={28} />}
+          heading="No deals in your pipeline"
+          description="Start tracking your sales — add your first deal to the pipeline."
+          action={{ label: '+ Add your first deal', onClick: () => setSheetOpen(true) }}
+        />
+      ) : (
       <div className="flex gap-4 overflow-x-auto pb-4 items-start">
         {board.map((col) => {
           const style = STAGE_STYLES[col.stage] ?? { header: 'text-gray-600', border: 'border-gray-200 bg-gray-50' }
@@ -124,6 +136,7 @@ export default function Pipeline() {
           )
         })}
       </div>
+      )}
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="sm:max-w-lg overflow-y-auto">

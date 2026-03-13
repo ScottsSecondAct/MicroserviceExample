@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Users } from 'lucide-react'
+import { EmptyState } from '../../components/EmptyState.jsx'
 import { contactsApi } from '../../api/contacts.api.js'
 import { toast } from '../../hooks/use-toast.js'
 import { usersApi } from '../../api/users.api.js'
@@ -169,7 +170,20 @@ export default function ContactList() {
       ) : error ? (
         <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error.message}</p>
       ) : contacts.length === 0 ? (
-        <p className="text-sm text-gray-400 py-4">No contacts found.</p>
+        statusFilter || ownerFilter ? (
+          <EmptyState
+            icon={<Users size={28} />}
+            heading="No contacts found"
+            description="No contacts match the selected filters. Try adjusting or clearing your filters."
+          />
+        ) : (
+          <EmptyState
+            icon={<Users size={28} />}
+            heading="No contacts yet"
+            description="Your CRM is ready for people — add your first contact to get started."
+            action={{ label: '+ Add your first contact', onClick: () => setSheetOpen(true) }}
+          />
+        )
       ) : (
         <Card className="p-0 overflow-hidden">
           <BulkActionBar selectedCount={selectedCount} onClearSelection={clearSelection}>
