@@ -23,9 +23,11 @@ const EMPTY = {
   street: '', city: '', state: '', postalCode: '', country: '',
 }
 
-export default function AccountForm() {
-  const { id } = useParams()
+export default function AccountForm({ onSuccess, onClose, id: idProp }) {
+  const { id: idParam } = useParams()
+  const id = onClose !== undefined ? idProp : idParam
   const isEdit = !!id
+  const isSheet = onClose !== undefined
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [fields, setFields] = useState(EMPTY)
@@ -59,7 +61,11 @@ export default function AccountForm() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       if (isEdit) queryClient.invalidateQueries({ queryKey: ['account', id] })
-      navigate(isEdit ? `/accounts/${id}` : `/accounts/${result.accountId}`)
+      if (onSuccess) {
+        onSuccess(result)
+      } else {
+        navigate(isEdit ? `/accounts/${id}` : `/accounts/${result.accountId}`)
+      }
     },
     onError: (err) => setError(err.message),
   })
@@ -95,6 +101,79 @@ export default function AccountForm() {
         { label: 'New Account' },
       ]
 
+  const formFields = (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
+      )}
+      <div className="flex flex-col gap-1.5">
+        <Label>Name *</Label>
+        <Input value={fields.name} onChange={(e) => set('name', e.target.value)} required />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>Industry</Label>
+          <Select value={fields.industry || '_none'} onValueChange={(v) => set('industry', v === '_none' ? '' : v)}>
+            <SelectTrigger><SelectValue placeholder="— Select —" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">— Select —</SelectItem>
+              {INDUSTRIES.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Size</Label>
+          <Select value={fields.size || '_none'} onValueChange={(v) => set('size', v === '_none' ? '' : v)}>
+            <SelectTrigger><SelectValue placeholder="— Select —" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">— Select —</SelectItem>
+              {SIZES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label>Website</Label>
+        <Input type="url" value={fields.website} onChange={(e) => set('website', e.target.value)} placeholder="https://" />
+      </div>
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Address</p>
+      <div className="flex flex-col gap-1.5">
+        <Label>Street</Label>
+        <Input value={fields.street} onChange={(e) => set('street', e.target.value)} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>City</Label>
+          <Input value={fields.city} onChange={(e) => set('city', e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>State / Region</Label>
+          <Input value={fields.state} onChange={(e) => set('state', e.target.value)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>Postal Code</Label>
+          <Input value={fields.postalCode} onChange={(e) => set('postalCode', e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Country</Label>
+          <Input value={fields.country} onChange={(e) => set('country', e.target.value)} />
+        </div>
+      </div>
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={mutation.isPending}>
+          {mutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create account'}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => onClose ? onClose() : navigate(-1)}>Cancel</Button>
+      </div>
+    </form>
+  )
+
+  if (isSheet) {
+    return formFields
+  }
+
   return (
     <div>
       <Breadcrumb items={breadcrumbItems} />
@@ -103,72 +182,7 @@ export default function AccountForm() {
       </h1>
       <Card>
         <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
-            )}
-            <div className="flex flex-col gap-1.5">
-              <Label>Name *</Label>
-              <Input value={fields.name} onChange={(e) => set('name', e.target.value)} required />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>Industry</Label>
-                <Select value={fields.industry || '_none'} onValueChange={(v) => set('industry', v === '_none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="— Select —" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">— Select —</SelectItem>
-                    {INDUSTRIES.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Size</Label>
-                <Select value={fields.size || '_none'} onValueChange={(v) => set('size', v === '_none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="— Select —" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">— Select —</SelectItem>
-                    {SIZES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Website</Label>
-              <Input type="url" value={fields.website} onChange={(e) => set('website', e.target.value)} placeholder="https://" />
-            </div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-2">Address</p>
-            <div className="flex flex-col gap-1.5">
-              <Label>Street</Label>
-              <Input value={fields.street} onChange={(e) => set('street', e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>City</Label>
-                <Input value={fields.city} onChange={(e) => set('city', e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>State / Region</Label>
-                <Input value={fields.state} onChange={(e) => set('state', e.target.value)} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>Postal Code</Label>
-                <Input value={fields.postalCode} onChange={(e) => set('postalCode', e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Country</Label>
-                <Input value={fields.country} onChange={(e) => set('country', e.target.value)} />
-              </div>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create account'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
-            </div>
-          </form>
+          {formFields}
         </CardContent>
       </Card>
     </div>

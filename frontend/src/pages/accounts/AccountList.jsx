@@ -1,13 +1,22 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { accountsApi } from '../../api/accounts.api.js'
+import AccountForm from './AccountForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
 import { Card } from '../../components/ui/card.jsx'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.jsx'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../../components/ui/sheet.jsx'
 
 export default function AccountList() {
   const navigate = useNavigate()
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const { data: accounts = [], isLoading, error } = useQuery({
     queryKey: ['accounts'],
@@ -18,7 +27,7 @@ export default function AccountList() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-gray-900">Accounts</h1>
-        <Button onClick={() => navigate('/accounts/new')}>+ New Account</Button>
+        <Button onClick={() => setSheetOpen(true)}>+ New Account</Button>
       </div>
 
       {isLoading ? (
@@ -71,6 +80,23 @@ export default function AccountList() {
           </Table>
         </Card>
       )}
+
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>New Account</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            <AccountForm
+              onSuccess={(result) => {
+                setSheetOpen(false)
+                navigate(`/accounts/${result.accountId}`)
+              }}
+              onClose={() => setSheetOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

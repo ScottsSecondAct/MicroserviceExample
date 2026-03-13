@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { contactsApi } from '../../api/contacts.api.js'
@@ -6,6 +7,7 @@ import { usersApi } from '../../api/users.api.js'
 import ActivityTimeline from '../../components/ActivityTimeline.jsx'
 import ActivityLogForm from '../../components/ActivityLogForm.jsx'
 import Breadcrumb from '../../components/Breadcrumb.jsx'
+import ContactForm from './ContactForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
 import { Badge } from '../../components/ui/badge.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.jsx'
@@ -19,6 +21,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../../components/ui/dialog.jsx'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../../components/ui/sheet.jsx'
 import { toast } from '../../hooks/use-toast.js'
 
 const STATUS_TRANSITIONS = {
@@ -39,6 +47,7 @@ export default function ContactDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [editOpen, setEditOpen] = useState(false)
 
   const { data: contact, isLoading, error } = useQuery({
     queryKey: ['contact', id],
@@ -98,7 +107,7 @@ export default function ContactDetail() {
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-gray-900">{contact.firstName} {contact.lastName}</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(`/contacts/${id}/edit`)}>Edit</Button>
+          <Button variant="outline" onClick={() => setEditOpen(true)}>Edit</Button>
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="destructive">Delete</Button>
@@ -202,6 +211,21 @@ export default function ContactDetail() {
           <ActivityTimeline contactId={id} queryKey="contact-activities" />
         </CardContent>
       </Card>
+
+      <Sheet open={editOpen} onOpenChange={setEditOpen}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit Contact</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            <ContactForm
+              id={id}
+              onSuccess={() => setEditOpen(false)}
+              onClose={() => setEditOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

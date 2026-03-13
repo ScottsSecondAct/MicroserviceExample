@@ -2,8 +2,15 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { dealsApi } from '../../api/deals.api.js'
+import DealForm from './DealForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../../components/ui/sheet.jsx'
 
 const STAGES = ['Prospecting', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost']
 
@@ -19,6 +26,7 @@ export default function Pipeline() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [dragging, setDragging] = useState(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const { data: board = [], isLoading, error } = useQuery({
     queryKey: ['pipeline'],
@@ -72,7 +80,7 @@ export default function Pipeline() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-gray-900">Pipeline</h1>
-        <Button onClick={() => navigate('/deals/new')}>+ New Deal</Button>
+        <Button onClick={() => setSheetOpen(true)}>+ New Deal</Button>
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-4 items-start">
@@ -116,6 +124,23 @@ export default function Pipeline() {
           )
         })}
       </div>
+
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>New Deal</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            <DealForm
+              onSuccess={(deal) => {
+                setSheetOpen(false)
+                navigate(`/deals/${deal.dealId}`)
+              }}
+              onClose={() => setSheetOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

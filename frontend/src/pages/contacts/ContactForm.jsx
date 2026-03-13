@@ -20,9 +20,11 @@ import {
 const STATUSES = ['Lead', 'Prospect', 'Customer', 'Churned']
 const EMPTY = { firstName: '', lastName: '', email: '', phone: '', status: 'Lead', accountId: '', ownerId: '' }
 
-export default function ContactForm() {
-  const { id } = useParams()
+export default function ContactForm({ onSuccess, onClose, id: idProp }) {
+  const { id: idParam } = useParams()
+  const id = onClose !== undefined ? idProp : idParam
   const isEdit = !!id
+  const isSheet = onClose !== undefined
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [fields, setFields] = useState(EMPTY)
@@ -64,7 +66,11 @@ export default function ContactForm() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       if (isEdit) queryClient.invalidateQueries({ queryKey: ['contact', id] })
-      navigate(isEdit ? `/contacts/${id}` : `/contacts/${result.contactId}`)
+      if (onSuccess) {
+        onSuccess(result)
+      } else {
+        navigate(isEdit ? `/contacts/${id}` : `/contacts/${result.contactId}`)
+      }
     },
     onError: (err) => setError(err.message),
   })
@@ -94,6 +100,75 @@ export default function ContactForm() {
         { label: 'New Contact' },
       ]
 
+  const formFields = (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
+      )}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>First Name *</Label>
+          <Input value={fields.firstName} onChange={(e) => set('firstName', e.target.value)} required />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Last Name *</Label>
+          <Input value={fields.lastName} onChange={(e) => set('lastName', e.target.value)} required />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>Email *</Label>
+          <Input type="email" value={fields.email} onChange={(e) => set('email', e.target.value)} required />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Phone</Label>
+          <Input type="tel" value={fields.phone} onChange={(e) => set('phone', e.target.value)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>Status</Label>
+          <Select value={fields.status} onValueChange={(v) => set('status', v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Account</Label>
+          <Select value={fields.accountId || '_none'} onValueChange={(v) => set('accountId', v === '_none' ? '' : v)}>
+            <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">— None —</SelectItem>
+              {accounts.map((a) => <SelectItem key={a.accountId} value={a.accountId}>{a.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label>Owner</Label>
+        <Select value={fields.ownerId || '_unassigned'} onValueChange={(v) => set('ownerId', v === '_unassigned' ? '' : v)}>
+          <SelectTrigger><SelectValue placeholder="— Unassigned —" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_unassigned">— Unassigned —</SelectItem>
+            {team.map((m) => <SelectItem key={m.userId} value={m.userId}>{m.displayName || m.userId}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={mutation.isPending}>
+          {mutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create contact'}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => onClose ? onClose() : navigate(-1)}>Cancel</Button>
+      </div>
+    </form>
+  )
+
+  if (isSheet) {
+    return formFields
+  }
+
   return (
     <div>
       <Breadcrumb items={breadcrumbItems} />
@@ -102,68 +177,7 @@ export default function ContactForm() {
       </h1>
       <Card>
         <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>First Name *</Label>
-                <Input value={fields.firstName} onChange={(e) => set('firstName', e.target.value)} required />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Last Name *</Label>
-                <Input value={fields.lastName} onChange={(e) => set('lastName', e.target.value)} required />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>Email *</Label>
-                <Input type="email" value={fields.email} onChange={(e) => set('email', e.target.value)} required />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Phone</Label>
-                <Input type="tel" value={fields.phone} onChange={(e) => set('phone', e.target.value)} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>Status</Label>
-                <Select value={fields.status} onValueChange={(v) => set('status', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Account</Label>
-                <Select value={fields.accountId || '_none'} onValueChange={(v) => set('accountId', v === '_none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">— None —</SelectItem>
-                    {accounts.map((a) => <SelectItem key={a.accountId} value={a.accountId}>{a.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Owner</Label>
-              <Select value={fields.ownerId || '_unassigned'} onValueChange={(v) => set('ownerId', v === '_unassigned' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="— Unassigned —" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_unassigned">— Unassigned —</SelectItem>
-                  {team.map((m) => <SelectItem key={m.userId} value={m.userId}>{m.displayName || m.userId}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create contact'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
-            </div>
-          </form>
+          {formFields}
         </CardContent>
       </Card>
     </div>
