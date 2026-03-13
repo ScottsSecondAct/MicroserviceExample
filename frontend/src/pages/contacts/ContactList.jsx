@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { Pencil, Trash2 } from 'lucide-react'
 import { contactsApi } from '../../api/contacts.api.js'
+import { toast } from '../../hooks/use-toast.js'
 import { usersApi } from '../../api/users.api.js'
 import ContactForm from './ContactForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
@@ -70,26 +71,32 @@ export default function ContactList() {
     mutationFn: (id) => contactsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      toast({ variant: 'success', title: 'Contact deleted' })
       setDeleteTarget(null)
     },
+    onError: (err) => toast({ variant: 'destructive', title: 'Delete failed', description: err.message }),
   })
 
   const bulkDeleteMutation = useMutation({
     mutationFn: (ids) => Promise.all([...ids].map((id) => contactsApi.delete(id))),
-    onSuccess: () => {
+    onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      toast({ variant: 'success', title: `${[...ids].length} contact${[...ids].length !== 1 ? 's' : ''} deleted` })
       clearSelection()
       setBulkDeleteOpen(false)
     },
+    onError: (err) => toast({ variant: 'destructive', title: 'Bulk delete failed', description: err.message }),
   })
 
   const bulkStatusMutation = useMutation({
     mutationFn: ({ ids, status }) =>
       Promise.all([...ids].map((id) => contactsApi.update(id, { status }))),
-    onSuccess: () => {
+    onSuccess: (_, { ids, status }) => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      toast({ variant: 'success', title: `Status updated to ${status}`, description: `${[...ids].length} contact${[...ids].length !== 1 ? 's' : ''} updated` })
       clearSelection()
     },
+    onError: (err) => toast({ variant: 'destructive', title: 'Status update failed', description: err.message }),
   })
 
   const { sortedData: sortedContacts, sortKey, sortDir, handleSort } = useSortableTable(contacts, 'lastName')

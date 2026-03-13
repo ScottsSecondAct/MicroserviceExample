@@ -36,6 +36,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../../components/ui/sheet.jsx'
+import { toast } from '../../hooks/use-toast.js'
 
 const STAGES = ['Prospecting', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost']
 const ROLES = ['DecisionMaker', 'Influencer', 'Champion']
@@ -66,25 +67,39 @@ export default function DealDetail() {
 
   const stageUpdate = useMutation({
     mutationFn: (stage) => dealsApi.update(id, { stage }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deal', id] }),
+    onSuccess: (_, stage) => {
+      queryClient.invalidateQueries({ queryKey: ['deal', id] })
+      toast({ variant: 'success', title: 'Stage updated', description: `Deal moved to ${stage}` })
+    },
+    onError: (err) => toast({ variant: 'destructive', title: 'Update failed', description: err.message }),
   })
 
   const deleteDeal = useMutation({
     mutationFn: () => dealsApi.delete(id),
-    onSuccess: () => navigate('/deals'),
+    onSuccess: () => {
+      toast({ variant: 'success', title: 'Deal deleted' })
+      navigate('/deals')
+    },
+    onError: (err) => toast({ variant: 'destructive', title: 'Delete failed', description: err.message }),
   })
 
   const addContact = useMutation({
     mutationFn: () => dealsApi.addContact(id, { contactId, role: contactRole }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deal', id] })
+      toast({ variant: 'success', title: 'Contact added' })
       setContactId('')
     },
+    onError: (err) => toast({ variant: 'destructive', title: 'Failed to add contact', description: err.message }),
   })
 
   const removeContact = useMutation({
     mutationFn: (cid) => dealsApi.removeContact(id, cid),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deal', id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deal', id] })
+      toast({ variant: 'success', title: 'Contact removed' })
+    },
+    onError: (err) => toast({ variant: 'destructive', title: 'Failed to remove contact', description: err.message }),
   })
 
   if (isLoading) {

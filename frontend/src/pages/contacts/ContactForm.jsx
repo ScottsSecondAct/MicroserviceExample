@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select.jsx'
+import { toast } from '../../hooks/use-toast.js'
 
 const STATUSES = ['Lead', 'Prospect', 'Customer', 'Churned']
 const EMPTY = { firstName: '', lastName: '', email: '', phone: '', status: 'Lead', accountId: '', ownerId: '' }
@@ -28,7 +29,6 @@ export default function ContactForm({ onSuccess, onClose, id: idProp }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [fields, setFields] = useState(EMPTY)
-  const [error, setError] = useState(null)
 
   const { data: existing } = useQuery({
     queryKey: ['contact', id],
@@ -66,13 +66,14 @@ export default function ContactForm({ onSuccess, onClose, id: idProp }) {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       if (isEdit) queryClient.invalidateQueries({ queryKey: ['contact', id] })
+      toast({ variant: 'success', title: isEdit ? 'Contact updated' : 'Contact created' })
       if (onSuccess) {
         onSuccess(result)
       } else {
         navigate(isEdit ? `/contacts/${id}` : `/contacts/${result.contactId}`)
       }
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => toast({ variant: 'destructive', title: 'Save failed', description: err.message }),
   })
 
   function set(field, value) {
@@ -81,7 +82,6 @@ export default function ContactForm({ onSuccess, onClose, id: idProp }) {
 
   function handleSubmit(e) {
     e.preventDefault()
-    setError(null)
     mutation.mutate({
       ...fields,
       accountId: fields.accountId || null,
@@ -102,9 +102,6 @@ export default function ContactForm({ onSuccess, onClose, id: idProp }) {
 
   const formFields = (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
-      )}
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <Label>First Name *</Label>

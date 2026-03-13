@@ -28,6 +28,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../../components/ui/sheet.jsx'
+import { toast } from '../../hooks/use-toast.js'
 
 const STATUS_VARIANT = {
   Lead: 'lead',
@@ -58,8 +59,10 @@ export default function AccountDetail() {
     mutationFn: () => accountsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      toast({ variant: 'success', title: 'Account deleted' })
       navigate('/accounts')
     },
+    onError: (err) => toast({ variant: 'destructive', title: 'Delete failed', description: err.message }),
   })
 
   if (isLoading) {

@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select.jsx'
+import { toast } from '../../hooks/use-toast.js'
 
 const STAGES = ['Prospecting', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost']
 
@@ -36,7 +37,6 @@ export default function DealForm({ onSuccess, onClose, id: idProp }) {
     expectedCloseDate: '',
     ownerId: '',
   })
-  const [error, setError] = useState('')
 
   const { data: existing } = useQuery({
     queryKey: ['deal', id],
@@ -73,13 +73,14 @@ export default function DealForm({ onSuccess, onClose, id: idProp }) {
     onSuccess: (deal) => {
       queryClient.invalidateQueries({ queryKey: ['pipeline'] })
       queryClient.invalidateQueries({ queryKey: ['deals'] })
+      toast({ variant: 'success', title: isEdit ? 'Deal updated' : 'Deal created' })
       if (onSuccess) {
         onSuccess(deal)
       } else {
         navigate(isEdit ? `/deals/${id}` : `/deals/${deal.dealId}`)
       }
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => toast({ variant: 'destructive', title: 'Save failed', description: err.message }),
   })
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
@@ -87,8 +88,10 @@ export default function DealForm({ onSuccess, onClose, id: idProp }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!form.title.trim()) { setError('Title is required.'); return }
-    setError('')
+    if (!form.title.trim()) {
+      toast({ variant: 'destructive', title: 'Validation error', description: 'Title is required.' })
+      return
+    }
     mutation.mutate({
       title: form.title,
       accountId: form.accountId || undefined,
@@ -113,10 +116,6 @@ export default function DealForm({ onSuccess, onClose, id: idProp }) {
 
   const formFields = (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
-      )}
-
       <div className="flex flex-col gap-1.5">
         <Label>Title *</Label>
         <Input value={form.title} onChange={set('title')} required />

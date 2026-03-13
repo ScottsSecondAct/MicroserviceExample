@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlusCircle } from 'lucide-react'
 import { activitiesApi } from '../api/activities.api.js'
+import { toast } from '../hooks/use-toast.js'
 import { Button } from './ui/button.jsx'
 import { Input } from './ui/input.jsx'
 import { Textarea } from './ui/textarea.jsx'
@@ -31,7 +32,6 @@ export default function ActivityLogForm({ contactId, dealId, accountId, queryKey
   const [subject, setSubject] = useState('')
   const [notes, setNotes] = useState('')
   const [scheduledAt, setScheduledAt] = useState('')
-  const [error, setError] = useState('')
 
   const params = {}
   if (contactId) params.contactId = contactId
@@ -42,18 +42,21 @@ export default function ActivityLogForm({ contactId, dealId, accountId, queryKey
     mutationFn: (data) => activitiesApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [queryKey ?? 'activities', params] })
+      toast({ variant: 'success', title: 'Activity logged' })
       setSubject('')
       setNotes('')
       setScheduledAt('')
-      setError('')
       setOpen(false)
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => toast({ variant: 'destructive', title: 'Failed to log activity', description: err.message }),
   })
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (!subject.trim()) { setError('Subject is required.'); return }
+    if (!subject.trim()) {
+      toast({ variant: 'destructive', title: 'Validation error', description: 'Subject is required.' })
+      return
+    }
     createMutation.mutate({
       type,
       subject: subject.trim(),
@@ -120,10 +123,6 @@ export default function ActivityLogForm({ contactId, dealId, accountId, queryKey
                   onChange={(e) => setScheduledAt(e.target.value)}
                 />
               </div>
-            )}
-
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error}</p>
             )}
 
             <SheetFooter className="mt-auto pt-4 border-t">
