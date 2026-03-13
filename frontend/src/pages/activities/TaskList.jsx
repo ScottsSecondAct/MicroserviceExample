@@ -7,6 +7,8 @@ import { Skeleton } from '../../components/ui/skeleton.jsx'
 import { Card, CardContent } from '../../components/ui/card.jsx'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.jsx'
 import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
+import { usePagination } from '../../hooks/use-pagination.js'
+import { Pagination } from '../../components/ui/pagination.jsx'
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -35,6 +37,8 @@ export default function TaskList() {
 
   const { sortedData: sortedIncomplete, sortKey, sortDir, handleSort } = useSortableTable(incompleteTasks, 'scheduledAt')
   const { sortedData: sortedCompleted, sortKey: compSortKey, sortDir: compSortDir, handleSort: handleCompSort } = useSortableTable(completedTasks, 'completedAt', 'desc')
+  const incompletePagination = usePagination(sortedIncomplete)
+  const completedPagination = usePagination(sortedCompleted)
 
   if (isLoading) {
     return (
@@ -80,7 +84,7 @@ export default function TaskList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedIncomplete.map((t) => (
+              {incompletePagination.paginatedData.map((t) => (
                 <TableRow key={t.activityId} className="cursor-default">
                   <TableCell className="font-medium">{t.subject}</TableCell>
                   <TableCell>{formatDate(t.scheduledAt)}</TableCell>
@@ -105,6 +109,11 @@ export default function TaskList() {
               ))}
             </TableBody>
           </Table>
+          <Pagination
+            {...incompletePagination}
+            onPageChange={incompletePagination.handlePageChange}
+            onPageSizeChange={incompletePagination.handlePageSizeChange}
+          />
         </Card>
       )}
 
@@ -127,7 +136,7 @@ export default function TaskList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedCompleted.map((t) => (
+                {completedPagination.paginatedData.map((t) => (
                   <TableRow key={t.activityId} className="cursor-default opacity-60">
                     <TableCell className="line-through">{t.subject}</TableCell>
                     <TableCell>{formatDate(t.completedAt)}</TableCell>
@@ -143,6 +152,11 @@ export default function TaskList() {
                 ))}
               </TableBody>
             </Table>
+            <Pagination
+              {...completedPagination}
+              onPageChange={completedPagination.handlePageChange}
+              onPageSizeChange={completedPagination.handlePageSizeChange}
+            />
           </Card>
         </details>
       )}
