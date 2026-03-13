@@ -23,6 +23,8 @@ import {
   SheetTitle,
 } from '../../components/ui/sheet.jsx'
 import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
+import { usePagination } from '../../hooks/use-pagination.js'
+import { Pagination } from '../../components/ui/pagination.jsx'
 
 const STATUSES = ['Lead', 'Prospect', 'Customer', 'Churned']
 
@@ -50,6 +52,7 @@ export default function ContactList() {
   })
 
   const { sortedData: sortedContacts, sortKey, sortDir, handleSort } = useSortableTable(contacts, 'lastName')
+  const pagination = usePagination(sortedContacts)
 
   return (
     <div>
@@ -114,7 +117,7 @@ export default function ContactList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedContacts.map((c) => {
+              {pagination.paginatedData.map((c) => {
                 const owner = team.find((m) => m.userId === c.ownerId)
                 return (
                   <TableRow
@@ -144,6 +147,11 @@ export default function ContactList() {
               })}
             </TableBody>
           </Table>
+          <Pagination
+            {...pagination}
+            onPageChange={pagination.handlePageChange}
+            onPageSizeChange={pagination.handlePageSizeChange}
+          />
         </Card>
       )}
 

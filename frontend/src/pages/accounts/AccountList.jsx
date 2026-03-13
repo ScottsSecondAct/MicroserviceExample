@@ -14,6 +14,8 @@ import {
   SheetTitle,
 } from '../../components/ui/sheet.jsx'
 import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
+import { usePagination } from '../../hooks/use-pagination.js'
+import { Pagination } from '../../components/ui/pagination.jsx'
 
 export default function AccountList() {
   const navigate = useNavigate()
@@ -25,6 +27,7 @@ export default function AccountList() {
   })
 
   const { sortedData: sortedAccounts, sortKey, sortDir, handleSort } = useSortableTable(accounts, 'name')
+  const pagination = usePagination(sortedAccounts)
 
   return (
     <div>
@@ -62,7 +65,7 @@ export default function AccountList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedAccounts.map((a) => (
+              {pagination.paginatedData.map((a) => (
                 <TableRow
                   key={a.accountId}
                   className="cursor-pointer"
@@ -89,6 +92,11 @@ export default function AccountList() {
               ))}
             </TableBody>
           </Table>
+          <Pagination
+            {...pagination}
+            onPageChange={pagination.handlePageChange}
+            onPageSizeChange={pagination.handlePageSizeChange}
+          />
         </Card>
       )}
 
