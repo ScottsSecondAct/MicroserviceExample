@@ -13,7 +13,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../../components/ui/sheet.jsx'
-import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.js'
+import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
 
 export default function AccountList() {
   const navigate = useNavigate()
