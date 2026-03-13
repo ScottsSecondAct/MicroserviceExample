@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
 import { Card, CardContent } from '../../components/ui/card.jsx'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.jsx'
+import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.js'
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -31,6 +32,9 @@ export default function TaskList() {
 
   const incompleteTasks = tasks.filter((t) => !t.completedAt)
   const completedTasks = tasks.filter((t) => t.completedAt)
+
+  const { sortedData: sortedIncomplete, sortKey, sortDir, handleSort } = useSortableTable(incompleteTasks, 'scheduledAt')
+  const { sortedData: sortedCompleted, sortKey: compSortKey, sortDir: compSortDir, handleSort: handleCompSort } = useSortableTable(completedTasks, 'completedAt', 'desc')
 
   if (isLoading) {
     return (
@@ -65,14 +69,18 @@ export default function TaskList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Subject</TableHead>
-                <TableHead>Scheduled</TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('subject')}>
+                  Subject <SortIcon active={sortKey === 'subject'} dir={sortDir} />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => handleSort('scheduledAt')}>
+                  Scheduled <SortIcon active={sortKey === 'scheduledAt'} dir={sortDir} />
+                </TableHead>
                 <TableHead>Linked To</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {incompleteTasks.map((t) => (
+              {sortedIncomplete.map((t) => (
                 <TableRow key={t.activityId} className="cursor-default">
                   <TableCell className="font-medium">{t.subject}</TableCell>
                   <TableCell>{formatDate(t.scheduledAt)}</TableCell>
@@ -109,13 +117,17 @@ export default function TaskList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Completed</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleCompSort('subject')}>
+                    Subject <SortIcon active={compSortKey === 'subject'} dir={compSortDir} />
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleCompSort('completedAt')}>
+                    Completed <SortIcon active={compSortKey === 'completedAt'} dir={compSortDir} />
+                  </TableHead>
                   <TableHead>Linked To</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {completedTasks.map((t) => (
+                {sortedCompleted.map((t) => (
                   <TableRow key={t.activityId} className="cursor-default opacity-60">
                     <TableCell className="line-through">{t.subject}</TableCell>
                     <TableCell>{formatDate(t.completedAt)}</TableCell>
