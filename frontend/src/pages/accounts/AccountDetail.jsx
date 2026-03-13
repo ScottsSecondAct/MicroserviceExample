@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { accountsApi } from '../../api/accounts.api.js'
@@ -5,6 +6,8 @@ import { contactsApi } from '../../api/contacts.api.js'
 import ActivityLogForm from '../../components/ActivityLogForm.jsx'
 import ActivityTimeline from '../../components/ActivityTimeline.jsx'
 import Breadcrumb from '../../components/Breadcrumb.jsx'
+import AccountForm from './AccountForm.jsx'
+import ContactForm from '../contacts/ContactForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
 import { Badge } from '../../components/ui/badge.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.jsx'
@@ -19,6 +22,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../../components/ui/dialog.jsx'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../../components/ui/sheet.jsx'
 
 const STATUS_VARIANT = {
   Lead: 'lead',
@@ -31,6 +40,8 @@ export default function AccountDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [editOpen, setEditOpen] = useState(false)
+  const [addContactOpen, setAddContactOpen] = useState(false)
 
   const { data: account, isLoading, error } = useQuery({
     queryKey: ['account', id],
@@ -74,7 +85,7 @@ export default function AccountDetail() {
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-gray-900">{account.name}</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(`/accounts/${id}/edit`)}>Edit</Button>
+          <Button variant="outline" onClick={() => setEditOpen(true)}>Edit</Button>
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="destructive">Delete</Button>
@@ -127,7 +138,7 @@ export default function AccountDetail() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Contacts ({contacts.length})</CardTitle>
-            <Button size="sm" variant="outline" onClick={() => navigate('/contacts/new')}>+ Add Contact</Button>
+            <Button size="sm" variant="outline" onClick={() => setAddContactOpen(true)}>+ Add Contact</Button>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
@@ -171,6 +182,38 @@ export default function AccountDetail() {
           <ActivityTimeline accountId={id} queryKey="account-activities" />
         </CardContent>
       </Card>
+
+      <Sheet open={editOpen} onOpenChange={setEditOpen}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit Account</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            <AccountForm
+              id={id}
+              onSuccess={() => setEditOpen(false)}
+              onClose={() => setEditOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={addContactOpen} onOpenChange={setAddContactOpen}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>New Contact</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            <ContactForm
+              onSuccess={(result) => {
+                setAddContactOpen(false)
+                navigate(`/contacts/${result.contactId}`)
+              }}
+              onClose={() => setAddContactOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

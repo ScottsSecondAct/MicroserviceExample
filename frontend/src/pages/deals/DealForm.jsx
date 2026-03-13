@@ -19,9 +19,11 @@ import {
 
 const STAGES = ['Prospecting', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost']
 
-export default function DealForm() {
-  const { id } = useParams()
+export default function DealForm({ onSuccess, onClose, id: idProp }) {
+  const { id: idParam } = useParams()
+  const id = onClose !== undefined ? idProp : idParam
   const isEdit = !!id
+  const isSheet = onClose !== undefined
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -71,7 +73,11 @@ export default function DealForm() {
     onSuccess: (deal) => {
       queryClient.invalidateQueries({ queryKey: ['pipeline'] })
       queryClient.invalidateQueries({ queryKey: ['deals'] })
-      navigate(isEdit ? `/deals/${id}` : `/deals/${deal.dealId}`)
+      if (onSuccess) {
+        onSuccess(deal)
+      } else {
+        navigate(isEdit ? `/deals/${id}` : `/deals/${deal.dealId}`)
+      }
     },
     onError: (err) => setError(err.message),
   })
@@ -105,6 +111,78 @@ export default function DealForm() {
         { label: 'New Deal' },
       ]
 
+  const formFields = (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Title *</Label>
+        <Input value={form.title} onChange={set('title')} required />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Account</Label>
+        <Select value={form.accountId || '_none'} onValueChange={setSelect('accountId')}>
+          <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_none">— None —</SelectItem>
+            {accounts.map((a) => <SelectItem key={a.accountId} value={a.accountId}>{a.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Stage</Label>
+        <Select value={form.stage} onValueChange={(v) => setForm((f) => ({ ...f, stage: v }))}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>Value ($)</Label>
+          <Input type="number" min="0" step="0.01" value={form.value} onChange={set('value')} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Probability (%)</Label>
+          <Input type="number" min="0" max="100" value={form.probability} onChange={set('probability')} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Expected Close Date</Label>
+        <Input type="date" value={form.expectedCloseDate} onChange={set('expectedCloseDate')} />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Owner</Label>
+        <Select value={form.ownerId || '_unassigned'} onValueChange={setSelect('ownerId')}>
+          <SelectTrigger><SelectValue placeholder="— Unassigned —" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_unassigned">— Unassigned —</SelectItem>
+            {team.map((m) => <SelectItem key={m.userId} value={m.userId}>{m.displayName || m.userId}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={mutation.isPending}>
+          {isEdit ? 'Save Changes' : 'Create Deal'}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => onClose ? onClose() : navigate(-1)}>Cancel</Button>
+      </div>
+    </form>
+  )
+
+  if (isSheet) {
+    return formFields
+  }
+
   return (
     <div className="max-w-lg">
       <Breadcrumb items={breadcrumbItems} />
@@ -112,71 +190,7 @@ export default function DealForm() {
 
       <Card>
         <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
-            )}
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Title *</Label>
-              <Input value={form.title} onChange={set('title')} required />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Account</Label>
-              <Select value={form.accountId || '_none'} onValueChange={setSelect('accountId')}>
-                <SelectTrigger><SelectValue placeholder="— None —" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">— None —</SelectItem>
-                  {accounts.map((a) => <SelectItem key={a.accountId} value={a.accountId}>{a.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Stage</Label>
-              <Select value={form.stage} onValueChange={(v) => setForm((f) => ({ ...f, stage: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>Value ($)</Label>
-                <Input type="number" min="0" step="0.01" value={form.value} onChange={set('value')} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Probability (%)</Label>
-                <Input type="number" min="0" max="100" value={form.probability} onChange={set('probability')} />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Expected Close Date</Label>
-              <Input type="date" value={form.expectedCloseDate} onChange={set('expectedCloseDate')} />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Owner</Label>
-              <Select value={form.ownerId || '_unassigned'} onValueChange={setSelect('ownerId')}>
-                <SelectTrigger><SelectValue placeholder="— Unassigned —" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_unassigned">— Unassigned —</SelectItem>
-                  {team.map((m) => <SelectItem key={m.userId} value={m.userId}>{m.displayName || m.userId}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button type="submit" disabled={mutation.isPending}>
-                {isEdit ? 'Save Changes' : 'Create Deal'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
-            </div>
-          </form>
+          {formFields}
         </CardContent>
       </Card>
     </div>

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { contactsApi } from '../../api/contacts.api.js'
 import { usersApi } from '../../api/users.api.js'
+import ContactForm from './ContactForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
 import { Badge } from '../../components/ui/badge.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
@@ -15,6 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select.jsx'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../../components/ui/sheet.jsx'
 
 const STATUSES = ['Lead', 'Prospect', 'Customer', 'Churned']
 
@@ -29,6 +36,7 @@ export default function ContactList() {
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState('')
   const [ownerFilter, setOwnerFilter] = useState('')
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const { data: contacts = [], isLoading, error } = useQuery({
     queryKey: ['contacts', { status: statusFilter, ownerId: ownerFilter }],
@@ -44,7 +52,7 @@ export default function ContactList() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
-        <Button onClick={() => navigate('/contacts/new')}>+ New Contact</Button>
+        <Button onClick={() => setSheetOpen(true)}>+ New Contact</Button>
       </div>
 
       {/* Filters */}
@@ -127,6 +135,23 @@ export default function ContactList() {
           </Table>
         </Card>
       )}
+
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>New Contact</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            <ContactForm
+              onSuccess={(result) => {
+                setSheetOpen(false)
+                navigate(`/contacts/${result.contactId}`)
+              }}
+              onClose={() => setSheetOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

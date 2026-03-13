@@ -7,6 +7,7 @@ import { accountsApi } from '../../api/accounts.api.js'
 import ActivityTimeline from '../../components/ActivityTimeline.jsx'
 import ActivityLogForm from '../../components/ActivityLogForm.jsx'
 import Breadcrumb from '../../components/Breadcrumb.jsx'
+import DealForm from './DealForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
 import { Badge } from '../../components/ui/badge.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.jsx'
@@ -29,6 +30,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select.jsx'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../../components/ui/sheet.jsx'
 
 const STAGES = ['Prospecting', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost']
 const ROLES = ['DecisionMaker', 'Influencer', 'Champion']
@@ -39,6 +46,7 @@ export default function DealDetail() {
   const queryClient = useQueryClient()
   const [contactId, setContactId] = useState('')
   const [contactRole, setContactRole] = useState('Influencer')
+  const [editOpen, setEditOpen] = useState(false)
 
   const { data: deal, isLoading, error } = useQuery({
     queryKey: ['deal', id],
@@ -113,7 +121,7 @@ export default function DealDetail() {
           {account && <p className="text-sm text-gray-500 mt-0.5">{account.name}</p>}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(`/deals/${id}/edit`)}>Edit</Button>
+          <Button variant="outline" onClick={() => setEditOpen(true)}>Edit</Button>
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="destructive">Delete</Button>
@@ -253,6 +261,21 @@ export default function DealDetail() {
           <ActivityTimeline dealId={id} queryKey="deal-activities" />
         </CardContent>
       </Card>
+
+      <Sheet open={editOpen} onOpenChange={setEditOpen}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit Deal</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            <DealForm
+              id={id}
+              onSuccess={() => setEditOpen(false)}
+              onClose={() => setEditOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
