@@ -28,6 +28,8 @@ import {
 import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
 import { usePagination } from '../../hooks/use-pagination.js'
 import { Pagination } from '../../components/ui/pagination.jsx'
+import { useBulkSelect } from '../../hooks/use-bulk-select.js'
+import { BulkActionBar } from '../../components/BulkActionBar.jsx'
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -111,6 +113,7 @@ export default function TaskList() {
   const queryClient = useQueryClient()
   const [editTask, setEditTask] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
   const { data: tasks = [], isLoading, error } = useQuery({
     queryKey: ['tasks', user?.userId],
@@ -131,6 +134,24 @@ export default function TaskList() {
     },
   })
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids) => Promise.all([...ids].map((id) => activitiesApi.delete(id))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', user?.userId] })
+      clearSelection()
+      setBulkDeleteOpen(false)
+    },
+  })
+
+  const bulkCompleteMutation = useMutation({
+    mutationFn: (ids) =>
+      Promise.all([...ids].map((id) => activitiesApi.update(id, { completedAt: new Date().toISOString() }))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', user?.userId] })
+      clearSelection()
+    },
+  })
+
   const incompleteTasks = tasks.filter((t) => !t.completedAt)
   const completedTasks = tasks.filter((t) => t.completedAt)
 
@@ -138,6 +159,11 @@ export default function TaskList() {
   const { sortedData: sortedCompleted, sortKey: compSortKey, sortDir: compSortDir, handleSort: handleCompSort } = useSortableTable(completedTasks, 'completedAt', 'desc')
   const incompletePagination = usePagination(sortedIncomplete)
   const completedPagination = usePagination(sortedCompleted)
+
+  const allIncompletePageIds = incompletePagination.paginatedData.map((t) => t.activityId)
+  const { selectedIds, selectedCount, toggleRow, toggleAll, clearSelection, isSelected, isAllSelected, isIndeterminate } = useBulkSelect()
+
+  const isBulkBusy = bulkDeleteMutation.isPending || bulkCompleteMutation.isPending
 
   if (isLoading) {
     return (
@@ -169,9 +195,40 @@ export default function TaskList() {
         </Card>
       ) : (
         <Card className="p-0 overflow-hidden mb-6">
+          <BulkActionBar selectedCount={selectedCount} onClearSelection={clearSelection}>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 text-xs"
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={isBulkBusy}
+            >
+              Delete selected
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => bulkCompleteMutation.mutate(selectedIds)}
+              disabled={isBulkBusy}
+            >
+              Mark complete
+            </Button>
+          </BulkActionBar>
+
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                    checked={isAllSelected(allIncompletePageIds)}
+                    ref={(el) => { if (el) el.indeterminate = isIndeterminate(allIncompletePageIds) }}
+                    onChange={() => toggleAll(allIncompletePageIds)}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort('subject')}>
                   Subject <SortIcon active={sortKey === 'subject'} dir={sortDir} />
                 </TableHead>
@@ -184,57 +241,73 @@ export default function TaskList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {incompletePagination.paginatedData.map((t) => (
-                <TableRow key={t.activityId} className="cursor-default group">
-                  <TableCell className="font-medium">{t.subject}</TableCell>
-                  <TableCell>{formatDate(t.scheduledAt)}</TableCell>
-                  <TableCell>
-                    <span className="flex gap-2 flex-wrap">
-                      {t.contactId && <Link to={`/contacts/${t.contactId}`} className="text-blue-600 hover:underline text-xs">Contact</Link>}
-                      {t.dealId && <Link to={`/deals/${t.dealId}`} className="text-blue-600 hover:underline text-xs">Deal</Link>}
-                      {t.accountId && <Link to={`/accounts/${t.accountId}`} className="text-blue-600 hover:underline text-xs">Account</Link>}
-                      {!t.contactId && !t.dealId && !t.accountId && '—'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      disabled={completeMutation.isPending}
-                      onClick={() => completeMutation.mutate(t.activityId)}
-                    >
-                      Complete
-                    </Button>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+              {incompletePagination.paginatedData.map((t) => {
+                const selected = isSelected(t.activityId)
+                return (
+                  <TableRow
+                    key={t.activityId}
+                    className={`cursor-default group${selected ? ' bg-blue-50' : ''}`}
+                    data-state={selected ? 'selected' : undefined}
+                  >
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                        checked={selected}
+                        onChange={() => toggleRow(t.activityId)}
+                        aria-label={`Select ${t.subject}`}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{t.subject}</TableCell>
+                    <TableCell>{formatDate(t.scheduledAt)}</TableCell>
+                    <TableCell>
+                      <span className="flex gap-2 flex-wrap">
+                        {t.contactId && <Link to={`/contacts/${t.contactId}`} className="text-blue-600 hover:underline text-xs">Contact</Link>}
+                        {t.dealId && <Link to={`/deals/${t.dealId}`} className="text-blue-600 hover:underline text-xs">Deal</Link>}
+                        {t.accountId && <Link to={`/accounts/${t.accountId}`} className="text-blue-600 hover:underline text-xs">Account</Link>}
+                        {!t.contactId && !t.dealId && !t.accountId && '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
                       <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => setEditTask(t)}
-                        title="Edit"
+                        size="sm"
+                        disabled={completeMutation.isPending}
+                        onClick={() => completeMutation.mutate(t.activityId)}
                       >
-                        <Pencil size={13} />
+                        Complete
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => setDeleteTarget(t)}
-                        title="Delete"
-                      >
-                        <Trash2 size={13} />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => setEditTask(t)}
+                          title="Edit"
+                        >
+                          <Pencil size={13} />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setDeleteTarget(t)}
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
           <Pagination
             {...incompletePagination}
-            onPageChange={incompletePagination.handlePageChange}
-            onPageSizeChange={incompletePagination.handlePageSizeChange}
+            onPageChange={(page) => { incompletePagination.handlePageChange(page); clearSelection() }}
+            onPageSizeChange={(size) => { incompletePagination.handlePageSizeChange(size); clearSelection() }}
           />
         </Card>
       )}
@@ -315,7 +388,7 @@ export default function TaskList() {
         </SheetContent>
       </Sheet>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Single Delete Confirmation Dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -335,6 +408,31 @@ export default function TaskList() {
               onClick={() => deleteMutation.mutate(deleteTarget.activityId)}
             >
               {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={(open) => { if (!open) setBulkDeleteOpen(false) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete {selectedCount} Task{selectedCount !== 1 ? 's' : ''}</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{selectedCount}</strong> selected task{selectedCount !== 1 ? 's' : ''}?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={bulkDeleteMutation.isPending}
+              onClick={() => bulkDeleteMutation.mutate(selectedIds)}
+            >
+              {bulkDeleteMutation.isPending ? 'Deleting…' : `Delete ${selectedCount}`}
             </Button>
           </DialogFooter>
         </DialogContent>
