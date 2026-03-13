@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
+import { Pencil, Trash2 } from 'lucide-react'
 import { accountsApi } from '../../api/accounts.api.js'
 import AccountForm from './AccountForm.jsx'
 import { Button } from '../../components/ui/button.jsx'
@@ -13,17 +14,36 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../../components/ui/sheet.jsx'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../../components/ui/dialog.jsx'
 import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
 import { usePagination } from '../../hooks/use-pagination.js'
 import { Pagination } from '../../components/ui/pagination.jsx'
 
 export default function AccountList() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [editAccountId, setEditAccountId] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const { data: accounts = [], isLoading, error } = useQuery({
     queryKey: ['accounts'],
     queryFn: accountsApi.list,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => accountsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      setDeleteTarget(null)
+    },
   })
 
   const { sortedData: sortedAccounts, sortKey, sortDir, handleSort } = useSortableTable(accounts, 'name')
@@ -62,13 +82,14 @@ export default function AccountList() {
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort('createdAt')}>
                   Created <SortIcon active={sortKey === 'createdAt'} dir={sortDir} />
                 </TableHead>
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {pagination.paginatedData.map((a) => (
                 <TableRow
                   key={a.accountId}
-                  className="cursor-pointer"
+                  className="cursor-pointer group"
                   onClick={() => navigate(`/accounts/${a.accountId}`)}
                 >
                   <TableCell className="font-medium">
@@ -88,6 +109,28 @@ export default function AccountList() {
                       : '—'}
                   </TableCell>
                   <TableCell>{new Date(a.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={(e) => { e.stopPropagation(); setEditAccountId(a.accountId) }}
+                        title="Edit"
+                      >
+                        <Pencil size={13} />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(a) }}
+                        title="Delete"
+                      >
+                        <Trash2 size={13} />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -100,6 +143,7 @@ export default function AccountList() {
         </Card>
       )}
 
+      {/* New Account Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="sm:max-w-lg overflow-y-auto">
           <SheetHeader>
@@ -116,6 +160,52 @@ export default function AccountList() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Edit Account Sheet */}
+      <Sheet open={!!editAccountId} onOpenChange={(open) => { if (!open) setEditAccountId(null) }}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit Account</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            {editAccountId && (
+              <AccountForm
+                id={editAccountId}
+                onSuccess={() => {
+                  setEditAccountId(null)
+                  queryClient.invalidateQueries({ queryKey: ['accounts'] })
+                }}
+                onClose={() => setEditAccountId(null)}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Account</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(deleteTarget.accountId)}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

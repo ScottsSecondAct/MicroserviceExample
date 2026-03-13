@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
+import { Pencil, Trash2 } from 'lucide-react'
 import { contactsApi } from '../../api/contacts.api.js'
 import { usersApi } from '../../api/users.api.js'
 import ContactForm from './ContactForm.jsx'
@@ -22,6 +23,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../../components/ui/sheet.jsx'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../../components/ui/dialog.jsx'
 import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
 import { usePagination } from '../../hooks/use-pagination.js'
 import { Pagination } from '../../components/ui/pagination.jsx'
@@ -37,9 +46,12 @@ const STATUS_VARIANT = {
 
 export default function ContactList() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('')
   const [ownerFilter, setOwnerFilter] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [editContactId, setEditContactId] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const { data: contacts = [], isLoading, error } = useQuery({
     queryKey: ['contacts', { status: statusFilter, ownerId: ownerFilter }],
@@ -49,6 +61,14 @@ export default function ContactList() {
   const { data: team = [] } = useQuery({
     queryKey: ['team'],
     queryFn: usersApi.getTeam,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => contactsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      setDeleteTarget(null)
+    },
   })
 
   const { sortedData: sortedContacts, sortKey, sortDir, handleSort } = useSortableTable(contacts, 'lastName')
@@ -114,6 +134,7 @@ export default function ContactList() {
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort('createdAt')}>
                   Created <SortIcon active={sortKey === 'createdAt'} dir={sortDir} />
                 </TableHead>
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -122,7 +143,7 @@ export default function ContactList() {
                 return (
                   <TableRow
                     key={c.contactId}
-                    className="cursor-pointer"
+                    className="cursor-pointer group"
                     onClick={() => navigate(`/contacts/${c.contactId}`)}
                   >
                     <TableCell className="font-medium">
@@ -142,6 +163,28 @@ export default function ContactList() {
                       {owner?.displayName ?? (c.ownerId ? c.ownerId.slice(0, 8) + '…' : '—')}
                     </TableCell>
                     <TableCell>{new Date(c.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={(e) => { e.stopPropagation(); setEditContactId(c.contactId) }}
+                          title="Edit"
+                        >
+                          <Pencil size={13} />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(c) }}
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 )
               })}
@@ -155,6 +198,7 @@ export default function ContactList() {
         </Card>
       )}
 
+      {/* New Contact Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="sm:max-w-lg overflow-y-auto">
           <SheetHeader>
@@ -171,6 +215,53 @@ export default function ContactList() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Edit Contact Sheet */}
+      <Sheet open={!!editContactId} onOpenChange={(open) => { if (!open) setEditContactId(null) }}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit Contact</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            {editContactId && (
+              <ContactForm
+                id={editContactId}
+                onSuccess={() => {
+                  setEditContactId(null)
+                  queryClient.invalidateQueries({ queryKey: ['contacts'] })
+                }}
+                onClose={() => setEditContactId(null)}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Contact</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{' '}
+              <strong>{deleteTarget?.firstName} {deleteTarget?.lastName}</strong>?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(deleteTarget.contactId)}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

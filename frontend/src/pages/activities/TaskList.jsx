@@ -1,11 +1,30 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { Pencil, Trash2 } from 'lucide-react'
 import { activitiesApi } from '../../api/activities.api.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { Button } from '../../components/ui/button.jsx'
+import { Input } from '../../components/ui/input.jsx'
+import { Label } from '../../components/ui/label.jsx'
+import { Textarea } from '../../components/ui/textarea.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
 import { Card, CardContent } from '../../components/ui/card.jsx'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.jsx'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../../components/ui/sheet.jsx'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../../components/ui/dialog.jsx'
 import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
 import { usePagination } from '../../hooks/use-pagination.js'
 import { Pagination } from '../../components/ui/pagination.jsx'
@@ -17,9 +36,81 @@ function formatDate(iso) {
   })
 }
 
+function toLocalDatetimeValue(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function TaskEditForm({ task, onSuccess, onClose }) {
+  const queryClient = useQueryClient()
+  const [subject, setSubject] = useState(task.subject ?? '')
+  const [notes, setNotes] = useState(task.notes ?? '')
+  const [scheduledAt, setScheduledAt] = useState(toLocalDatetimeValue(task.scheduledAt))
+  const [error, setError] = useState(null)
+
+  const mutation = useMutation({
+    mutationFn: (data) => activitiesApi.update(task.activityId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      onSuccess()
+    },
+    onError: (err) => setError(err.message),
+  })
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    if (!subject.trim()) { setError('Subject is required.'); return }
+    setError(null)
+    mutation.mutate({
+      subject: subject.trim(),
+      notes: notes.trim() || null,
+      scheduledAt: scheduledAt || null,
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">{error}</p>
+      )}
+      <div className="flex flex-col gap-1.5">
+        <Label>Subject *</Label>
+        <Input value={subject} onChange={(e) => setSubject(e.target.value)} required autoFocus />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label>Scheduled At</Label>
+        <Input
+          type="datetime-local"
+          value={scheduledAt}
+          onChange={(e) => setScheduledAt(e.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label>Notes</Label>
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="Optional notes"
+        />
+      </div>
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={mutation.isPending}>
+          {mutation.isPending ? 'Saving…' : 'Save changes'}
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+      </div>
+    </form>
+  )
+}
+
 export default function TaskList() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [editTask, setEditTask] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const { data: tasks = [], isLoading, error } = useQuery({
     queryKey: ['tasks', user?.userId],
@@ -30,6 +121,14 @@ export default function TaskList() {
   const completeMutation = useMutation({
     mutationFn: (id) => activitiesApi.update(id, { completedAt: new Date().toISOString() }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.userId] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => activitiesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', user?.userId] })
+      setDeleteTarget(null)
+    },
   })
 
   const incompleteTasks = tasks.filter((t) => !t.completedAt)
@@ -81,11 +180,12 @@ export default function TaskList() {
                 </TableHead>
                 <TableHead>Linked To</TableHead>
                 <TableHead></TableHead>
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {incompletePagination.paginatedData.map((t) => (
-                <TableRow key={t.activityId} className="cursor-default">
+                <TableRow key={t.activityId} className="cursor-default group">
                   <TableCell className="font-medium">{t.subject}</TableCell>
                   <TableCell>{formatDate(t.scheduledAt)}</TableCell>
                   <TableCell>
@@ -104,6 +204,28 @@ export default function TaskList() {
                     >
                       Complete
                     </Button>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => setEditTask(t)}
+                        title="Edit"
+                      >
+                        <Pencil size={13} />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => setDeleteTarget(t)}
+                        title="Delete"
+                      >
+                        <Trash2 size={13} />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -133,11 +255,12 @@ export default function TaskList() {
                     Completed <SortIcon active={compSortKey === 'completedAt'} dir={compSortDir} />
                   </TableHead>
                   <TableHead>Linked To</TableHead>
+                  <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {completedPagination.paginatedData.map((t) => (
-                  <TableRow key={t.activityId} className="cursor-default opacity-60">
+                  <TableRow key={t.activityId} className="cursor-default opacity-60 group">
                     <TableCell className="line-through">{t.subject}</TableCell>
                     <TableCell>{formatDate(t.completedAt)}</TableCell>
                     <TableCell>
@@ -147,6 +270,19 @@ export default function TaskList() {
                         {t.accountId && <Link to={`/accounts/${t.accountId}`} className="text-blue-600 hover:underline text-xs">Account</Link>}
                         {!t.contactId && !t.dealId && !t.accountId && '—'}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setDeleteTarget(t)}
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -160,6 +296,49 @@ export default function TaskList() {
           </Card>
         </details>
       )}
+
+      {/* Edit Task Sheet */}
+      <Sheet open={!!editTask} onOpenChange={(open) => { if (!open) setEditTask(null) }}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit Task</SheetTitle>
+          </SheetHeader>
+          <div className="mt-5">
+            {editTask && (
+              <TaskEditForm
+                task={editTask}
+                onSuccess={() => setEditTask(null)}
+                onClose={() => setEditTask(null)}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>"{deleteTarget?.subject}"</strong>?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(deleteTarget.activityId)}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
