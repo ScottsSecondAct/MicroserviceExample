@@ -34,6 +34,8 @@ import {
 import { useSortableTable, SortIcon } from '../../hooks/use-sortable-table.jsx'
 import { usePagination } from '../../hooks/use-pagination.js'
 import { Pagination } from '../../components/ui/pagination.jsx'
+import { useBulkSelect } from '../../hooks/use-bulk-select.js'
+import { BulkActionBar } from '../../components/BulkActionBar.jsx'
 
 const STATUSES = ['Lead', 'Prospect', 'Customer', 'Churned']
 
@@ -52,6 +54,7 @@ export default function ContactList() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editContactId, setEditContactId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
   const { data: contacts = [], isLoading, error } = useQuery({
     queryKey: ['contacts', { status: statusFilter, ownerId: ownerFilter }],
@@ -71,8 +74,29 @@ export default function ContactList() {
     },
   })
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids) => Promise.all([...ids].map((id) => contactsApi.delete(id))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      clearSelection()
+      setBulkDeleteOpen(false)
+    },
+  })
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: ({ ids, status }) =>
+      Promise.all([...ids].map((id) => contactsApi.update(id, { status }))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      clearSelection()
+    },
+  })
+
   const { sortedData: sortedContacts, sortKey, sortDir, handleSort } = useSortableTable(contacts, 'lastName')
   const pagination = usePagination(sortedContacts)
+
+  const allPageIds = pagination.paginatedData.map((c) => c.contactId)
+  const { selectedIds, selectedCount, toggleRow, toggleAll, clearSelection, isSelected, isAllSelected, isIndeterminate } = useBulkSelect()
 
   return (
     <div>
@@ -83,7 +107,7 @@ export default function ContactList() {
 
       {/* Filters */}
       <div className="flex gap-3 mb-4">
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v === '_all' ? '' : v)}>
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v === '_all' ? '' : v); clearSelection() }}>
           <SelectTrigger className="w-44">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
@@ -93,7 +117,7 @@ export default function ContactList() {
           </SelectContent>
         </Select>
 
-        <Select value={ownerFilter} onValueChange={(v) => setOwnerFilter(v === '_all' ? '' : v)}>
+        <Select value={ownerFilter} onValueChange={(v) => { setOwnerFilter(v === '_all' ? '' : v); clearSelection() }}>
           <SelectTrigger className="w-44">
             <SelectValue placeholder="All owners" />
           </SelectTrigger>
@@ -118,9 +142,43 @@ export default function ContactList() {
         <p className="text-sm text-gray-400 py-4">No contacts found.</p>
       ) : (
         <Card className="p-0 overflow-hidden">
+          <BulkActionBar selectedCount={selectedCount} onClearSelection={clearSelection}>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 text-xs"
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={bulkDeleteMutation.isPending || bulkStatusMutation.isPending}
+            >
+              Delete selected
+            </Button>
+            <Select
+              value=""
+              onValueChange={(status) => bulkStatusMutation.mutate({ ids: selectedIds, status })}
+              disabled={bulkDeleteMutation.isPending || bulkStatusMutation.isPending}
+            >
+              <SelectTrigger className="h-7 w-44 text-xs">
+                <SelectValue placeholder="Change status…" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </BulkActionBar>
+
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                    checked={isAllSelected(allPageIds)}
+                    ref={(el) => { if (el) el.indeterminate = isIndeterminate(allPageIds) }}
+                    onChange={() => toggleAll(allPageIds)}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead className="cursor-pointer select-none" onClick={() => handleSort('lastName')}>
                   Name <SortIcon active={sortKey === 'lastName'} dir={sortDir} />
                 </TableHead>
@@ -140,12 +198,23 @@ export default function ContactList() {
             <TableBody>
               {pagination.paginatedData.map((c) => {
                 const owner = team.find((m) => m.userId === c.ownerId)
+                const selected = isSelected(c.contactId)
                 return (
                   <TableRow
                     key={c.contactId}
-                    className="cursor-pointer group"
+                    className={`cursor-pointer group${selected ? ' bg-blue-50' : ''}`}
                     onClick={() => navigate(`/contacts/${c.contactId}`)}
+                    data-state={selected ? 'selected' : undefined}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                        checked={selected}
+                        onChange={() => toggleRow(c.contactId)}
+                        aria-label={`Select ${c.firstName} ${c.lastName}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       <Link
                         to={`/contacts/${c.contactId}`}
@@ -192,8 +261,8 @@ export default function ContactList() {
           </Table>
           <Pagination
             {...pagination}
-            onPageChange={pagination.handlePageChange}
-            onPageSizeChange={pagination.handlePageSizeChange}
+            onPageChange={(page) => { pagination.handlePageChange(page); clearSelection() }}
+            onPageSizeChange={(size) => { pagination.handlePageSizeChange(size); clearSelection() }}
           />
         </Card>
       )}
@@ -237,7 +306,7 @@ export default function ContactList() {
         </SheetContent>
       </Sheet>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Single Delete Confirmation Dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -258,6 +327,31 @@ export default function ContactList() {
               onClick={() => deleteMutation.mutate(deleteTarget.contactId)}
             >
               {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={(open) => { if (!open) setBulkDeleteOpen(false) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete {selectedCount} Contact{selectedCount !== 1 ? 's' : ''}</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{selectedCount}</strong> selected contact{selectedCount !== 1 ? 's' : ''}?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={bulkDeleteMutation.isPending}
+              onClick={() => bulkDeleteMutation.mutate(selectedIds)}
+            >
+              {bulkDeleteMutation.isPending ? 'Deleting…' : `Delete ${selectedCount}`}
             </Button>
           </DialogFooter>
         </DialogContent>
