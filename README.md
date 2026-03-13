@@ -188,6 +188,15 @@ Services start in dependency order (databases and RabbitMQ first). The schema is
 - RabbitMQ management UI: http://localhost:15672 (guest / guest)
 - Frontend: `cd frontend && npm install && npm run dev` → http://localhost:5173
 
+A default admin account is seeded on first startup:
+
+| Field | Value |
+|---|---|
+| Email | `admin@example.com` |
+| Password | `Admin1234!` |
+
+Override these via environment variables before starting: `DefaultAdmin__Email`, `DefaultAdmin__Password`.
+
 ### Local (without Docker)
 
 **Requirements:** .NET 9 SDK, PostgreSQL, RabbitMQ
