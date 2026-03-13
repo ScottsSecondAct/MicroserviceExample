@@ -24,12 +24,32 @@ public class LoginController : ControllerBase
 
     if (result.IsSuccess)
     {
-      if (result.Data == null || string.IsNullOrWhiteSpace(result.Data.ToString()))
+      var response = result.Data as LoginResponse;
+      if (response == null || string.IsNullOrWhiteSpace(response.Token))
       {
         return StatusCode(500, new { message = "Internal server error: Token generation failed." });
       }
 
-      return Ok(new LoginResponse { Token = result.Data?.ToString() ?? string.Empty });
+      return Ok(response);
+    }
+
+    return StatusCode(result.StatusCode, new { message = result.Message });
+  }
+
+  [HttpPost("refresh")]
+  public async Task<IActionResult> Refresh(RefreshRequest request)
+  {
+    var result = await _loginService.RefreshAsync(request);
+
+    if (result.IsSuccess)
+    {
+      var response = result.Data as LoginResponse;
+      if (response == null || string.IsNullOrWhiteSpace(response.Token))
+      {
+        return StatusCode(500, new { message = "Internal server error: Token generation failed." });
+      }
+
+      return Ok(response);
     }
 
     return StatusCode(result.StatusCode, new { message = result.Message });

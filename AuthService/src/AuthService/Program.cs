@@ -34,6 +34,7 @@ var secretKey = jwtSettings.GetValue<string>("SecretKey") ?? throw new ArgumentN
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IRegistrationService, RegistationService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
 
