@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, CheckSquare } from 'lucide-react'
+import { EmptyState } from '../../components/EmptyState.jsx'
 import { activitiesApi } from '../../api/activities.api.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { Button } from '../../components/ui/button.jsx'
@@ -9,7 +10,7 @@ import { Input } from '../../components/ui/input.jsx'
 import { Label } from '../../components/ui/label.jsx'
 import { Textarea } from '../../components/ui/textarea.jsx'
 import { Skeleton } from '../../components/ui/skeleton.jsx'
-import { Card, CardContent } from '../../components/ui/card.jsx'
+import { Card } from '../../components/ui/card.jsx'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table.jsx'
 import {
   Sheet,
@@ -211,11 +212,11 @@ export default function TaskList() {
       </div>
 
       {incompleteTasks.length === 0 ? (
-        <Card>
-          <CardContent className="py-6">
-            <p className="text-sm text-gray-400">No open tasks. You're all caught up.</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<CheckSquare size={28} />}
+          heading="You're all caught up!"
+          description="No open tasks. Log activities from a contact or deal to create tasks."
+        />
       ) : (
         <Card className="p-0 overflow-hidden mb-6">
           <BulkActionBar selectedCount={selectedCount} onClearSelection={clearSelection}>

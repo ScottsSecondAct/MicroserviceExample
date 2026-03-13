@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Building2 } from 'lucide-react'
+import { EmptyState } from '../../components/EmptyState.jsx'
 import { accountsApi } from '../../api/accounts.api.js'
 import { toast } from '../../hooks/use-toast.js'
 import AccountForm from './AccountForm.jsx'
@@ -108,7 +109,12 @@ export default function AccountList() {
       ) : error ? (
         <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error.message}</p>
       ) : accounts.length === 0 ? (
-        <p className="text-sm text-gray-400 py-4">No accounts found.</p>
+        <EmptyState
+          icon={<Building2 size={28} />}
+          heading="No accounts yet"
+          description="Track the companies you work with — add your first account to get started."
+          action={{ label: '+ Add your first account', onClick: () => setSheetOpen(true) }}
+        />
       ) : (
         <Card className="p-0 overflow-hidden">
           <BulkActionBar selectedCount={selectedCount} onClearSelection={clearSelection}>
