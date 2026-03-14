@@ -3,21 +3,27 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using AuthService.Data;
+using AuthService.Middleware;
 using AuthService.Services;
 using AuthService.Repository;
 using MassTransit;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, services, config) => config
+    .ReadFrom.Configuration(ctx.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("serviceId", "auth-service")
+    .WriteTo.Console(new CompactJsonFormatter()));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
 
 // Register DbContext
 builder.Services.AddDbContext<AuthDbContext>(options =>
@@ -124,6 +130,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseRouting();
 app.UseAuthentication();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");

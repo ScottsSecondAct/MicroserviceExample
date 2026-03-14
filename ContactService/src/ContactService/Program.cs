@@ -1,13 +1,23 @@
 using ContactService.Data;
+using ContactService.Middleware;
 using ContactService.Repository;
 using ContactService.Services;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Formatting.Compact;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, services, config) => config
+    .ReadFrom.Configuration(ctx.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("serviceId", "contact-service")
+    .WriteTo.Console(new CompactJsonFormatter()));
 
 builder.Services.AddControllers()
   .AddJsonOptions(options =>
@@ -27,10 +37,6 @@ builder.Services.AddHttpClient<IAccountClient, AccountClient>(client =>
   client.BaseAddress = new Uri(
     builder.Configuration["ServiceUrls:AccountService"] ?? "http://localhost:5243");
 });
-
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
 
 // MassTransit + RabbitMQ (publish-only, no consumers)
 builder.Services.AddMassTransit(x =>
@@ -73,6 +79,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");

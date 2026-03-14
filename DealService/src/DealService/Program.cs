@@ -1,14 +1,24 @@
 using DealService.Consumers;
 using DealService.Data;
+using DealService.Middleware;
 using DealService.Repository;
 using DealService.Services;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Formatting.Compact;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, services, config) => config
+    .ReadFrom.Configuration(ctx.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("serviceId", "deal-service")
+    .WriteTo.Console(new CompactJsonFormatter()));
 
 builder.Services.AddControllers()
   .AddJsonOptions(options =>
@@ -34,10 +44,6 @@ builder.Services.AddHttpClient<IContactClient, ContactClient>(client =>
   client.BaseAddress = new Uri(
     builder.Configuration["ServiceUrls:ContactService"] ?? "http://localhost:5273");
 });
-
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
 
 builder.Services.AddMassTransit(x =>
 {
@@ -78,6 +84,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");

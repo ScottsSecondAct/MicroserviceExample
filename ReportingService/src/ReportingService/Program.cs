@@ -4,9 +4,19 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using ReportingService.Consumers;
 using ReportingService.Data;
+using ReportingService.Middleware;
 using ReportingService.Models;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, services, config) => config
+    .ReadFrom.Configuration(ctx.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("serviceId", "reporting-service")
+    .WriteTo.Console(new CompactJsonFormatter()));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -14,10 +24,6 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<ReportingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("ReportingDbConnection")));
-
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
 
 builder.Services.AddMassTransit(x =>
 {
@@ -80,6 +86,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
