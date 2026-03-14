@@ -1,3 +1,5 @@
+using OpenTelemetry.Exporter;
+using Serilog.Enrichers.OpenTelemetry;
 using ApiGateway.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -14,7 +16,10 @@ builder.Host.UseSerilog((ctx, services, config) => config
     .ReadFrom.Services(services)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("serviceId", "api-gateway")
-    .WriteTo.Console(new CompactJsonFormatter()));
+    .WriteTo.Console(new CompactJsonFormatter())
+    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://seq:5341")
+    .Enrich.WithOpenTelemetryTraceId()
+    .Enrich.WithOpenTelemetrySpanId());
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings.GetValue<string>("SecretKey")

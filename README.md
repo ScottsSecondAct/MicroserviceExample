@@ -11,14 +11,28 @@ The interesting problems are in the seams. When a user registers, AuthService an
 
 This project was developed with AI assistance (Anthropic's Claude) as a design and implementation collaborator. Architecture decisions, service boundaries, and every tradeoff were made and understood by hand. The AI accelerated the work; it didn't replace the thinking.
 
-## Current State — v1.5 (Reporting & Dashboards)
+## Current State — v1.6 (Enterprise UI Redesign) + v2.0 Hardening (partial)
 
-The full CRM is operational end-to-end: accounts, contacts, a sales pipeline, an activity log, and a reporting dashboard backed by an event-driven read model.
+The full CRM is operational end-to-end with a professional, enterprise-grade frontend. Three v2.0 hardening items have also landed: refresh token rotation, secrets management (Phase 1), and structured logging.
 
-- **ReportingService** — subscribes to `DealCreated`, `DealStageChanged`, `DealClosed`, `ActivityLogged`, `ContactStatusChanged`; maintains denormalized read-model projections (pipeline value by stage, activity counts by rep, contact funnel by status); read-only API at `/api/reports/pipeline|activities|contacts|dashboard`
-- **SharedLibrary** unchanged — ReportingService consumes existing events from SharedLibrary.Deals, SharedLibrary.Activities, and SharedLibrary.Contacts
-- **Gateway route** — `/reports/**` with JWT authorization
-- **Frontend: Dashboard** — pipeline bar chart (deal count + value by stage), contact funnel table (count by status), activity counts by rep
+**v1.6 (Enterprise UI Redesign):**
+- **Tailwind CSS + shadcn/ui** — full component library (Dialog, Sheet, Toast, Skeleton, Select, Combobox, Pagination, DropdownMenu) replaces hand-written CSS
+- **Left sidebar layout** — fixed sidebar grouped by domain (CRM, Productivity, Insights); collapsible to icon-only mode; hamburger drawer on narrow viewports
+- **Top bar** — global search, notification bell, user avatar dropdown with profile link and logout
+- **Breadcrumbs** — contextual navigation on all detail and form pages
+- **Slideover panels** — create/edit forms open in a right-hand Sheet; reduces context loss for power users
+- **Data tables** — sortable columns, pagination with page-size selector, inline row actions (Edit/Delete), bulk select with bulk-action bar
+- **Feedback & states** — toast notifications, loading skeleton screens, guided empty states with CTA, confirmation dialogs for all destructive actions
+- **Dashboard** — KPI stat cards with trend indicators; interactive charts with hover tooltips and clickable segments
+- **Admin section** — user list page (Admin-only); role promotion/demotion; account deactivation
+
+**v2.0 Hardening (partial):**
+- **Refresh token rotation** — login returns a JWT (2h) + an opaque refresh token stored in the AuthService DB; `POST /auth/api/login/refresh` issues a new JWT and rotates the refresh token; token invalidated on use
+- **Secrets management (Phase 1)** — all credentials (JWT key, DB passwords, RabbitMQ creds) injected via environment variables; `.env.example` documents every required variable; no secrets in committed files
+- **Structured logging** — consistent log fields (correlationId mapped to OTel trace ID, serviceId) across all services; JSON-formatted output; OTel trace context propagated via W3C `traceparent`
+
+v1.5 (Reporting & Dashboards):
+- ReportingService subscribes to domain events; read-model projections for pipeline value by stage, activity counts by rep, contact funnel by status; Dashboard in the frontend.
 
 v1.4 (Activities):
 - ActivityService — full CRUD for five activity types (Call, Email, Meeting, Task, Note); all entity references (ContactId, DealId, AccountId) are optional; scheduled and completed timestamps for task tracking; publishes `ActivityLogged` on create and `TaskCompleted` when a Task is first marked complete
@@ -186,6 +200,7 @@ Services start in dependency order (databases and RabbitMQ first). The schema is
 
 - API Gateway: http://localhost:5000
 - RabbitMQ management UI: http://localhost:15672 (credentials from `.env`)
+- Seq log & trace UI: http://localhost:5341
 - Frontend: `cd frontend && npm install && npm run dev` → http://localhost:5173
 
 A default admin account is seeded on first startup:
@@ -217,6 +232,50 @@ docker compose up --build -d
 node scripts/seed-crm.js
 ```
 Populates the CRM with realistic demo data via the API Gateway — no direct database access required. Creates 5 accounts, 9 contacts (across all status values), 6 deals (spanning every pipeline stage), deal-contact associations with roles, and 10 activities. Useful after a fresh `down -v` or in a new environment. Credentials default to the admin account in `.env`; override with `ADMIN_EMAIL` and `ADMIN_PASSWORD` env vars.
+
+### Observability
+
+All eight services ship OpenTelemetry tracing and Serilog structured logging, both pointing at [Seq](https://datalust.co/seq) which runs as part of the Docker stack.
+
+**Seq UI:** http://localhost:5341 (no login required in dev)
+
+#### Distributed tracing
+
+Every service instruments:
+- **Incoming HTTP requests** — each request becomes a span tagged with method, route, and status code
+- **Outbound HTTP calls** — calls between services (e.g. AuthService → UserManagementService on login) appear as child spans
+- **W3C `traceparent` propagation** — the trace ID flows across service boundaries via the HTTP header, so a single user action that touches multiple services shows up as one connected waterfall
+
+To see a trace in Seq:
+1. Make any API call through the gateway (e.g. log in, create a contact)
+2. Open Seq → **Traces** tab
+3. Click the trace to expand the cross-service waterfall — you'll see each service's span with timing and any errors
+
+#### Log–trace correlation
+
+Serilog enriches every log event with the active `TraceId` and `SpanId`. This means:
+- In the **Events** tab, every log line has a `TraceId` property
+- Click a `TraceId` value to filter all log events from that request across every service that handled it
+- Or switch to the **Traces** tab and click into a span to see the correlated log lines inline
+
+#### Useful Seq filter expressions
+
+```
+# All errors across all services
+@Level = 'Error'
+
+# Logs from one service
+Service = 'AuthService'
+
+# Everything from a specific request (copy TraceId from any log line)
+TraceId = 'abc123def456...'
+
+# Slow requests (>500ms)
+Elapsed > 500
+
+# Failed HTTP requests
+StatusCode >= 500
+```
 
 ### Local (without Docker)
 
@@ -263,7 +322,8 @@ All requests go through the gateway (`http://localhost:5000`). The gateway strip
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `POST` | `/auth/api/registration/register` | — | Register a new user |
-| `POST` | `/auth/api/login/login` | — | Login and receive a JWT |
+| `POST` | `/auth/api/login/login` | — | Login and receive a JWT + refresh token |
+| `POST` | `/auth/api/login/refresh` | — | Exchange a refresh token for a new JWT + rotated refresh token |
 | `GET`  | `/auth/api/login/me` | Bearer | Current user from JWT claims |
 
 **Register** `POST /auth/api/registration/register`
@@ -282,9 +342,19 @@ Profile creation happens asynchronously — UserManagementService processes the 
 { "email": "user@example.com", "password": "secret123" }
 
 // Response 200
-{ "token": "<jwt>" }
+{ "token": "<jwt>", "refreshToken": "<opaque-refresh-token>" }
 ```
-Role is fetched live from UserManagementService on each login.
+Role is fetched live from UserManagementService on each login. The JWT expires in 2 hours; use `POST /refresh` with the refresh token to get a new pair without re-authenticating.
+
+**Refresh** `POST /auth/api/login/refresh`
+```json
+// Request
+{ "refreshToken": "<opaque-refresh-token>" }
+
+// Response 200
+{ "token": "<new-jwt>", "refreshToken": "<new-refresh-token>" }
+```
+The old refresh token is invalidated on use (rotation). Refresh tokens are stored in the AuthService database and expire independently of the JWT.
 
 **Me** `GET /auth/api/login/me`
 ```json
@@ -389,8 +459,11 @@ ActivityService (calls, emails, meetings, tasks, notes). Activity timeline on co
 ### ✅ v1.5 — Reporting & Dashboards
 ReportingService subscribes to domain events and builds read-model projections. Dashboard with pipeline value by stage, contact funnel, and activity counts by rep.
 
-### v2.0 — Hardening
-Refresh tokens, structured logging with correlation IDs, dead-letter queue handling, rate limiting, soft delete, integration test suite.
+### ✅ v1.6 — Enterprise UI Redesign
+Full frontend overhaul: Tailwind CSS + shadcn/ui component library, left sidebar layout, top bar, breadcrumbs, slideover panels, sortable/paginated data tables with bulk-select, toast notifications, skeleton screens, guided empty states, confirmation dialogs, KPI stat cards, interactive charts, and an Admin section.
+
+### v2.0 — Hardening (in progress)
+Refresh token rotation ✅, secrets management Phase 1 ✅, structured logging ✅. Still open: dead-letter queue handling, rate limiting, soft delete + audit trail, integration test suite, CRM-specific roles.
 
 See [ROADMAP.md](ROADMAP.md) for detailed feature lists per version.
 
@@ -405,6 +478,7 @@ See [ROADMAP.md](ROADMAP.md) for detailed feature lists per version.
 - **Docker**: Multi-stage Dockerfiles, Docker Compose with dependency ordering, service-name DNS, environment variable configuration
 - **Testing**: xUnit, Moq, FluentAssertions, EF Core InMemory (unit); `WebApplicationFactory`, Testcontainers PostgreSQL, MassTransit test harness, WireMock.Net (integration); controller, service, repository, HTTP client, and consumer layers
 - **React**: React Router v6 (protected routes, nested layouts, `useNavigate`), TanStack Query v5 (`useQuery`, `useMutation`, cache invalidation), HTML5 drag-and-drop for Kanban stage transitions, per-domain API client modules, Vite dev proxy
+- **Frontend design system**: Tailwind CSS utility-first styling, shadcn/ui component library (Dialog, Sheet, Toast, Skeleton, Select, Combobox, Pagination), Recharts for interactive data visualization, responsive layout with mobile sidebar drawer
 
 ## Development Process & AI Collaboration
 

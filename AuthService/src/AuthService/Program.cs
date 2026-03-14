@@ -1,3 +1,5 @@
+using OpenTelemetry.Exporter;
+using Serilog.Enrichers.OpenTelemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -19,7 +21,10 @@ builder.Host.UseSerilog((ctx, services, config) => config
     .ReadFrom.Services(services)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("serviceId", "auth-service")
-    .WriteTo.Console(new CompactJsonFormatter()));
+    .WriteTo.Console(new CompactJsonFormatter())
+    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://seq:5341")
+    .Enrich.WithOpenTelemetryTraceId()
+    .Enrich.WithOpenTelemetrySpanId());
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

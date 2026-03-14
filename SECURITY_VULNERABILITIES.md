@@ -56,42 +56,27 @@ return CryptographicOperations.FixedTimeEquals(
 
 ---
 
-### 4. Hardcoded database passwords in docker-compose.yml
+### ~~4. Hardcoded database passwords in docker-compose.yml~~ ✅ Fixed (v2.0)
 
-**File:** `docker-compose.yml:7, 22, 37, 51, 80, 101, 118, 135`
+**Fixed in:** v2.0 secrets management (Phase 1)
 
-```yaml
-POSTGRES_PASSWORD: auth_pass   # and user_pass, account_pass, contact_pass
-```
-
-**Risk:** These passwords are committed to source control and are trivially guessable. Anyone with access to the repository has the database credentials. The connection strings in the service environment blocks repeat these values verbatim.
-
-**Fix:** Replace every hardcoded credential with an environment variable reference and add them to `.env` (which is already git-ignored):
-
-```yaml
-POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
-```
-
-Generate strong random passwords (e.g., `openssl rand -base64 32`) and document the required variables in `.env.example`. Consider Docker Secrets for a more hardened setup.
+All `POSTGRES_PASSWORD` values in `docker-compose.yml` now use environment variable references (`${AUTH_DB_PASSWORD}`, `${USER_DB_PASSWORD}`, etc.). The `.env.example` file documents every required variable with guidance to generate strong random values. The `.env` file remains git-ignored. Phase 2 (Docker Secrets / Vault / cloud secret store) is still open.
 
 ---
 
-### 5. RabbitMQ default credentials used everywhere
+### 5. RabbitMQ default credentials used everywhere (partially mitigated)
 
 **Files:** `docker-compose.yml`, all six service `Program.cs` files
 
-```yaml
-RabbitMQ__Username: "guest"
-RabbitMQ__Password: "guest"
-```
-
 ```csharp
-h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");  // hardcoded fallback
+h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");  // hardcoded fallback remains
 ```
 
-**Risk:** `guest/guest` are the RabbitMQ default credentials, widely known and targeted by automated scanners. The `?? "guest"` fallback in every `Program.cs` means the service silently authenticates with default credentials if the configuration key is missing — a dangerous silent failure.
+**Status (v2.0):** `docker-compose.yml` now injects RabbitMQ credentials via `${RABBITMQ_USERNAME}` / `${RABBITMQ_PASSWORD}` environment variables rather than hardcoding `guest/guest`. The `.env.example` documents these variables.
 
-**Fix:** Create a dedicated RabbitMQ user with a strong password and only the vhosts/permissions it needs. Store credentials as environment variables. Remove all `?? "guest"` fallbacks — the application should fail fast with a clear error if credentials are missing rather than silently using defaults.
+**Remaining gap:** The `?? "guest"` fallback in every service `Program.cs` is still present. If the environment variable is missing or mis-spelled the service silently authenticates with default credentials rather than failing fast. The fallback strings should be removed so the application throws a clear startup error when credentials are absent.
+
+**Fix:** Remove all `?? "guest"` fallbacks from `Program.cs` files. Create a dedicated RabbitMQ user with minimal permissions rather than relying on the default `guest` vhost.
 
 ---
 
@@ -149,17 +134,13 @@ if (app.Environment.IsDevelopment())
 
 ---
 
-### 9. No refresh token mechanism — long-lived sessions or forced logouts
+### ~~9. No refresh token mechanism — long-lived sessions or forced logouts~~ ✅ Fixed (v2.0)
 
-**File:** `AuthService/src/AuthService/Services/JwtTokenService.cs:37`
+**Fixed in:** v2.0 refresh token rotation
 
-```csharp
-expires: DateTime.UtcNow.AddHours(2),
-```
+Refresh token rotation is now implemented in AuthService. Login returns both a JWT and an opaque `refreshToken`. The `POST /api/login/refresh` endpoint accepts a valid refresh token, issues a new JWT, and stores a rotated replacement refresh token — invalidating the one that was consumed. Refresh tokens are stored in the `AuthService` database (`RefreshToken` table via `IRefreshTokenRepository`) and carry their own expiry. This enables forced logout by deleting stored tokens.
 
-**Risk:** JWTs are stateless and cannot be revoked. A stolen token is valid for the full 2-hour window with no way to invalidate it. In practice, UX pressure drives developers to increase expiry times — which makes token theft more damaging. There is also no way to force logout all sessions when a user changes their password or when suspicious activity is detected.
-
-**Fix:** Implement refresh token rotation: issue short-lived JWTs (15 minutes) alongside long-lived, opaque refresh tokens stored in the `AuthService` database. The refresh token endpoint issues a new JWT and rotates the refresh token. Implement refresh token revocation. This also enables "log out all devices" functionality.
+**Remaining gap:** The JWT expiry is still 2 hours rather than the shorter window (15 minutes) originally recommended. While refresh rotation now exists, a stolen JWT remains valid for up to 2 hours without a revocation mechanism at the gateway level.
 
 ---
 
@@ -409,39 +390,39 @@ db.Database.EnsureCreated();
 
 ## Summary Table
 
-| # | Issue | Severity | Effort |
-|---|-------|----------|--------|
-| 1 | Downstream services unauthenticated | Critical | Medium |
-| 2 | PBKDF2 iteration count too low | Critical | Low |
-| 3 | Timing attack in password comparison | Critical | Low |
-| 4 | Hardcoded database passwords | Critical | Low |
-| 5 | RabbitMQ default credentials | Critical | Low |
-| 6 | RabbitMQ management UI exposed | Critical | Low |
-| 7 | Swagger enabled in production | High | Low |
-| 8 | No rate limiting on auth endpoints | High | Medium |
-| 9 | No refresh token / no revocation | High | High |
-| 10 | Containers run as root | High | Low |
-| 11 | Inter-service traffic unencrypted | High | High |
-| 12 | Password complexity not enforced | Medium | Low |
-| 13 | No security response headers | Medium | Low |
-| 14 | CORS policy too broad | Medium | Low |
-| 15 | Health endpoint leaks topology | Medium | Low |
-| 16 | Debug logging in production | Medium | Low |
-| 17 | JWT issuer/audience are placeholders | Medium | Low |
-| 18 | AllowedHosts permits any host | Medium | Low |
-| 19 | No request body size limits | Medium | Low |
-| 20 | OpenTelemetry exporting to console | Low | Low |
-| 21 | No audit trail on CRM entities | Low | High |
-| 22 | EnsureCreated() in production | Low | Medium |
-| 23 | No input length limits | Low | Low |
+| # | Issue | Severity | Effort | Status |
+|---|-------|----------|--------|--------|
+| 1 | Downstream services unauthenticated | Critical | Medium | Open |
+| 2 | PBKDF2 iteration count too low | Critical | Low | Open |
+| 3 | Timing attack in password comparison | Critical | Low | Open |
+| 4 | ~~Hardcoded database passwords~~ | ~~Critical~~ | ~~Low~~ | **Fixed v2.0** |
+| 5 | RabbitMQ default credentials | Critical | Low | Partial (docker-compose fixed; `?? "guest"` fallback remains) |
+| 6 | RabbitMQ management UI exposed | Critical | Low | Open |
+| 7 | Swagger enabled in production | High | Low | Open |
+| 8 | No rate limiting on auth endpoints | High | Medium | Open |
+| 9 | ~~No refresh token / no revocation~~ | ~~High~~ | ~~High~~ | **Fixed v2.0** |
+| 10 | Containers run as root | High | Low | Open |
+| 11 | Inter-service traffic unencrypted | High | High | Open |
+| 12 | Password complexity not enforced | Medium | Low | Open |
+| 13 | No security response headers | Medium | Low | Open |
+| 14 | CORS policy too broad | Medium | Low | Open |
+| 15 | Health endpoint leaks topology | Medium | Low | Open |
+| 16 | Debug logging in production | Medium | Low | Open |
+| 17 | JWT issuer/audience are placeholders | Medium | Low | Open |
+| 18 | AllowedHosts permits any host | Medium | Low | Open |
+| 19 | No request body size limits | Medium | Low | Open |
+| 20 | OpenTelemetry exporting to console | Low | Low | Open |
+| 21 | No audit trail on CRM entities | Low | High | Open |
+| 22 | EnsureCreated() in production | Low | Medium | Open |
+| 23 | No input length limits | Low | Low | Open |
 
 ### Recommended priority order
 
 **Fix immediately (low effort, critical/high risk):**
-Issues 2, 3, 4, 5, 6, 7, 10, 13, 14, 16, 17, 18, 19 — most are one-line or one-file changes.
+Issues 2, 3, 5 (remove `?? "guest"` fallback), 6, 7, 10, 13, 14, 16, 17, 18, 19 — most are one-line or one-file changes.
 
 **Fix before any real user data is stored:**
 Issues 1, 8, 12, 15 — these directly affect data confidentiality and availability.
 
-**Plan for v2.0:**
-Issues 9, 11, 21, 22, 23 — these require architectural work and are tracked in the roadmap.
+**Plan for v2.1+:**
+Issues 11, 21, 22, 23 — these require architectural work and are tracked in the roadmap.

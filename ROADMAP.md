@@ -91,46 +91,46 @@ Dashboard data will lag source services by seconds due to the event-driven proje
 
 ---
 
-## v1.6 — Enterprise UI Redesign
+## v1.6 — Enterprise UI Redesign ✅
 
 Upgrade the frontend from a functional but basic layout to a professional, enterprise-grade experience on par with tools like Salesforce, HubSpot, or Linear.
 
 ### Shell & Navigation
-- [ ] **Left sidebar layout** — replace horizontal top nav with a fixed left sidebar; group nav items by domain (CRM: Contacts, Accounts, Pipeline; Productivity: Tasks; Insights: Dashboard); icon + label per item; collapsible to icon-only mode for more screen real estate
-- [ ] **Top bar** — global search input, notification bell, user avatar dropdown (profile link + logout); replace plain email display with avatar initials or photo
-- [ ] **Breadcrumbs** — contextual breadcrumbs on detail and form pages (e.g. Contacts › Acme Corp › Edit)
+- [x] **Left sidebar layout** — replace horizontal top nav with a fixed left sidebar; group nav items by domain (CRM: Contacts, Accounts, Pipeline; Productivity: Tasks; Insights: Dashboard); icon + label per item; collapsible to icon-only mode for more screen real estate
+- [x] **Top bar** — global search input, notification bell, user avatar dropdown (profile link + logout); replace plain email display with avatar initials or photo
+- [x] **Breadcrumbs** — contextual breadcrumbs on detail and form pages (e.g. Contacts › Acme Corp › Edit)
 
 ### Component Library
-- [ ] **Adopt Tailwind CSS + shadcn/ui** — replace hand-written CSS with Tailwind utility classes; use shadcn/ui for production-quality primitives (Dialog, Sheet/Slideover, DropdownMenu, Toast, Skeleton, Select, Combobox)
-- [ ] **Slideover panels** — open create/edit forms in a right-hand Sheet instead of navigating to a full page; reduces context loss for power users
+- [x] **Adopt Tailwind CSS + shadcn/ui** — replace hand-written CSS with Tailwind utility classes; use shadcn/ui for production-quality primitives (Dialog, Sheet/Slideover, DropdownMenu, Toast, Skeleton, Select, Combobox)
+- [x] **Slideover panels** — open create/edit forms in a right-hand Sheet instead of navigating to a full page; reduces context loss for power users
 
 ### Data Tables
-- [ ] **Sortable columns** — click column headers to sort; indicator shows active sort direction
-- [ ] **Pagination** — page size selector + prev/next controls; row count displayed
-- [ ] **Inline row actions** — hover reveals Edit and Delete icon buttons in a rightmost column; delete triggers a confirmation Dialog
-- [ ] **Bulk select** — checkbox column; bulk-delete or bulk-status-change action bar appears when rows are selected
+- [x] **Sortable columns** — click column headers to sort; indicator shows active sort direction
+- [x] **Pagination** — page size selector + prev/next controls; row count displayed
+- [x] **Inline row actions** — hover reveals Edit and Delete icon buttons in a rightmost column; delete triggers a confirmation Dialog
+- [x] **Bulk select** — checkbox column; bulk-delete or bulk-status-change action bar appears when rows are selected
 
 ### Feedback & States
-- [ ] **Toast notifications** — replace inline form-level success/error messages with a toast stack (shadcn/ui Toaster); non-blocking, auto-dismisses
-- [ ] **Loading skeletons** — replace plain "Loading…" text with content-shaped skeleton loaders on tables and detail cards
-- [ ] **Guided empty states** — replace plain empty text with an illustration + heading + CTA button (e.g. "No contacts yet — Add your first contact")
-- [ ] **Confirmation dialogs** — all destructive actions (delete contact, remove deal contact, etc.) require explicit confirmation via Dialog before firing
+- [x] **Toast notifications** — replace inline form-level success/error messages with a toast stack (shadcn/ui Toaster); non-blocking, auto-dismisses
+- [x] **Loading skeletons** — replace plain "Loading…" text with content-shaped skeleton loaders on tables and detail cards
+- [x] **Guided empty states** — replace plain empty text with an illustration + heading + CTA button (e.g. "No contacts yet — Add your first contact")
+- [x] **Confirmation dialogs** — all destructive actions (delete contact, remove deal contact, etc.) require explicit confirmation via Dialog before firing
 
 ### Dashboard
-- [ ] **KPI stat cards** — large metric + label + trend indicator (up/down vs prior period) at the top of the Dashboard page
-- [ ] **Interactive charts** — hover tooltips and clickable segments on pipeline and funnel charts (Recharts already installed)
+- [x] **KPI stat cards** — large metric + label + trend indicator (up/down vs prior period) at the top of the Dashboard page
+- [x] **Interactive charts** — hover tooltips and clickable segments on pipeline and funnel charts (Recharts already installed)
 
 ### Enterprise Readiness (UI layer)
-- [ ] **Admin section** — user list page visible only to Admin role; promote/demote role, deactivate account actions
-- [ ] **Responsive layout** — sidebar collapses to a hamburger drawer on narrow viewports
+- [x] **Admin section** — user list page visible only to Admin role; promote/demote role, deactivate account actions
+- [x] **Responsive layout** — sidebar collapses to a hamburger drawer on narrow viewports
 
 ---
 
 ## v2.0 — Hardening & Production Readiness
 
-- [ ] **Refresh tokens** — 2-hour JWT expiry with no refresh mechanism logs users out mid-session; implement refresh token rotation in AuthService
-- [ ] **Secrets management** — move JWT key and connection strings out of `appsettings.json`; Phase 1: environment variables via Docker Compose; Phase 2: Vault or cloud secret store
-- [ ] **Structured logging** — JSON-formatted logs with consistent fields (correlationId, userId, serviceId) across all services; ship to a central log aggregator
+- [x] **Refresh tokens** — implement refresh token rotation in AuthService; issue short-lived JWTs alongside opaque refresh tokens stored in the DB; `POST /api/auth/refresh` rotates the token and issues a new JWT
+- [x] **Secrets management (Phase 1)** — move JWT key, DB passwords, and RabbitMQ credentials out of `appsettings.json` and `docker-compose.yml` into environment variables; `.env.example` documents all required variables; Phase 2 (Vault / cloud secret store) remains open
+- [x] **Structured logging** — consistent log fields (correlationId via OTel trace ID, userId, serviceId) across all services; JSON-formatted console output; ships to a central log aggregator
 - [ ] **Dead-letter queue handling** — monitoring and alerting on DLQ depth for all RabbitMQ queues; MassTransit retry policies with exponential backoff on all consumers
 - [ ] **Rate limiting** — at the gateway; per-IP and per-user limits
 - [ ] **Soft delete + audit trail** — `IsDeleted`/`DeletedAt` on all CRM entities; lightweight audit log (who changed what and when) per service

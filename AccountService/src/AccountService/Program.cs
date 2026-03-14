@@ -1,3 +1,5 @@
+using OpenTelemetry.Exporter;
+using Serilog.Enrichers.OpenTelemetry;
 using AccountService.Data;
 using AccountService.Middleware;
 using AccountService.Repository;
@@ -17,7 +19,10 @@ builder.Host.UseSerilog((ctx, services, config) => config
     .ReadFrom.Services(services)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("serviceId", "account-service")
-    .WriteTo.Console(new CompactJsonFormatter()));
+    .WriteTo.Console(new CompactJsonFormatter())
+    .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://seq:5341")
+    .Enrich.WithOpenTelemetryTraceId()
+    .Enrich.WithOpenTelemetrySpanId());
 
 builder.Services.AddControllers()
   .AddJsonOptions(options =>
