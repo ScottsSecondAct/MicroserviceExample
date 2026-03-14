@@ -2,6 +2,7 @@ using OpenTelemetry.Exporter;
 using Serilog.Enrichers.OpenTelemetry;
 using DealService.Consumers;
 using DealService.Data;
+using DealService.Infrastructure;
 using DealService.Middleware;
 using DealService.Repository;
 using DealService.Services;
@@ -61,14 +62,20 @@ builder.Services.AddMassTransit(x =>
       h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
       h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
     });
+    cfg.UseMessageRetry(r => r.Exponential(5,
+      TimeSpan.FromSeconds(1),
+      TimeSpan.FromSeconds(60),
+      TimeSpan.FromSeconds(5)));
     cfg.ConfigureEndpoints(ctx);
   });
 });
 
+builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks()
     .AddNpgSql(
         builder.Configuration.GetConnectionString("DealDbConnection") ?? string.Empty,
-        name: "deal-db");
+        name: "deal-db")
+    .AddCheck<DlqHealthCheck>("rabbitmq-dlq", tags: ["messaging"]);
 
 builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing

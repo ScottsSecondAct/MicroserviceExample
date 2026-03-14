@@ -6,6 +6,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using ReportingService.Consumers;
 using ReportingService.Data;
+using ReportingService.Infrastructure;
 using ReportingService.Middleware;
 using ReportingService.Models;
 using Serilog;
@@ -45,14 +46,20 @@ builder.Services.AddMassTransit(x =>
             h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
             h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
         });
+        cfg.UseMessageRetry(r => r.Exponential(5,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(60),
+            TimeSpan.FromSeconds(5)));
         cfg.ConfigureEndpoints(ctx);
     });
 });
 
+builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks()
     .AddNpgSql(
         builder.Configuration.GetConnectionString("ReportingDbConnection") ?? string.Empty,
-        name: "reporting-db");
+        name: "reporting-db")
+    .AddCheck<DlqHealthCheck>("rabbitmq-dlq", tags: ["messaging"]);
 
 builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing

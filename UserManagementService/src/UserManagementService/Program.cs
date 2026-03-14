@@ -3,6 +3,7 @@ using Serilog.Enrichers.OpenTelemetry;
 using Microsoft.EntityFrameworkCore;
 using UserManagementService.Consumers;
 using UserManagementService.Data;
+using UserManagementService.Infrastructure;
 using UserManagementService.Middleware;
 using UserManagementService.Repository;
 using UserManagementService.Services;
@@ -46,15 +47,21 @@ builder.Services.AddMassTransit(x =>
       h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
       h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
     });
+    cfg.UseMessageRetry(r => r.Exponential(5,
+      TimeSpan.FromSeconds(1),
+      TimeSpan.FromSeconds(60),
+      TimeSpan.FromSeconds(5)));
     cfg.ConfigureEndpoints(ctx);
   });
 });
 
 // Health checks
+builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks()
     .AddNpgSql(
         builder.Configuration.GetConnectionString("UserManagementDbConnection") ?? string.Empty,
-        name: "user-management-db");
+        name: "user-management-db")
+    .AddCheck<DlqHealthCheck>("rabbitmq-dlq", tags: ["messaging"]);
 
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()
