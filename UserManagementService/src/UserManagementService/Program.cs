@@ -1,13 +1,23 @@
 using Microsoft.EntityFrameworkCore;
 using UserManagementService.Consumers;
 using UserManagementService.Data;
+using UserManagementService.Middleware;
 using UserManagementService.Repository;
 using UserManagementService.Services;
 using MassTransit;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, services, config) => config
+    .ReadFrom.Configuration(ctx.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("serviceId", "user-management-service")
+    .WriteTo.Console(new CompactJsonFormatter()));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -18,10 +28,6 @@ builder.Services.AddDbContext<UserManagementDbContext>(options =>
 
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
-
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
 
 // MassTransit + RabbitMQ (consume UserRegistered events)
 builder.Services.AddMassTransit(x =>
@@ -92,6 +98,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
