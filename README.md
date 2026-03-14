@@ -185,7 +185,7 @@ docker compose up --build
 Services start in dependency order (databases and RabbitMQ first). The schema is applied automatically on first startup via `EnsureCreated()`.
 
 - API Gateway: http://localhost:5000
-- RabbitMQ management UI: http://localhost:15672 (guest / guest)
+- RabbitMQ management UI: http://localhost:15672 (credentials from `.env`)
 - Frontend: `cd frontend && npm install && npm run dev` → http://localhost:5173
 
 A default admin account is seeded on first startup:
@@ -196,6 +196,27 @@ A default admin account is seeded on first startup:
 | Password | `Admin1234!` |
 
 Override these via environment variables before starting: `DefaultAdmin__Email`, `DefaultAdmin__Password`.
+
+### Common Docker operations
+
+**Start (or rebuild after code changes):**
+```sh
+docker compose up --build -d
+```
+Builds any images whose source has changed and starts all services in dependency order. Safe to run against a running stack — only changed services are recreated.
+
+**Reset all data:**
+```sh
+docker compose down -v
+docker compose up --build -d
+```
+`down -v` stops all containers and deletes every Docker volume (all database data, RabbitMQ state). Use this when you want a completely clean slate — for example, if RabbitMQ credentials in `.env` changed and the broker is rejecting connections because its stored password no longer matches. After wiping volumes, `up --build` recreates everything from scratch including the default admin seed.
+
+**Seed sample CRM data:**
+```sh
+node scripts/seed-crm.js
+```
+Populates the CRM with realistic demo data via the API Gateway — no direct database access required. Creates 5 accounts, 9 contacts (across all status values), 6 deals (spanning every pipeline stage), deal-contact associations with roles, and 10 activities. Useful after a fresh `down -v` or in a new environment. Credentials default to the admin account in `.env`; override with `ADMIN_EMAIL` and `ADMIN_PASSWORD` env vars.
 
 ### Local (without Docker)
 
