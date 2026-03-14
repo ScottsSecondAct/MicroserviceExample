@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: authdb
       POSTGRES_USER: auth_user
-      POSTGRES_PASSWORD: auth_pass
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
     volumes:
       - auth-db-data:/var/lib/postgresql/data
     networks: [backend]
@@ -20,7 +20,7 @@ services:
     environment:
       POSTGRES_DB: userdb
       POSTGRES_USER: user_user
-      POSTGRES_PASSWORD: user_pass
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
     volumes:
       - user-db-data:/var/lib/postgresql/data
     networks: [backend]
@@ -35,7 +35,7 @@ services:
     environment:
       POSTGRES_DB: accountdb
       POSTGRES_USER: account_user
-      POSTGRES_PASSWORD: account_pass
+      POSTGRES_PASSWORD: ${ACCOUNT_DB_PASSWORD}
     volumes:
       - account-db-data:/var/lib/postgresql/data
     networks: [backend]
@@ -50,7 +50,7 @@ services:
     environment:
       POSTGRES_DB: contactdb
       POSTGRES_USER: contact_user
-      POSTGRES_PASSWORD: contact_pass
+      POSTGRES_PASSWORD: ${CONTACT_DB_PASSWORD}
     volumes:
       - contact-db-data:/var/lib/postgresql/data
     networks: [backend]
@@ -64,6 +64,9 @@ services:
     image: rabbitmq:3.13-management
     ports:
       - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     networks: [backend]
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
@@ -77,14 +80,15 @@ services:
       dockerfile: AuthService/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__AuthDbConnection: "Host=auth-db;Port=5432;Database=authdb;Username=auth_user;Password=auth_pass"
+      ConnectionStrings__AuthDbConnection: "Host=auth-db;Port=5432;Database=authdb;Username=auth_user;Password=${AUTH_DB_PASSWORD}"
       JwtSettings__SecretKey: "${JWT_SECRET}"
       JwtSettings__Issuer: "https://localhost"
       JwtSettings__Audience: "YourAppUsers"
+      DefaultAdmin__Password: "${DEFAULT_ADMIN_PASSWORD}"
       ServiceUrls__UserManagementService: "http://user-management-service:8080"
       RabbitMQ__Host: "rabbitmq"
-      RabbitMQ__Username: "guest"
-      RabbitMQ__Password: "guest"
+      RabbitMQ__Username: "${RABBITMQ_USERNAME}"
+      RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
     depends_on:
       auth-db:
         condition: service_healthy
@@ -98,10 +102,10 @@ services:
       dockerfile: UserManagementService/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__UserManagementDbConnection: "Host=user-management-db;Port=5432;Database=userdb;Username=user_user;Password=user_pass"
+      ConnectionStrings__UserManagementDbConnection: "Host=user-management-db;Port=5432;Database=userdb;Username=user_user;Password=${USER_DB_PASSWORD}"
       RabbitMQ__Host: "rabbitmq"
-      RabbitMQ__Username: "guest"
-      RabbitMQ__Password: "guest"
+      RabbitMQ__Username: "${RABBITMQ_USERNAME}"
+      RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
     depends_on:
       user-management-db:
         condition: service_healthy
@@ -115,10 +119,10 @@ services:
       dockerfile: AccountService/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__AccountDbConnection: "Host=account-db;Port=5432;Database=accountdb;Username=account_user;Password=account_pass"
+      ConnectionStrings__AccountDbConnection: "Host=account-db;Port=5432;Database=accountdb;Username=account_user;Password=${ACCOUNT_DB_PASSWORD}"
       RabbitMQ__Host: "rabbitmq"
-      RabbitMQ__Username: "guest"
-      RabbitMQ__Password: "guest"
+      RabbitMQ__Username: "${RABBITMQ_USERNAME}"
+      RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
     depends_on:
       account-db:
         condition: service_healthy
@@ -132,11 +136,11 @@ services:
       dockerfile: ContactService/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__ContactDbConnection: "Host=contact-db;Port=5432;Database=contactdb;Username=contact_user;Password=contact_pass"
+      ConnectionStrings__ContactDbConnection: "Host=contact-db;Port=5432;Database=contactdb;Username=contact_user;Password=${CONTACT_DB_PASSWORD}"
       ServiceUrls__AccountService: "http://account-service:8080"
       RabbitMQ__Host: "rabbitmq"
-      RabbitMQ__Username: "guest"
-      RabbitMQ__Password: "guest"
+      RabbitMQ__Username: "${RABBITMQ_USERNAME}"
+      RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
     depends_on:
       contact-db:
         condition: service_healthy
@@ -151,7 +155,7 @@ services:
     environment:
       POSTGRES_DB: dealdb
       POSTGRES_USER: deal_user
-      POSTGRES_PASSWORD: deal_pass
+      POSTGRES_PASSWORD: ${DEAL_DB_PASSWORD}
     volumes:
       - deal-db-data:/var/lib/postgresql/data
     networks: [backend]
@@ -167,12 +171,12 @@ services:
       dockerfile: DealService/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DealDbConnection: "Host=deal-db;Port=5432;Database=dealdb;Username=deal_user;Password=deal_pass"
+      ConnectionStrings__DealDbConnection: "Host=deal-db;Port=5432;Database=dealdb;Username=deal_user;Password=${DEAL_DB_PASSWORD}"
       ServiceUrls__AccountService: "http://account-service:8080"
       ServiceUrls__ContactService: "http://contact-service:8080"
       RabbitMQ__Host: "rabbitmq"
-      RabbitMQ__Username: "guest"
-      RabbitMQ__Password: "guest"
+      RabbitMQ__Username: "${RABBITMQ_USERNAME}"
+      RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
     depends_on:
       deal-db:
         condition: service_healthy
@@ -189,7 +193,7 @@ services:
     environment:
       POSTGRES_DB: activitydb
       POSTGRES_USER: activity_user
-      POSTGRES_PASSWORD: activity_pass
+      POSTGRES_PASSWORD: ${ACTIVITY_DB_PASSWORD}
     volumes:
       - activity-db-data:/var/lib/postgresql/data
     networks: [backend]
@@ -205,10 +209,10 @@ services:
       dockerfile: ActivityService/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__ActivityDbConnection: "Host=activity-db;Port=5432;Database=activitydb;Username=activity_user;Password=activity_pass"
+      ConnectionStrings__ActivityDbConnection: "Host=activity-db;Port=5432;Database=activitydb;Username=activity_user;Password=${ACTIVITY_DB_PASSWORD}"
       RabbitMQ__Host: "rabbitmq"
-      RabbitMQ__Username: "guest"
-      RabbitMQ__Password: "guest"
+      RabbitMQ__Username: "${RABBITMQ_USERNAME}"
+      RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
     depends_on:
       activity-db:
         condition: service_healthy
@@ -221,7 +225,7 @@ services:
     environment:
       POSTGRES_DB: reportingdb
       POSTGRES_USER: reporting_user
-      POSTGRES_PASSWORD: reporting_pass
+      POSTGRES_PASSWORD: ${REPORTING_DB_PASSWORD}
     volumes:
       - reporting-db-data:/var/lib/postgresql/data
     networks: [backend]
@@ -237,10 +241,10 @@ services:
       dockerfile: ReportingService/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__ReportingDbConnection: "Host=reporting-db;Port=5432;Database=reportingdb;Username=reporting_user;Password=reporting_pass"
+      ConnectionStrings__ReportingDbConnection: "Host=reporting-db;Port=5432;Database=reportingdb;Username=reporting_user;Password=${REPORTING_DB_PASSWORD}"
       RabbitMQ__Host: "rabbitmq"
-      RabbitMQ__Username: "guest"
-      RabbitMQ__Password: "guest"
+      RabbitMQ__Username: "${RABBITMQ_USERNAME}"
+      RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
     depends_on:
       reporting-db:
         condition: service_healthy
