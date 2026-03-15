@@ -89,6 +89,13 @@ builder.Services.AddAuthentication(options =>
   };
 });
 
+builder.Services.AddAuthorization(options =>
+{
+  options.AddPolicy("admin", policy => policy.RequireRole("Admin"));
+  options.AddPolicy("manager", policy => policy.RequireRole("Manager", "Admin"));
+  options.AddPolicy("salesRep", policy => policy.RequireRole("SalesRep", "Manager", "Admin"));
+});
+
 // Health checks
 builder.Services.AddHealthChecks()
     .AddNpgSql(

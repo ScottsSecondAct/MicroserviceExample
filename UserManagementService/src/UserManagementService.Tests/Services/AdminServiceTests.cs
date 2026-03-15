@@ -72,6 +72,38 @@ public class AdminServiceTests
     result.StatusCode.Should().Be(404);
   }
 
+  [Fact]
+  public async Task UpdateUserRoleAsync_WhenAssigningSalesRep_UpdatesRole()
+  {
+    var userId = Guid.NewGuid();
+    var profile = new UserProfile { UserId = userId, Email = "user@example.com", Role = UserRole.Member, IsActive = true };
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.SalesRep);
+
+    result.IsSuccess.Should().BeTrue();
+    result.StatusCode.Should().Be(200);
+    var response = result.Data as AdminUserResponse;
+    response!.Role.Should().Be(UserRole.SalesRep);
+  }
+
+  [Fact]
+  public async Task UpdateUserRoleAsync_WhenAssigningManager_UpdatesRole()
+  {
+    var userId = Guid.NewGuid();
+    var profile = new UserProfile { UserId = userId, Email = "user@example.com", Role = UserRole.SalesRep, IsActive = true };
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Manager);
+
+    result.IsSuccess.Should().BeTrue();
+    result.StatusCode.Should().Be(200);
+    var response = result.Data as AdminUserResponse;
+    response!.Role.Should().Be(UserRole.Manager);
+  }
+
   // ── SetUserActiveAsync ────────────────────────────────────────────────────
 
   [Fact]

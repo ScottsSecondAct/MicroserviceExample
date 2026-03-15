@@ -38,4 +38,17 @@ public class JwtTokenServiceTests
     Assert.NotNull(token);
     Assert.NotEmpty(token);
   }
+
+  [Theory]
+  [InlineData(UserRole.SalesRep)]
+  [InlineData(UserRole.Manager)]
+  public void GenerateJwtToken_WithCrmRole_ShouldReturnValidToken(UserRole role)
+  {
+    var user = new User { UserId = Guid.NewGuid(), Email = "crm@example.com" };
+
+    var token = _jwtTokenService.GenerateJwtToken(user, role);
+
+    Assert.NotNull(token);
+    Assert.NotEmpty(token);
+  }
 }
