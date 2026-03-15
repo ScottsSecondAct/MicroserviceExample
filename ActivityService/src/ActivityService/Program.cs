@@ -34,6 +34,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<ActivityDbContext>(options =>
   options.UseNpgsql(builder.Configuration.GetConnectionString("ActivityDbConnection")));
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IActivityRepository, ActivityRepository>();
 builder.Services.AddScoped<IActivityService, ActivitiesService>();
 

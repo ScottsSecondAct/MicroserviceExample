@@ -34,6 +34,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AccountDbContext>(options =>
   options.UseNpgsql(builder.Configuration.GetConnectionString("AccountDbConnection")));
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IAccountService, AccountsService>();
 

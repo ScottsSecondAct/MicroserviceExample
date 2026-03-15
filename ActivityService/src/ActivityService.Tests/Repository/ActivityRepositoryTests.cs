@@ -159,7 +159,23 @@ public class ActivityRepositoryTests
   }
 
   [Fact]
-  public async Task DeleteAsync_RemovesActivity()
+  public async Task DeleteAsync_SoftDeletesActivity()
+  {
+    using var context = MakeContext();
+    var repo = new ActivityRepository(context);
+    var activity = MakeActivity();
+    await repo.AddAsync(activity);
+
+    await repo.DeleteAsync(activity.ActivityId);
+
+    var softDeleted = await context.Activities.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.ActivityId == activity.ActivityId);
+    softDeleted.Should().NotBeNull();
+    softDeleted!.IsDeleted.Should().BeTrue();
+    softDeleted.DeletedAt.Should().NotBeNull();
+  }
+
+  [Fact]
+  public async Task DeleteAsync_ExcludesActivityFromQueries()
   {
     using var context = MakeContext();
     var repo = new ActivityRepository(context);
@@ -181,6 +197,21 @@ public class ActivityRepositoryTests
     var act = async () => await repo.DeleteAsync(Guid.NewGuid());
 
     await act.Should().NotThrowAsync();
+  }
+
+  // ── AuditLog ──────────────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task AddAsync_CreatesAuditLogEntry()
+  {
+    using var context = MakeContext();
+    var repo = new ActivityRepository(context);
+    var activity = MakeActivity();
+
+    await repo.AddAsync(activity);
+
+    var auditLogs = await context.AuditLogs.Where(a => a.EntityId == activity.ActivityId.ToString()).ToListAsync();
+    auditLogs.Should().ContainSingle(a => a.Action == "Created");
   }
 
   [Fact]

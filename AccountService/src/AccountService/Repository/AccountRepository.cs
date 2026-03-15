@@ -14,7 +14,7 @@ public class AccountRepository : IAccountRepository
   }
 
   public async Task<Account?> GetByIdAsync(Guid id) =>
-    await _context.Accounts.FindAsync(id);
+    await _context.Accounts.FirstOrDefaultAsync(a => a.AccountId == id);
 
   public async Task<List<Account>> GetAllAsync() =>
     await _context.Accounts.ToListAsync();
@@ -36,7 +36,8 @@ public class AccountRepository : IAccountRepository
     var account = await _context.Accounts.FindAsync(id);
     if (account != null)
     {
-      _context.Accounts.Remove(account);
+      account.IsDeleted = true;
+      account.DeletedAt = DateTime.UtcNow;
       await _context.SaveChangesAsync();
     }
   }
