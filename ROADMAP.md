@@ -134,8 +134,8 @@ Upgrade the frontend from a functional but basic layout to a professional, enter
 - [x] **Dead-letter queue handling** — monitoring and alerting on DLQ depth for all RabbitMQ queues; MassTransit retry policies with exponential backoff on all consumers
 - [x] **Rate limiting** — at the gateway; per-IP and per-user limits
 - [x] **Soft delete + audit trail** — `IsDeleted`/`DeletedAt` on all CRM entities; lightweight audit log (who changed what and when) per service
-- [ ] **Integration test suite** — end-to-end tests covering registration, contact creation, and deal creation across live services in a Docker Compose test environment
-- [ ] **CRM-specific roles** — expand `UserRole` beyond `Member`/`Admin` to include `SalesRep` and `Manager`; migrate enum out of SharedLibrary into UserManagementService's own domain
+- [x] **Integration test suite** — end-to-end tests covering registration, contact creation, and deal creation across live services in a Docker Compose test environment
+- [x] **CRM-specific roles** — expand `UserRole` beyond `Member`/`Admin` to include `SalesRep` and `Manager`; migrate enum out of SharedLibrary into UserManagementService's own domain
 
 ---
 
