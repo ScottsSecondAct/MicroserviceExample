@@ -1,5 +1,7 @@
+using System.Reflection;
 using Xunit;
 using Moq;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Mvc;
 using AuthService.Controllers;
@@ -69,6 +71,20 @@ public class RegistrationControllerTests
     Assert.Equal(409, statusCodeResult.StatusCode);
     Assert.NotNull(statusCodeResult.Value);
     Assert.Contains("Email is already registered.", statusCodeResult.Value.ToString());
+  }
+
+  [Fact]
+  public void Register_ShouldRequireAdminPolicy()
+  {
+    // Verify that the Register action is decorated with [Authorize(Policy = "admin")]
+    // so that only Admin-role JWT holders can provision accounts.
+    var method = typeof(RegistrationController)
+        .GetMethod(nameof(RegistrationController.Register));
+
+    var authorizeAttr = method!.GetCustomAttribute<AuthorizeAttribute>();
+
+    Assert.NotNull(authorizeAttr);
+    Assert.Equal("admin", authorizeAttr.Policy);
   }
 
   [Fact]
