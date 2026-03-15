@@ -413,6 +413,7 @@ EndToEnd.Tests/
     AccountContactFlowTests.cs
     DealFlowTests.cs
     ActivityFlowTests.cs
+    ReportingFlowTests.cs
     GatewayAuthTests.cs
 ```
 
@@ -509,11 +510,21 @@ Gateway health
 
 ### Running E2E tests
 
+The `scripts/run-e2e.sh` script handles the full lifecycle: start the stack, wait for the gateway health check, run the suite, tear down.
+
+```sh
+# Requires Docker and the .NET 9 SDK.
+# Copy .env.example → .env and fill in secrets, or let the script use safe test defaults.
+./scripts/run-e2e.sh
+```
+
+To run steps manually:
+
 ```sh
 # Start the full stack
 docker compose up --build -d
 
-# Wait for gateway health (simple poll script)
+# Wait for gateway health
 until curl -sf http://localhost:5000/health; do sleep 2; done
 
 # Run E2E suite
@@ -523,7 +534,7 @@ dotnet test EndToEnd.Tests/EndToEnd.Tests.csproj
 docker compose down -v
 ```
 
-In CI, add a `test-e2e` job to the GitHub Actions release workflow that runs after the build job.
+In CI, call `scripts/run-e2e.sh` after a build step. All required environment variables have safe defaults so no secrets are needed for a local smoke run.
 
 ---
 
