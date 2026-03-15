@@ -3,6 +3,14 @@
 
 A production-patterned microservices system evolving toward a full CRM in **ASP.NET Core (.NET 9)**. Built to demonstrate real distributed system design rather than toy examples: independent services with separate databases, a YARP API gateway, async event-driven communication via RabbitMQ and MassTransit, JWT authentication, distributed tracing with OpenTelemetry, and a React frontend.
 
+## Origin Story
+
+This project started as something much smaller. About five years ago I hand-built a two-service authentication system — AuthService and UserManagementService — as a personal exercise in ASP.NET Core microservices. It worked, it was solid, and then it sat in a private repository.
+
+Recently I was going through old repos looking for examples I could share with students to motivate them to build real projects and put them on GitHub. When I found the original two-service system, I decided to do something more ambitious with it: evolve it into a domain that is easy for anyone to understand but complex enough to surface the real tensions in distributed system design. A CRM fit perfectly — contacts, accounts, deals, and activities give you enough moving parts to motivate every architectural decision without burying the reader in domain complexity.
+
+The result is this project: a full CRM built as a genuine microservices system, grown incrementally from that original authentication foundation.
+
 ## Why This Project
 
 Most microservice tutorials show a diagram with boxes and arrows, then implement a single monolith with a split folder structure. This project implements the real thing: independently deployable services, each with its own database, an API gateway as the single entry point, and a message broker decoupling inter-service workflows.
@@ -13,7 +21,7 @@ This project was developed with AI assistance (Anthropic's Claude) as a design a
 
 ## Current State — v1.6 (Enterprise UI Redesign) + v2.0 Hardening (partial)
 
-The full CRM is operational end-to-end with a professional, enterprise-grade frontend. Three v2.0 hardening items have also landed: refresh token rotation, secrets management (Phase 1), and structured logging.
+The full CRM is operational end-to-end with a professional, enterprise-grade frontend. Six v2.0 hardening items have landed: refresh token rotation, secrets management (Phase 1), structured logging, dead-letter queue handling, rate limiting, and soft delete + audit trail.
 
 **v1.6 (Enterprise UI Redesign):**
 - **Tailwind CSS + shadcn/ui** — full component library (Dialog, Sheet, Toast, Skeleton, Select, Combobox, Pagination, DropdownMenu) replaces hand-written CSS
@@ -30,6 +38,9 @@ The full CRM is operational end-to-end with a professional, enterprise-grade fro
 - **Refresh token rotation** — login returns a JWT (2h) + an opaque refresh token stored in the AuthService DB; `POST /auth/api/login/refresh` issues a new JWT and rotates the refresh token; token invalidated on use
 - **Secrets management (Phase 1)** — all credentials (JWT key, DB passwords, RabbitMQ creds) injected via environment variables; `.env.example` documents every required variable; no secrets in committed files
 - **Structured logging** — consistent log fields (correlationId mapped to OTel trace ID, serviceId) across all services; JSON-formatted output; OTel trace context propagated via W3C `traceparent`
+- **Dead-letter queue handling** — DLQ depth health checks across all services; MassTransit retry policies with exponential backoff on all consumers; DLQ monitoring in the Docker stack
+- **Rate limiting** — per-IP and per-user limits at the YARP gateway; configurable thresholds via environment variables
+- **Soft delete + audit trail** — `IsDeleted`/`DeletedAt` on all CRM entities; lightweight audit log (actor, action, timestamp) per service; hard-delete replaced with soft-delete across all CRUD endpoints
 
 v1.5 (Reporting & Dashboards):
 - ReportingService subscribes to domain events; read-model projections for pipeline value by stage, activity counts by rep, contact funnel by status; Dashboard in the frontend.
@@ -48,7 +59,7 @@ v1.2 (Contacts & Accounts):
 v1.1 (Infrastructure Foundation):
 - YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry.
 
-**Testing:** 306 tests total — 222 unit tests, 67 integration tests across 15 test projects, and 17 E2E tests. All passing. See [TESTING.md](TESTING.md).
+**Testing:** 377 tests total — 320 unit tests, 57 integration tests, and 17 E2E tests. All passing. See [TESTING.md](TESTING.md).
 
 See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
@@ -433,11 +444,13 @@ Setting `completedAt` on a `Task` for the first time publishes a `TaskCompleted`
 
 ## Testing
 
-262 tests across 12 projects. All passing.
+377 tests across 15 projects. All passing.
 
-**Unit tests (204)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
+**Unit tests (320)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
 
-**Integration tests (58)** — `WebApplicationFactory<Program>` boots the real ASP.NET Core pipeline in-process. `Testcontainers.PostgreSql` provides a real PostgreSQL instance per test class. `MassTransit.Testing` (in-memory harness) replaces RabbitMQ. `WireMock.Net` stubs downstream HTTP services. Each service has its own integration test project under `*.IntegrationTests/`.
+**Integration tests (57)** — `WebApplicationFactory<Program>` boots the real ASP.NET Core pipeline in-process. `Testcontainers.PostgreSql` provides a real PostgreSQL instance per test class. MassTransit test harness replaces RabbitMQ. `WireMock.Net` stubs downstream HTTP services. Each service has its own integration test project under `*.IntegrationTests/`.
+
+**E2E tests (17)** — `EndToEnd.Tests` runs against the full Docker Compose stack. Requires `docker compose up` before running.
 
 ## Roadmap
 
@@ -463,7 +476,7 @@ ReportingService subscribes to domain events and builds read-model projections. 
 Full frontend overhaul: Tailwind CSS + shadcn/ui component library, left sidebar layout, top bar, breadcrumbs, slideover panels, sortable/paginated data tables with bulk-select, toast notifications, skeleton screens, guided empty states, confirmation dialogs, KPI stat cards, interactive charts, and an Admin section.
 
 ### v2.0 — Hardening (in progress)
-Refresh token rotation ✅, secrets management Phase 1 ✅, structured logging ✅. Still open: dead-letter queue handling, rate limiting, soft delete + audit trail, integration test suite, CRM-specific roles.
+Refresh token rotation ✅, secrets management Phase 1 ✅, structured logging ✅, dead-letter queue handling ✅, rate limiting ✅, soft delete + audit trail ✅. Still open: integration test suite, CRM-specific roles.
 
 See [ROADMAP.md](ROADMAP.md) for detailed feature lists per version.
 

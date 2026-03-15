@@ -487,3 +487,6 @@ $RECYCLE.BIN/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+
+# Coverage artifacts
+coverage-results/
