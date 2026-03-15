@@ -14,5 +14,8 @@ public class Deal
   public Guid? OwnerId { get; set; }
   public DateTime CreatedAt { get; set; }
   public DateTime UpdatedAt { get; set; }
+  public bool IsDeleted { get; set; }
+  public DateTime? DeletedAt { get; set; }
+  public Guid? DeletedBy { get; set; }
   public ICollection<DealContact> DealContacts { get; set; } = new List<DealContact>();
 }

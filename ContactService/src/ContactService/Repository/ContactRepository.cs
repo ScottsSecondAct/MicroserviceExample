@@ -15,7 +15,7 @@ public class ContactRepository : IContactRepository
   }
 
   public async Task<Contact?> GetByIdAsync(Guid id) =>
-    await _context.Contacts.FindAsync(id);
+    await _context.Contacts.FirstOrDefaultAsync(c => c.ContactId == id);
 
   public async Task<List<Contact>> GetAllAsync(ContactStatus? status = null, Guid? ownerId = null, Guid? accountId = null)
   {
@@ -53,7 +53,8 @@ public class ContactRepository : IContactRepository
     var contact = await _context.Contacts.FindAsync(id);
     if (contact != null)
     {
-      _context.Contacts.Remove(contact);
+      contact.IsDeleted = true;
+      contact.DeletedAt = DateTime.UtcNow;
       await _context.SaveChangesAsync();
     }
   }

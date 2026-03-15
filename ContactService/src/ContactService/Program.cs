@@ -34,6 +34,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<ContactDbContext>(options =>
   options.UseNpgsql(builder.Configuration.GetConnectionString("ContactDbConnection")));
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IContactRepository, ContactRepository>();
 builder.Services.AddScoped<IContactService, ContactsService>();
 

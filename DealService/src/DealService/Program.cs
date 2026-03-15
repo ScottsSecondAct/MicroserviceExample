@@ -36,6 +36,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<DealDbContext>(options =>
   options.UseNpgsql(builder.Configuration.GetConnectionString("DealDbConnection")));
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IDealRepository, DealRepository>();
 builder.Services.AddScoped<IDealService, DealsService>();
 

@@ -56,7 +56,8 @@ public class ActivityRepository : IActivityRepository
     var activity = await _context.Activities.FindAsync(id);
     if (activity != null)
     {
-      _context.Activities.Remove(activity);
+      activity.IsDeleted = true;
+      activity.DeletedAt = DateTime.UtcNow;
       await _context.SaveChangesAsync();
     }
   }

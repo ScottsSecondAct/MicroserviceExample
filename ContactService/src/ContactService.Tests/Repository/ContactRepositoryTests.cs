@@ -166,7 +166,7 @@ public class ContactRepositoryTests
   // ── DeleteAsync ───────────────────────────────────────────────────────────
 
   [Fact]
-  public async Task DeleteAsync_RemovesContact()
+  public async Task DeleteAsync_SoftDeletesContact()
   {
     using var ctx = CreateContext();
     var contact = MakeContact();
@@ -176,8 +176,27 @@ public class ContactRepositoryTests
 
     await repo.DeleteAsync(contact.ContactId);
 
-    var deleted = await ctx.Contacts.FindAsync(contact.ContactId);
-    deleted.Should().BeNull();
+    var softDeleted = await ctx.Contacts.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.ContactId == contact.ContactId);
+    softDeleted.Should().NotBeNull();
+    softDeleted!.IsDeleted.Should().BeTrue();
+    softDeleted.DeletedAt.Should().NotBeNull();
+  }
+
+  [Fact]
+  public async Task DeleteAsync_ExcludesContactFromQueries()
+  {
+    using var ctx = CreateContext();
+    var contact = MakeContact();
+    ctx.Contacts.Add(contact);
+    await ctx.SaveChangesAsync();
+    var repo = new ContactRepository(ctx);
+
+    await repo.DeleteAsync(contact.ContactId);
+
+    var found = await repo.GetByIdAsync(contact.ContactId);
+    found.Should().BeNull();
+    var all = await repo.GetAllAsync();
+    all.Should().NotContain(c => c.ContactId == contact.ContactId);
   }
 
   [Fact]
@@ -189,5 +208,20 @@ public class ContactRepositoryTests
     var act = async () => await repo.DeleteAsync(Guid.NewGuid());
 
     await act.Should().NotThrowAsync();
+  }
+
+  // ── AuditLog ──────────────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task AddAsync_CreatesAuditLogEntry()
+  {
+    using var ctx = CreateContext();
+    var repo = new ContactRepository(ctx);
+    var contact = MakeContact();
+
+    await repo.AddAsync(contact);
+
+    var auditLogs = await ctx.AuditLogs.Where(a => a.EntityId == contact.ContactId.ToString()).ToListAsync();
+    auditLogs.Should().ContainSingle(a => a.Action == "Created");
   }
 }

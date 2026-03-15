@@ -166,7 +166,7 @@ public class DealRepositoryTests
   // ── DeleteAsync ───────────────────────────────────────────────────────────
 
   [Fact]
-  public async Task DeleteAsync_RemovesDealFromDb()
+  public async Task DeleteAsync_SoftDeletesDeal()
   {
     using var ctx = CreateContext();
     var deal = MakeDeal();
@@ -176,8 +176,27 @@ public class DealRepositoryTests
 
     await repo.DeleteAsync(deal.DealId);
 
-    var deleted = await ctx.Deals.FindAsync(deal.DealId);
-    deleted.Should().BeNull();
+    var softDeleted = await ctx.Deals.IgnoreQueryFilters().FirstOrDefaultAsync(d => d.DealId == deal.DealId);
+    softDeleted.Should().NotBeNull();
+    softDeleted!.IsDeleted.Should().BeTrue();
+    softDeleted.DeletedAt.Should().NotBeNull();
+  }
+
+  [Fact]
+  public async Task DeleteAsync_ExcludesDealFromQueries()
+  {
+    using var ctx = CreateContext();
+    var deal = MakeDeal();
+    ctx.Deals.Add(deal);
+    await ctx.SaveChangesAsync();
+    var repo = new DealRepository(ctx);
+
+    await repo.DeleteAsync(deal.DealId);
+
+    var found = await repo.GetByIdAsync(deal.DealId);
+    found.Should().BeNull();
+    var all = await repo.GetAllAsync();
+    all.Should().NotContain(d => d.DealId == deal.DealId);
   }
 
   [Fact]
@@ -189,6 +208,21 @@ public class DealRepositoryTests
     var act = async () => await repo.DeleteAsync(Guid.NewGuid());
 
     await act.Should().NotThrowAsync();
+  }
+
+  // ── AuditLog ──────────────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task AddAsync_CreatesAuditLogEntry()
+  {
+    using var ctx = CreateContext();
+    var repo = new DealRepository(ctx);
+    var deal = MakeDeal();
+
+    await repo.AddAsync(deal);
+
+    var auditLogs = await ctx.AuditLogs.Where(a => a.EntityId == deal.DealId.ToString()).ToListAsync();
+    auditLogs.Should().ContainSingle(a => a.Action == "Created");
   }
 
   // ── DealContact operations ─────────────────────────────────────────────────

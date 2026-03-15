@@ -119,7 +119,7 @@ public class AccountRepositoryTests
   // ── DeleteAsync ───────────────────────────────────────────────────────────
 
   [Fact]
-  public async Task DeleteAsync_RemovesAccount()
+  public async Task DeleteAsync_SoftDeletesAccount()
   {
     using var ctx = CreateContext();
     var account = MakeAccount();
@@ -129,8 +129,27 @@ public class AccountRepositoryTests
 
     await repo.DeleteAsync(account.AccountId);
 
-    var deleted = await ctx.Accounts.FindAsync(account.AccountId);
-    deleted.Should().BeNull();
+    var softDeleted = await ctx.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.AccountId == account.AccountId);
+    softDeleted.Should().NotBeNull();
+    softDeleted!.IsDeleted.Should().BeTrue();
+    softDeleted.DeletedAt.Should().NotBeNull();
+  }
+
+  [Fact]
+  public async Task DeleteAsync_ExcludesAccountFromQueries()
+  {
+    using var ctx = CreateContext();
+    var account = MakeAccount();
+    ctx.Accounts.Add(account);
+    await ctx.SaveChangesAsync();
+    var repo = new AccountRepository(ctx);
+
+    await repo.DeleteAsync(account.AccountId);
+
+    var found = await repo.GetByIdAsync(account.AccountId);
+    found.Should().BeNull();
+    var all = await repo.GetAllAsync();
+    all.Should().NotContain(a => a.AccountId == account.AccountId);
   }
 
   [Fact]
@@ -142,5 +161,20 @@ public class AccountRepositoryTests
     var act = async () => await repo.DeleteAsync(Guid.NewGuid());
 
     await act.Should().NotThrowAsync();
+  }
+
+  // ── AuditLog ──────────────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task AddAsync_CreatesAuditLogEntry()
+  {
+    using var ctx = CreateContext();
+    var repo = new AccountRepository(ctx);
+    var account = MakeAccount("Audit Corp");
+
+    await repo.AddAsync(account);
+
+    var auditLogs = await ctx.AuditLogs.Where(a => a.EntityId == account.AccountId.ToString()).ToListAsync();
+    auditLogs.Should().ContainSingle(a => a.Action == "Created");
   }
 }

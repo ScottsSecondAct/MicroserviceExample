@@ -50,7 +50,8 @@ public class DealRepository : IDealRepository
     var deal = await _context.Deals.FindAsync(id);
     if (deal != null)
     {
-      _context.Deals.Remove(deal);
+      deal.IsDeleted = true;
+      deal.DeletedAt = DateTime.UtcNow;
       await _context.SaveChangesAsync();
     }
   }
