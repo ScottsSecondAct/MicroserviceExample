@@ -127,4 +127,58 @@ public class ReportsControllerTests
         type.GetProperty("activities").Should().NotBeNull();
         type.GetProperty("contacts").Should().NotBeNull();
     }
+
+    // ── Exception paths ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPipeline_DbThrows_Returns500()
+    {
+        var db = CreateDb();
+        var controller = CreateController(db);
+        db.Dispose();
+
+        var result = await controller.GetPipeline();
+
+        var obj = result as ObjectResult;
+        obj!.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task GetActivities_DbThrows_Returns500()
+    {
+        var db = CreateDb();
+        var controller = CreateController(db);
+        db.Dispose();
+
+        var result = await controller.GetActivities();
+
+        var obj = result as ObjectResult;
+        obj!.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task GetContacts_DbThrows_Returns500()
+    {
+        var db = CreateDb();
+        var controller = CreateController(db);
+        db.Dispose();
+
+        var result = await controller.GetContacts();
+
+        var obj = result as ObjectResult;
+        obj!.StatusCode.Should().Be(500);
+    }
+
+    [Fact]
+    public async Task GetDashboard_DbThrows_Returns500()
+    {
+        var db = CreateDb();
+        var controller = CreateController(db);
+        db.Dispose();
+
+        var result = await controller.GetDashboard();
+
+        var obj = result as ObjectResult;
+        obj!.StatusCode.Should().Be(500);
+    }
 }

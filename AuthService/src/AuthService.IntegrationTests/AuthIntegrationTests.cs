@@ -149,6 +149,44 @@ public class AuthIntegrationTests : IClassFixture<AuthServiceFactory>
     response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
   }
 
+  // ── Refresh token ─────────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task POST_refresh_ValidToken_Returns200_WithNewJwt()
+  {
+    var email = $"refresh-{Guid.NewGuid()}@test.com";
+    var userId = await RegisterAndGetUserId(email);
+    StubRoleEndpoint(userId);
+
+    var loginResp = await _client.PostAsJsonAsync("/api/login/login", new { email, password = "Test@1234" });
+    var loginDoc = JsonDocument.Parse(await loginResp.Content.ReadAsStringAsync());
+    var refreshToken = loginDoc.RootElement.GetProperty("refreshToken").GetString();
+
+    var response = await _client.PostAsJsonAsync("/api/login/refresh", new { refreshToken });
+
+    response.StatusCode.Should().Be(HttpStatusCode.OK);
+    var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+    doc.RootElement.GetProperty("token").GetString().Should().NotBeNullOrEmpty();
+  }
+
+  [Fact]
+  public async Task POST_refresh_InvalidToken_Returns401()
+  {
+    var response = await _client.PostAsJsonAsync("/api/login/refresh",
+      new { refreshToken = "totally-invalid-token" });
+
+    response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+  }
+
+  [Fact]
+  public async Task POST_refresh_EmptyToken_Returns4xx()
+  {
+    var response = await _client.PostAsJsonAsync("/api/login/refresh",
+      new { refreshToken = "" });
+
+    ((int)response.StatusCode).Should().BeInRange(400, 499);
+  }
+
   // ── Health ────────────────────────────────────────────────────────────────
 
   [Fact]

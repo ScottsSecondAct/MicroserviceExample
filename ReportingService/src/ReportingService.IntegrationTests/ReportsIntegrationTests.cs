@@ -156,6 +156,31 @@ public class ReportsIntegrationTests : IClassFixture<ReportingServiceFactory>
     }
 
     [Fact]
+    public async Task Consumer_DealClosed_IsNoOp_PipelineUnchanged()
+    {
+        // Seed a deal into Prospecting via DealCreated so we have a baseline
+        var dealId = Guid.NewGuid();
+        await _harness.Bus.Publish(new DealCreated { DealId = dealId, Stage = DealStage.Prospecting, Value = 3000 });
+        await Task.Delay(300);
+
+        var before = await _client.GetAsync("/api/reports/pipeline");
+        var beforeArr = JsonDocument.Parse(await before.Content.ReadAsStringAsync()).RootElement;
+        var prospectingBefore = beforeArr.EnumerateArray()
+            .First(s => s.GetProperty("stage").GetString() == "Prospecting");
+        var valueBefore = prospectingBefore.GetProperty("totalValue").GetDecimal();
+
+        // Publish DealClosed — should be a no-op (no double-counting)
+        await _harness.Bus.Publish(new DealClosed { DealId = dealId, Stage = DealStage.Prospecting, Value = 3000 });
+        await Task.Delay(500);
+
+        var after = await _client.GetAsync("/api/reports/pipeline");
+        var afterArr = JsonDocument.Parse(await after.Content.ReadAsStringAsync()).RootElement;
+        var prospectingAfter = afterArr.EnumerateArray()
+            .First(s => s.GetProperty("stage").GetString() == "Prospecting");
+        prospectingAfter.GetProperty("totalValue").GetDecimal().Should().Be(valueBefore);
+    }
+
+    [Fact]
     public async Task GET_health_Returns200_Healthy()
     {
         var response = await _client.GetAsync("/health");

@@ -1,0 +1,164 @@
+Summary
+  Generated on: 03/14/2026 - 17:07:43
+  Coverage date: 03/14/2026 - 17:03:22 - 03/14/2026 - 17:04:19
+  Parser: MultiReport (15x Cobertura)
+  Assemblies: 13
+  Classes: 118
+  Files: 117
+  Line coverage: 96.2%
+  Covered lines: 2539
+  Uncovered lines: 100
+  Coverable lines: 2639
+  Total lines: 4640
+  Branch coverage: 80.7% (473 of 586)
+  Covered branches: 473
+  Total branches: 586
+  Method coverage: 98.6% (526 of 533)
+  Full method coverage: 96% (512 of 533)
+  Covered methods: 526
+  Fully covered methods: 512
+  Total methods: 533
+
+AccountService                                               97.2%
+  AccountService.Controllers.AccountsController               100%
+  AccountService.Data.AccountDbContext                        100%
+  AccountService.Middleware.CorrelationIdMiddleware           100%
+  AccountService.Models.Account                               100%
+  AccountService.Models.DTOs.AccountResponse                  100%
+  AccountService.Models.DTOs.CreateAccountRequest             100%
+  AccountService.Models.DTOs.UpdateAccountRequest             100%
+  AccountService.Repository.AccountRepository                 100%
+  AccountService.Services.AccountsService                     100%
+  AccountService.Services.ServiceResult                      92.8%
+  Program                                                    87.2%
+
+ActivityService                                              97.4%
+  ActivityService.Controllers.ActivitiesController            100%
+  ActivityService.Data.ActivityDbContext                      100%
+  ActivityService.Middleware.CorrelationIdMiddleware          100%
+  ActivityService.Models.Activity                             100%
+  ActivityService.Models.DTOs.ActivityResponse                100%
+  ActivityService.Models.DTOs.CreateActivityRequest           100%
+  ActivityService.Models.DTOs.UpdateActivityRequest           100%
+  ActivityService.Repository.ActivityRepository               100%
+  ActivityService.Services.ActivitiesService                  100%
+  ActivityService.Services.ServiceResult                     92.8%
+  Program                                                    87.2%
+
+AuthService                                                  97.9%
+  AuthService.Controllers.LoginController                     100%
+  AuthService.Controllers.RegistrationController              100%
+  AuthService.Data.AuthDbContext                              100%
+  AuthService.Middleware.CorrelationIdMiddleware              100%
+  AuthService.Models.DTOs.LoginRequest                        100%
+  AuthService.Models.DTOs.LoginResponse                       100%
+  AuthService.Models.DTOs.RefreshRequest                      100%
+  AuthService.Models.DTOs.RegisterRequest                     100%
+  AuthService.Models.DTOs.RegisterResponse                    100%
+  AuthService.Models.DTOs.UserRoleResponse                    100%
+  AuthService.Models.RefreshToken                             100%
+  AuthService.Models.User                                     100%
+  AuthService.Repository.RefreshTokenRepository               100%
+  AuthService.Repository.UserRepository                       100%
+  AuthService.Services.JwtTokenService                       93.3%
+  AuthService.Services.LoginService                           100%
+  AuthService.Services.PasswordService                        100%
+  AuthService.Services.RegistationService                     100%
+  AuthService.Services.ServiceResult                          100%
+  AuthService.Services.UserRoleClient                         100%
+  Program                                                    93.3%
+
+ContactService                                                 96%
+  ContactService.Controllers.ContactsController              92.8%
+  ContactService.Data.ContactDbContext                        100%
+  ContactService.Middleware.CorrelationIdMiddleware           100%
+  ContactService.Models.Contact                               100%
+  ContactService.Models.DTOs.ContactResponse                  100%
+  ContactService.Models.DTOs.CreateContactRequest             100%
+  ContactService.Models.DTOs.UpdateContactRequest             100%
+  ContactService.Repository.ContactRepository                96.8%
+  ContactService.Services.AccountClient                       100%
+  ContactService.Services.ContactsService                     100%
+  ContactService.Services.ServiceResult                      92.8%
+  Program                                                    88.3%
+
+DealService                                                  93.7%
+  DealService.Consumers.ContactDeletedConsumer                100%
+  DealService.Controllers.DealsController                     100%
+  DealService.Controllers.PipelineController                 84.2%
+  DealService.Data.DealDbContext                              100%
+  DealService.Infrastructure.DlqHealthCheck                   100%
+  DealService.Middleware.CorrelationIdMiddleware              100%
+  DealService.Models.Deal                                     100%
+  DealService.Models.DealContact                              100%
+  DealService.Models.DTOs.AddDealContactRequest               100%
+  DealService.Models.DTOs.CreateDealRequest                   100%
+  DealService.Models.DTOs.DealContactResponse                 100%
+  DealService.Models.DTOs.DealResponse                        100%
+  DealService.Models.DTOs.UpdateDealRequest                   100%
+  DealService.Repository.DealRepository                       100%
+  DealService.Services.AccountClient                          100%
+  DealService.Services.ContactClient                          100%
+  DealService.Services.DealsService                          89.1%
+  DealService.Services.ServiceResult                         92.8%
+  Program                                                    84.9%
+
+ReportingService                                             96.2%
+  Program                                                    85.5%
+  ReportingService.Consumers.ActivityLoggedConsumer           100%
+  ReportingService.Consumers.ContactStatusChangedConsumer     100%
+  ReportingService.Consumers.DealClosedConsumer               100%
+  ReportingService.Consumers.DealCreatedConsumer              100%
+  ReportingService.Consumers.DealStageChangedConsumer         100%
+  ReportingService.Controllers.ReportsController              100%
+  ReportingService.Data.ReportingDbContext                    100%
+  ReportingService.Infrastructure.DlqHealthCheck              100%
+  ReportingService.Middleware.CorrelationIdMiddleware         100%
+  ReportingService.Models.ActivityRepProjection               100%
+  ReportingService.Models.ContactFunnelProjection             100%
+  ReportingService.Models.DealSnapshot                        100%
+  ReportingService.Models.PipelineProjection                  100%
+
+SharedLibrary.Accounts                                        100%
+  SharedLibrary.Accounts.Events.AccountCreated                100%
+  SharedLibrary.Accounts.Events.AccountDeleted                100%
+
+SharedLibrary.Activities                                      100%
+  SharedLibrary.Activities.Events.ActivityLogged              100%
+  SharedLibrary.Activities.Events.TaskCompleted               100%
+
+SharedLibrary.Auth                                            100%
+  SharedLibrary.DTOs.CreateUserProfileRequest                 100%
+  SharedLibrary.DTOs.CreateUserProfileResponse                100%
+
+SharedLibrary.Contacts                                        100%
+  SharedLibrary.Contacts.Events.ContactCreated                100%
+  SharedLibrary.Contacts.Events.ContactDeleted                100%
+  SharedLibrary.Contacts.Events.ContactStatusChanged          100%
+
+SharedLibrary.Deals                                           100%
+  SharedLibrary.Deals.Events.DealClosed                       100%
+  SharedLibrary.Deals.Events.DealCreated                      100%
+  SharedLibrary.Deals.Events.DealStageChanged                 100%
+
+SharedLibrary.Messaging                                       100%
+  SharedLibrary.Messaging.Events.BaseEvent                    100%
+  SharedLibrary.Messaging.Events.UserRegistered               100%
+
+UserManagementService                                        95.6%
+  Program                                                      87%
+  UserManagementService.Consumers.UserRegisteredConsumer      100%
+  UserManagementService.Controllers.AdminController           100%
+  UserManagementService.Controllers.UsersController          90.6%
+  UserManagementService.Data.UserManagementDbContext          100%
+  UserManagementService.Infrastructure.DlqHealthCheck         100%
+  UserManagementService.Middleware.CorrelationIdMiddleware    100%
+  UserManagementService.Models.DTOs.AdminUserResponse         100%
+  UserManagementService.Models.DTOs.SetUserActiveRequest      100%
+  UserManagementService.Models.DTOs.TeamMemberResponse        100%
+  UserManagementService.Models.DTOs.UpdateUserRoleRequest     100%
+  UserManagementService.Models.DTOs.UserRoleResponse          100%
+  UserManagementService.Models.UserProfile                    100%
+  UserManagementService.Repository.UserProfileRepository      100%
+  UserManagementService.Services.ServiceResult               92.8%
+  UserManagementService.Services.UserProfileService          98.9%

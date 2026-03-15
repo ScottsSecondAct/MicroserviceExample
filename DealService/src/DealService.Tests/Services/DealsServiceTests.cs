@@ -287,6 +287,66 @@ public class DealsServiceTests
   // ── DeleteDealAsync ────────────────────────────────────────────────────────
 
   [Fact]
+  public async Task UpdateDealAsync_WhenAllOptionalFieldsProvided_UpdatesAll()
+  {
+    var deal = MakeDeal(DealStage.Prospecting);
+    var accountId = Guid.NewGuid();
+    var ownerId = Guid.NewGuid();
+    var closeDate = DateTime.UtcNow.AddDays(30);
+    var request = new UpdateDealRequest
+    {
+      AccountId = accountId,
+      Value = 99000m,
+      Probability = 75,
+      ExpectedCloseDate = closeDate,
+      OwnerId = ownerId
+    };
+
+    _mockRepository.Setup(r => r.GetByIdAsync(deal.DealId)).ReturnsAsync(deal);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<Deal>())).Returns(Task.CompletedTask);
+
+    var result = await _service.UpdateDealAsync(deal.DealId, request);
+
+    result.IsSuccess.Should().BeTrue();
+    var response = result.Data as DealResponse;
+    response!.AccountId.Should().Be(accountId);
+    response.Value.Should().Be(99000m);
+    response.Probability.Should().Be(75);
+    response.OwnerId.Should().Be(ownerId);
+    // No stage change → no events published
+    _mockPublishEndpoint.Verify(
+      p => p.Publish(It.IsAny<DealStageChanged>(), It.IsAny<CancellationToken>()), Times.Never);
+  }
+
+  [Fact]
+  public async Task UpdateDealAsync_WhenNoStageProvided_DoesNotPublishEvent()
+  {
+    var deal = MakeDeal(DealStage.Prospecting);
+    var request = new UpdateDealRequest { Title = "Title Only" };
+
+    _mockRepository.Setup(r => r.GetByIdAsync(deal.DealId)).ReturnsAsync(deal);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<Deal>())).Returns(Task.CompletedTask);
+
+    var result = await _service.UpdateDealAsync(deal.DealId, request);
+
+    result.IsSuccess.Should().BeTrue();
+    _mockPublishEndpoint.Verify(
+      p => p.Publish(It.IsAny<DealStageChanged>(), It.IsAny<CancellationToken>()), Times.Never);
+  }
+
+  [Fact]
+  public async Task CreateDealAsync_WithEmptyTitle_ReturnsFailure()
+  {
+    var request = new CreateDealRequest { Title = "" };
+
+    var result = await _service.CreateDealAsync(request);
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(400);
+    _mockRepository.Verify(r => r.AddAsync(It.IsAny<Deal>()), Times.Never);
+  }
+
+  [Fact]
   public async Task DeleteDealAsync_WhenFound_ReturnsSuccess()
   {
     var deal = MakeDeal();

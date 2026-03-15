@@ -161,6 +161,42 @@ public class AccountsServiceTests
   }
 
   [Fact]
+  public async Task UpdateAccountAsync_WhenAllOptionalFieldsProvided_UpdatesAll()
+  {
+    var accountId = Guid.NewGuid();
+    var account = new Account
+    {
+      AccountId = accountId,
+      Name = "Old Name",
+      CreatedAt = DateTime.UtcNow,
+      UpdatedAt = DateTime.UtcNow
+    };
+    var request = new UpdateAccountRequest
+    {
+      Industry = AccountIndustry.Technology,
+      Size = AccountSize.Large,
+      Website = "https://acme.com",
+      Street = "123 Main St",
+      City = "San Francisco",
+      State = "CA",
+      PostalCode = "94105",
+      Country = "US"
+    };
+
+    _mockRepository.Setup(r => r.GetByIdAsync(accountId)).ReturnsAsync(account);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<Account>())).Returns(Task.CompletedTask);
+
+    var result = await _service.UpdateAccountAsync(accountId, request);
+
+    result.IsSuccess.Should().BeTrue();
+    var response = result.Data as AccountResponse;
+    response!.Industry.Should().Be(AccountIndustry.Technology);
+    response.Size.Should().Be(AccountSize.Large);
+    response.Website.Should().Be("https://acme.com");
+    response.City.Should().Be("San Francisco");
+  }
+
+  [Fact]
   public async Task GetAllAccountsAsync_ReturnsAllAccounts()
   {
     var accounts = new List<Account>

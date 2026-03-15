@@ -257,4 +257,45 @@ public class ContactsServiceTests
     result.IsSuccess.Should().BeFalse();
     result.StatusCode.Should().Be(404);
   }
+
+  [Fact]
+  public async Task UpdateContactAsync_WhenAllOptionalFieldsProvided_UpdatesAll()
+  {
+    var contactId = Guid.NewGuid();
+    var accountId = Guid.NewGuid();
+    var ownerId = Guid.NewGuid();
+    var contact = new Contact
+    {
+      ContactId = contactId,
+      FirstName = "Jane",
+      LastName = "Doe",
+      Email = "jane@example.com",
+      Status = ContactStatus.Lead,
+      CreatedAt = DateTime.UtcNow,
+      UpdatedAt = DateTime.UtcNow
+    };
+    var request = new UpdateContactRequest
+    {
+      FirstName = "Janet",
+      LastName = "Smith",
+      Email = "janet.smith@example.com",
+      Phone = "555-0100",
+      AccountId = accountId,
+      OwnerId = ownerId
+    };
+
+    _mockRepository.Setup(r => r.GetByIdAsync(contactId)).ReturnsAsync(contact);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<Contact>())).Returns(Task.CompletedTask);
+
+    var result = await _service.UpdateContactAsync(contactId, request);
+
+    result.IsSuccess.Should().BeTrue();
+    var response = result.Data as ContactResponse;
+    response!.FirstName.Should().Be("Janet");
+    response.LastName.Should().Be("Smith");
+    response.Email.Should().Be("janet.smith@example.com");
+    response.Phone.Should().Be("555-0100");
+    response.AccountId.Should().Be(accountId);
+    response.OwnerId.Should().Be(ownerId);
+  }
 }

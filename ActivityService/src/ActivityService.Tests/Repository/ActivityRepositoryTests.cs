@@ -17,12 +17,14 @@ public class ActivityRepositoryTests
     return new ActivityDbContext(options);
   }
 
-  private static Activity MakeActivity(Guid? contactId = null, Guid? ownerId = null, ActivityType type = ActivityType.Call) => new()
+  private static Activity MakeActivity(Guid? contactId = null, Guid? dealId = null, Guid? accountId = null, Guid? ownerId = null, ActivityType type = ActivityType.Call) => new()
   {
     ActivityId = Guid.NewGuid(),
     Type = type,
     Subject = "Test Activity",
     ContactId = contactId,
+    DealId = dealId,
+    AccountId = accountId,
     OwnerId = ownerId,
     CreatedAt = DateTime.UtcNow,
     UpdatedAt = DateTime.UtcNow
@@ -80,6 +82,51 @@ public class ActivityRepositoryTests
 
     results.Count.Should().Be(1);
     results[0].ContactId.Should().Be(contactId);
+  }
+
+  [Fact]
+  public async Task GetAllAsync_FilterByDealId_ReturnsMatching()
+  {
+    using var context = MakeContext();
+    var repo = new ActivityRepository(context);
+    var dealId = Guid.NewGuid();
+    await repo.AddAsync(MakeActivity(dealId: dealId));
+    await repo.AddAsync(MakeActivity());
+
+    var results = await repo.GetAllAsync(dealId: dealId);
+
+    results.Count.Should().Be(1);
+    results[0].DealId.Should().Be(dealId);
+  }
+
+  [Fact]
+  public async Task GetAllAsync_FilterByAccountId_ReturnsMatching()
+  {
+    using var context = MakeContext();
+    var repo = new ActivityRepository(context);
+    var accountId = Guid.NewGuid();
+    await repo.AddAsync(MakeActivity(accountId: accountId));
+    await repo.AddAsync(MakeActivity());
+
+    var results = await repo.GetAllAsync(accountId: accountId);
+
+    results.Count.Should().Be(1);
+    results[0].AccountId.Should().Be(accountId);
+  }
+
+  [Fact]
+  public async Task GetAllAsync_FilterByOwnerId_ReturnsMatching()
+  {
+    using var context = MakeContext();
+    var repo = new ActivityRepository(context);
+    var ownerId = Guid.NewGuid();
+    await repo.AddAsync(MakeActivity(ownerId: ownerId));
+    await repo.AddAsync(MakeActivity());
+
+    var results = await repo.GetAllAsync(ownerId: ownerId);
+
+    results.Count.Should().Be(1);
+    results[0].OwnerId.Should().Be(ownerId);
   }
 
   [Fact]

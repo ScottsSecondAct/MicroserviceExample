@@ -134,4 +134,107 @@ public class ActivitiesControllerTests
     var objectResult = result as ObjectResult;
     objectResult!.StatusCode.Should().Be(404);
   }
+
+  // ── Failure paths (null-data branch of result.Data ?? result.Message) ────
+
+  [Fact]
+  public async Task GetAll_ServiceFailure_ReturnsServiceStatusCode()
+  {
+    _mockService.Setup(s => s.GetAllActivitiesAsync(null, null, null, null, null))
+      .ReturnsAsync(ServiceResult.Failure("Internal error.", 500));
+
+    var result = await _controller.GetAll(null, null, null, null, null);
+
+    var obj = result as ObjectResult;
+    obj!.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task Create_ServiceFailure_ReturnsServiceStatusCode()
+  {
+    var request = new CreateActivityRequest { Type = ActivityType.Call, Subject = "Test" };
+    _mockService.Setup(s => s.CreateActivityAsync(request))
+      .ReturnsAsync(ServiceResult.Failure("Validation error.", 400));
+
+    var result = await _controller.Create(request);
+
+    var obj = result as ObjectResult;
+    obj!.StatusCode.Should().Be(400);
+  }
+
+  [Fact]
+  public async Task Update_ServiceFailure_ReturnsServiceStatusCode()
+  {
+    var id = Guid.NewGuid();
+    _mockService.Setup(s => s.UpdateActivityAsync(id, It.IsAny<UpdateActivityRequest>()))
+      .ReturnsAsync(ServiceResult.Failure("Activity not found.", 404));
+
+    var result = await _controller.Update(id, new UpdateActivityRequest());
+
+    var obj = result as ObjectResult;
+    obj!.StatusCode.Should().Be(404);
+  }
+
+  // ── Exception paths ───────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task GetAll_ServiceThrows_Returns500()
+  {
+    _mockService.Setup(s => s.GetAllActivitiesAsync(null, null, null, null, null))
+      .ThrowsAsync(new Exception("boom"));
+
+    var result = await _controller.GetAll(null, null, null, null, null);
+
+    var obj = result as ObjectResult;
+    obj!.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task GetById_ServiceThrows_Returns500()
+  {
+    var id = Guid.NewGuid();
+    _mockService.Setup(s => s.GetActivityAsync(id)).ThrowsAsync(new Exception("boom"));
+
+    var result = await _controller.GetById(id);
+
+    var obj = result as ObjectResult;
+    obj!.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task Create_ServiceThrows_Returns500()
+  {
+    var request = new CreateActivityRequest { Type = ActivityType.Call, Subject = "Test" };
+    _mockService.Setup(s => s.CreateActivityAsync(request)).ThrowsAsync(new Exception("boom"));
+
+    var result = await _controller.Create(request);
+
+    var obj = result as ObjectResult;
+    obj!.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task Update_ServiceThrows_Returns500()
+  {
+    var id = Guid.NewGuid();
+    _mockService.Setup(s => s.UpdateActivityAsync(id, It.IsAny<UpdateActivityRequest>()))
+      .ThrowsAsync(new Exception("boom"));
+
+    var result = await _controller.Update(id, new UpdateActivityRequest());
+
+    var obj = result as ObjectResult;
+    obj!.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task Delete_ServiceThrows_Returns500()
+  {
+    var id = Guid.NewGuid();
+    _mockService.Setup(s => s.DeleteActivityAsync(id)).ThrowsAsync(new Exception("boom"));
+
+    var result = await _controller.Delete(id);
+
+    var obj = result as ObjectResult;
+    obj!.StatusCode.Should().Be(500);
+  }
 }

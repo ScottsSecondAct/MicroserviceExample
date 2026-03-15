@@ -46,21 +46,31 @@ Thirteen test projects, 262 tests (unit + integration) + 8 E2E tests. All layers
 | ReportingService — consumers | ✅ | ✅ | ✅ |
 | ReportingService — controller | ✅ | ✅ | ✅ |
 
-**306 tests total. 222 unit + 67 integration + 17 E2E. All passing.**
+**377 tests total. 293 unit + 67 integration + 17 E2E. All passing.**
 **E2E tests in EndToEnd.Tests require Docker Compose stack (`docker compose up --build -d`).**
+
+### Coverage (March 2026)
+
+| Metric | Coverage |
+|--------|----------|
+| Line | 96.2% |
+| Branch | 80.7% |
+| Method | 98.6% |
+
+Generated with `dotnet test --collect:"XPlat Code Coverage"` and `reportgenerator`. Excludes `*.Tests`, `*.IntegrationTests`, and `EndToEnd.Tests` assemblies.
 
 ### Unit test count by project
 
 | Project | Tests | Files |
 |---------|-------|-------|
-| AuthService.Tests | 33 | 6 |
-| UserManagementService.Tests | 26 | 5 |
-| ContactService.Tests | 39 | 5 |
-| AccountService.Tests | 30 | 4 |
-| DealService.Tests | 46 | 7 |
-| ActivityService.Tests | 30 | 3 |
-| ReportingService.Tests | 18 | 5 |
-| **Total** | **222** | **35** |
+| AuthService.Tests | 55 | 9 |
+| UserManagementService.Tests | 48 | 8 |
+| ContactService.Tests | 40 | 5 |
+| AccountService.Tests | 33 | 4 |
+| DealService.Tests | 70 | 8 |
+| ActivityService.Tests | 42 | 3 |
+| ReportingService.Tests | 32 | 6 |
+| **Total** | **320** | **43** |
 
 ### Integration test count by project
 
@@ -85,12 +95,12 @@ Unit tests verify a single class in isolation. All dependencies are mocked. No d
 
 ### What was added
 
-**Controllers** — mock the service interface, assert the correct `IActionResult` type and status code for success, not-found, validation failure, and exception paths.
+**Controllers** — mock the service interface, assert the correct `IActionResult` type and status code for success, not-found, validation failure, service failure (null-data `??` branch), and exception paths (service throws → 500).
 
 ```
 AccountService.Tests/Controllers/
-  AccountsControllerTests.cs     — 12 tests: GetAll, GetById, Create (name validation),
-                                   Update, Delete; success + 404 + 500 paths
+  AccountsControllerTests.cs     — 15 tests: GetAll, GetById, Create (name validation),
+                                   Update, Delete; success + service-failure + 404 + 500 paths
 
 ContactService.Tests/Controllers/
   ContactsControllerTests.cs     — 14 tests: GetAll (filter pass-through verified),
@@ -102,8 +112,23 @@ UserManagementService.Tests/Controllers/
                                    GetUserProfile, GetTeam, GetUserRole
 
 ActivityService.Tests/Controllers/
-  ActivitiesControllerTests.cs   — 8 tests: GetAll, GetById (found + 404), Create
-                                   (valid + empty subject), Update, Delete (found + 404)
+  ActivitiesControllerTests.cs   — 16 tests: GetAll, GetById (found + 404), Create
+                                   (valid + empty subject), Update, Delete (found + 404);
+                                   service-failure paths (null-data ?? message branch);
+                                   exception paths (service throws → 500)
+
+DealService.Tests/Controllers/
+  DealsControllerTests.cs        — exception-path tests (service throws → 500) for
+                                   GetAll, GetById, Create, Update, Delete, AddContact,
+                                   RemoveContact
+
+DealService.Tests/Controllers/
+  PipelineControllerTests.cs     — 3 tests: GetBoard returns 200, empty repository,
+                                   repository throws → 500
+
+ReportingService.Tests/Controllers/
+  ReportsControllerTests.cs      — disposed-context exception tests for GetPipeline,
+                                   GetActivities, GetContacts, GetDashboard (→ 500)
 ```
 
 **Repositories** — fresh in-memory database per test via `Guid.NewGuid().ToString()` database name.
@@ -112,6 +137,8 @@ ActivityService.Tests/Controllers/
 AuthService.Tests/Repository/
   UserRepositoryTests.cs              — 8 tests: Add, GetByEmail ×2, GetById ×2,
                                         Update, Delete, Delete-no-throw
+  RefreshTokenRepositoryTests.cs      — 4 tests: AddAsync, GetByTokenAsync found +
+                                        not-found, RevokeAsync sets IsRevoked
 
 UserManagementService.Tests/Repository/
   UserProfileRepositoryTests.cs       — 9 tests: Add, GetById ×2, GetByEmail ×2,
@@ -127,23 +154,78 @@ AccountService.Tests/Repository/
                                         Update, Delete, Delete-no-throw
 
 ActivityService.Tests/Repository/
-  ActivityRepositoryTests.cs          — 9 tests: Add + GetById, GetById not-found,
-                                        GetAll no filter, GetAll by contactId,
-                                        GetAll by type, Update, Delete, Delete-no-throw,
-                                        GetAll ordered by createdAt desc
+  ActivityRepositoryTests.cs          — 12 tests: Add + GetById, GetById not-found,
+                                        GetAll no filter, GetAll by contactId/dealId/
+                                        accountId/ownerId/type, Update, Delete,
+                                        Delete-no-throw, GetAll ordered by createdAt desc
+
+DealService.Tests/Repository/
+  DealRepositoryTests.cs              — DealContact operations: AddDealContactAsync,
+                                        RemoveDealContactAsync (found + not-found),
+                                        RemoveDealContactsByContactIdAsync (with matches +
+                                        no matches)
 ```
 
-**Services** — mock all dependencies; verify event publishing, validation, and state transitions.
+**Services** — mock all dependencies; verify event publishing, validation, and state transitions. All optional-field update paths (HasValue true branches) explicitly exercised.
 
 ```
 ActivityService.Tests/Services/
-  ActivitiesServiceTests.cs      — 13 tests: Create valid (publishes ActivityLogged),
+  ActivitiesServiceTests.cs      — 14 tests: Create valid (publishes ActivityLogged),
                                    Create empty subject (no publish), Create verifies
                                    event fields, GetById found + not-found, GetAll,
-                                   Update not-found, Update fields, Update Task first
-                                   completion (publishes TaskCompleted), Update already-
-                                   completed Task (no re-publish), Update non-Task type
-                                   completed (no publish), Delete found, Delete not-found
+                                   Update not-found, Update fields, Update all optional
+                                   fields (Type/ContactId/DealId/AccountId/OwnerId/
+                                   ScheduledAt), Update Task first completion (publishes
+                                   TaskCompleted), Update already-completed Task (no
+                                   re-publish), Update non-Task type completed (no
+                                   publish), Delete found, Delete not-found
+
+AccountService.Tests/Services/
+  AccountsServiceTests.cs        — UpdateAsync all optional fields test covers Industry,
+                                   Size, Website, Street, City, State, PostalCode, Country
+
+ContactService.Tests/Services/
+  ContactsServiceTests.cs        — UpdateAsync all optional fields test covers FirstName,
+                                   LastName, Email, Phone, AccountId, OwnerId
+
+DealService.Tests/Services/
+  DealsServiceTests.cs           — additional tests: UpdateAsync all optional fields
+                                   (AccountId/Value/Probability/ExpectedCloseDate/OwnerId),
+                                   UpdateAsync with no Stage provided (no event),
+                                   CreateAsync with empty title (400)
+```
+
+**Infrastructure** — DlqHealthCheck branch coverage across all three services that use it.
+
+```
+DealService.Tests/Infrastructure/DlqHealthCheckTests.cs
+UserManagementService.Tests/Infrastructure/DlqHealthCheckTests.cs
+ReportingService.Tests/Infrastructure/DlqHealthCheckTests.cs
+
+  Each contains 8 tests covering:
+  - Healthy: no error queues
+  - Degraded: error queue with messages (includes queue name + count in data)
+  - Healthy: error queue with 0 messages (ignored)
+  - Degraded: management API returns non-2xx
+  - Degraded: HttpRequestException (network unreachable)
+  - Healthy: config keys absent (covers ?? default branches)
+  - Healthy: API returns JSON "null" (covers queues == null branch)
+  - Degraded: TaskCanceledException (covers catch-filter branch)
+```
+
+**Models / utilities**
+
+```
+AuthService.Tests/Services/
+  ServiceResultTests.cs          — 6 tests: Success (defaults), Success (all args),
+                                   Failure (defaults), Failure (custom code),
+                                   Error (defaults → 500), Error (custom code)
+
+AuthService.Tests/Models/
+  RegisterResponseTests.cs       — 2 tests: property roundtrip, default values
+
+ReportingService.Tests/Consumers/
+  DealClosedConsumerTests.cs     — 1 test: Consume completes without side effects
 ```
 
 **HTTP clients** — `RichardSzalay.MockHttp` mocks the `HttpMessageHandler` to test failure-handling logic without a real network.
@@ -468,6 +550,32 @@ ActivityService.Tests (30 unit tests: services, controller, repository) and Acti
 ### ✅ Done alongside v1.4 (E2E infrastructure)
 
 The `EndToEnd.Tests` project and Docker Compose test orchestration. Scenarios span six services via the YARP gateway. Run with `docker compose up --build -d` then `dotnet test EndToEnd.Tests/EndToEnd.Tests.csproj`.
+
+### ✅ Done during v1.6 (branch coverage push to ≥80%)
+
+A targeted coverage pass raised branch coverage from 70.9% → **80.7%**. Key findings and additions:
+
+**What Coverlet counts as branches (not try/catch):**
+- `??` null-coalescing (2 branches per operator: left non-null / left null)
+- `?.` null-conditional (2 branches: null / non-null)
+- `HasValue` checks on nullable types (2 branches: true / false)
+- `&&` / `||` short-circuit operators
+- `when` filters on `catch` clauses (2 branches: filter true / false)
+
+**Tests added:**
+
+| Area | What was missing | Tests added |
+|------|-----------------|-------------|
+| Controller service-failure paths | `result.Data ?? result.Message` null-data branch uncovered in GetAll/Create actions that had no failure test | AccountsController (2), ActivitiesController (3) |
+| Controller exception paths | No tests for service throwing → StatusCode 500 | ActivitiesController (5), DealsController (7), ReportsController (4) |
+| PipelineController | No tests at all | PipelineControllerTests (3) |
+| ActivityRepository filters | `dealId`, `accountId`, `ownerId` HasValue branches uncovered | 3 filter tests |
+| DealRepository DealContact ops | `RemoveDealContactAsync` and `RemoveDealContactsByContactIdAsync` not-found/empty branches | 3 tests |
+| DlqHealthCheck (3 services) | `??` null-config defaults, `queues == null` path, `TaskCanceledException` catch filter | 3 tests × 3 services = 9 tests |
+| Service optional-field updates | `HasValue` true branches for each optional field in UpdateAsync methods | 1 test each for ActivityService, AccountService, ContactService, DealService |
+| Zero-coverage classes | `ServiceResult.Error()`, `RegisterResponse`, `DealClosedConsumer`, `RefreshTokenRepository` | 13 tests across 4 new files |
+| AuthService refresh integration | No integration test for `/api/login/refresh` endpoint | 3 tests |
+| ReportingService DealClosed integration | No test verifying DealClosed consumer is a no-op | 1 test |
 
 ---
 

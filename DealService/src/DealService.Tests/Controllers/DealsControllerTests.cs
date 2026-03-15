@@ -220,4 +220,94 @@ public class DealsControllerTests
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(404);
   }
+
+  // ── Exception paths ───────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task GetAll_ServiceThrows_Returns500()
+  {
+    _serviceMock.Setup(s => s.GetAllDealsAsync(null, null, null))
+      .ThrowsAsync(new Exception("boom"));
+
+    var result = await _sut.GetAll(null, null, null);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task GetById_ServiceThrows_Returns500()
+  {
+    var id = Guid.NewGuid();
+    _serviceMock.Setup(s => s.GetDealAsync(id)).ThrowsAsync(new Exception("boom"));
+
+    var result = await _sut.GetById(id);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task Create_ServiceThrows_Returns500()
+  {
+    var request = new CreateDealRequest { Title = "New Deal" };
+    _serviceMock.Setup(s => s.CreateDealAsync(request)).ThrowsAsync(new Exception("boom"));
+
+    var result = await _sut.Create(request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task Update_ServiceThrows_Returns500()
+  {
+    var id = Guid.NewGuid();
+    _serviceMock.Setup(s => s.UpdateDealAsync(id, It.IsAny<UpdateDealRequest>()))
+      .ThrowsAsync(new Exception("boom"));
+
+    var result = await _sut.Update(id, new UpdateDealRequest());
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task Delete_ServiceThrows_Returns500()
+  {
+    var id = Guid.NewGuid();
+    _serviceMock.Setup(s => s.DeleteDealAsync(id)).ThrowsAsync(new Exception("boom"));
+
+    var result = await _sut.Delete(id);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task AddContact_ServiceThrows_Returns500()
+  {
+    var dealId = Guid.NewGuid();
+    var request = new AddDealContactRequest { ContactId = Guid.NewGuid(), Role = DealContactRole.DecisionMaker };
+    _serviceMock.Setup(s => s.AddContactToDealAsync(dealId, request)).ThrowsAsync(new Exception("boom"));
+
+    var result = await _sut.AddContact(dealId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task RemoveContact_ServiceThrows_Returns500()
+  {
+    var dealId = Guid.NewGuid();
+    var contactId = Guid.NewGuid();
+    _serviceMock.Setup(s => s.RemoveContactFromDealAsync(dealId, contactId))
+      .ThrowsAsync(new Exception("boom"));
+
+    var result = await _sut.RemoveContact(dealId, contactId);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
 }

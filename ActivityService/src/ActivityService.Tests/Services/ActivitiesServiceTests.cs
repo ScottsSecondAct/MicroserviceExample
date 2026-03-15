@@ -240,6 +240,42 @@ public class ActivitiesServiceTests
       p => p.Publish(It.IsAny<TaskCompleted>(), It.IsAny<CancellationToken>()), Times.Never);
   }
 
+  [Fact]
+  public async Task UpdateActivityAsync_WhenAllOptionalFieldsProvided_UpdatesAll()
+  {
+    var activity = MakeActivity(ActivityType.Call);
+    var contactId = Guid.NewGuid();
+    var dealId = Guid.NewGuid();
+    var accountId = Guid.NewGuid();
+    var ownerId = Guid.NewGuid();
+    var scheduledAt = DateTime.UtcNow.AddDays(1);
+    var request = new UpdateActivityRequest
+    {
+      Type = ActivityType.Meeting,
+      Subject = "Updated",
+      Notes = "Updated notes",
+      ContactId = contactId,
+      DealId = dealId,
+      AccountId = accountId,
+      OwnerId = ownerId,
+      ScheduledAt = scheduledAt
+    };
+
+    _mockRepository.Setup(r => r.GetByIdAsync(activity.ActivityId)).ReturnsAsync(activity);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<Activity>())).Returns(Task.CompletedTask);
+
+    var result = await _service.UpdateActivityAsync(activity.ActivityId, request);
+
+    result.IsSuccess.Should().BeTrue();
+    var response = result.Data as ActivityResponse;
+    response!.Type.Should().Be(ActivityType.Meeting);
+    response.ContactId.Should().Be(contactId);
+    response.DealId.Should().Be(dealId);
+    response.AccountId.Should().Be(accountId);
+    response.OwnerId.Should().Be(ownerId);
+    response.ScheduledAt.Should().Be(scheduledAt);
+  }
+
   // ── DeleteActivityAsync ────────────────────────────────────────────────────
 
   [Fact]

@@ -111,6 +111,48 @@ public class LoginControllerTests
   }
 
   [Fact]
+  public async Task Refresh_ShouldReturnInternalServerError_WhenTokenIsNull()
+  {
+    var request = new RefreshRequest { RefreshToken = "valid-refresh-token" };
+    _mockLoginService
+        .Setup(s => s.RefreshAsync(request))
+        .ReturnsAsync(ServiceResult.Success(null, "Token refreshed."));
+
+    var result = await _controller.Refresh(request);
+
+    var statusCodeResult = Assert.IsType<ObjectResult>(result);
+    Assert.Equal(500, statusCodeResult.StatusCode);
+  }
+
+  [Fact]
+  public async Task Refresh_ShouldReturnInternalServerError_WhenTokenIsEmpty()
+  {
+    var request = new RefreshRequest { RefreshToken = "valid-refresh-token" };
+    _mockLoginService
+        .Setup(s => s.RefreshAsync(request))
+        .ReturnsAsync(ServiceResult.Success(new LoginResponse { Token = "", RefreshToken = "rt" }, "Token refreshed."));
+
+    var result = await _controller.Refresh(request);
+
+    var statusCodeResult = Assert.IsType<ObjectResult>(result);
+    Assert.Equal(500, statusCodeResult.StatusCode);
+  }
+
+  [Fact]
+  public async Task Login_ShouldReturnInternalServerError_WhenTokenIsWhitespace()
+  {
+    var request = new LoginRequest { Email = "test@example.com", Password = "SecurePassword123" };
+    _mockLoginService
+        .Setup(s => s.LoginAsync(request))
+        .ReturnsAsync(ServiceResult.Success(new LoginResponse { Token = "   ", RefreshToken = "rt" }, "Login successful."));
+
+    var result = await _controller.Login(request);
+
+    var statusCodeResult = Assert.IsType<ObjectResult>(result);
+    Assert.Equal(500, statusCodeResult.StatusCode);
+  }
+
+  [Fact]
   public void GetCurrentUser_ShouldReturnOk_WithClaimsFromToken()
   {
     // Arrange

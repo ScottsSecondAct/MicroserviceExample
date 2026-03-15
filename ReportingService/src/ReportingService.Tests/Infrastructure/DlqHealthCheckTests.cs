@@ -110,6 +110,39 @@ public class DlqHealthCheckTests
         result.Data.Should().ContainKey("deal-stage-changed_error");
     }
 
+    [Fact]
+    public async Task CheckHealthAsync_ReturnsHealthy_WhenConfigKeysAbsent()
+    {
+        var emptyConfig = new ConfigurationBuilder().Build();
+        var check = new DlqHealthCheck(BuildFactory("""[]"""), emptyConfig);
+
+        var result = await check.CheckHealthAsync(BuildContext());
+
+        result.Status.Should().Be(HealthStatus.Healthy);
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_ReturnsHealthy_WhenApiReturnsNullJson()
+    {
+        var check = new DlqHealthCheck(BuildFactory("null"), BuildConfig());
+
+        var result = await check.CheckHealthAsync(BuildContext());
+
+        result.Status.Should().Be(HealthStatus.Healthy);
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_ReturnsDegraded_WhenTaskCanceled()
+    {
+        var handler = new ThrowingHttpMessageHandler(new TaskCanceledException("timeout"));
+        var check = new DlqHealthCheck(new TestHttpClientFactory(new HttpClient(handler)), BuildConfig());
+
+        var result = await check.CheckHealthAsync(BuildContext());
+
+        result.Status.Should().Be(HealthStatus.Degraded);
+        result.Description.Should().Contain("unreachable");
+    }
+
     private sealed class TestHttpClientFactory : IHttpClientFactory
     {
         private readonly HttpClient _client;

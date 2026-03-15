@@ -38,6 +38,18 @@ public class AccountsControllerTests
   }
 
   [Fact]
+  public async Task GetAll_ServiceFailure_ReturnsErrorMessage()
+  {
+    _serviceMock.Setup(s => s.GetAllAccountsAsync())
+      .ReturnsAsync(ServiceResult.Failure("Service unavailable.", 503));
+
+    var result = await _sut.GetAll();
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(503);
+  }
+
+  [Fact]
   public async Task GetAll_Returns500_OnException()
   {
     _serviceMock.Setup(s => s.GetAllAccountsAsync()).ThrowsAsync(new Exception("db error"));
@@ -109,6 +121,19 @@ public class AccountsControllerTests
 
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(201);
+  }
+
+  [Fact]
+  public async Task Create_ServiceFailure_ReturnsErrorMessage()
+  {
+    var request = new CreateAccountRequest { Name = "Acme" };
+    _serviceMock.Setup(s => s.CreateAccountAsync(request))
+      .ReturnsAsync(ServiceResult.Failure("Conflict.", 409));
+
+    var result = await _sut.Create(request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(409);
   }
 
   [Fact]

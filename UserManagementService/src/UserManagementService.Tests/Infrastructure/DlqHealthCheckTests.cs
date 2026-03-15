@@ -120,6 +120,43 @@ public class DlqHealthCheckTests
         result.Data.Should().NotContainKey("queue-c");
     }
 
+    [Fact]
+    public async Task CheckHealthAsync_ReturnsHealthy_WhenConfigKeysAbsent()
+    {
+        var emptyConfig = new ConfigurationBuilder().Build();
+        var check = new DlqHealthCheck(BuildFactory("""[]"""), emptyConfig);
+
+        var result = await check.CheckHealthAsync(BuildContext());
+
+        result.Status.Should().Be(HealthStatus.Healthy);
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_ReturnsHealthy_WhenApiReturnsNullJson()
+    {
+        var check = new DlqHealthCheck(BuildFactory("null"), BuildConfig());
+
+        var result = await check.CheckHealthAsync(BuildContext());
+
+        result.Status.Should().Be(HealthStatus.Healthy);
+    }
+
+    [Fact]
+    public async Task CheckHealthAsync_ReturnsDegraded_WhenTaskCanceled()
+    {
+        var handler = new ThrowingHttpMessageHandler(new TaskCanceledException("timeout"));
+        var client = new HttpClient(handler);
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(client);
+
+        var check = new DlqHealthCheck(factory.Object, BuildConfig());
+
+        var result = await check.CheckHealthAsync(BuildContext());
+
+        result.Status.Should().Be(HealthStatus.Degraded);
+        result.Description.Should().Contain("unreachable");
+    }
+
     private sealed class MockHttpMessageHandler : HttpMessageHandler
     {
         private readonly string _responseContent;

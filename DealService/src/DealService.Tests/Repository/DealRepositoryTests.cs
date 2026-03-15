@@ -219,6 +219,52 @@ public class DealRepositoryTests
   }
 
   [Fact]
+  public async Task RemoveDealContactAsync_WhenFound_RemovesAssociation()
+  {
+    using var ctx = CreateContext();
+    var deal = MakeDeal();
+    ctx.Deals.Add(deal);
+    await ctx.SaveChangesAsync();
+    var dc = new DealContact
+    {
+      DealContactId = Guid.NewGuid(),
+      DealId = deal.DealId,
+      ContactId = Guid.NewGuid(),
+      Role = DealContactRole.DecisionMaker
+    };
+    ctx.DealContacts.Add(dc);
+    await ctx.SaveChangesAsync();
+    var repo = new DealRepository(ctx);
+
+    await repo.RemoveDealContactAsync(dc.DealContactId);
+
+    var remaining = await ctx.DealContacts.FindAsync(dc.DealContactId);
+    remaining.Should().BeNull();
+  }
+
+  [Fact]
+  public async Task RemoveDealContactAsync_WhenNotFound_DoesNotThrow()
+  {
+    using var ctx = CreateContext();
+    var repo = new DealRepository(ctx);
+
+    var act = async () => await repo.RemoveDealContactAsync(Guid.NewGuid());
+
+    await act.Should().NotThrowAsync();
+  }
+
+  [Fact]
+  public async Task RemoveDealContactsByContactIdAsync_WhenNoMatches_DoesNotThrow()
+  {
+    using var ctx = CreateContext();
+    var repo = new DealRepository(ctx);
+
+    var act = async () => await repo.RemoveDealContactsByContactIdAsync(Guid.NewGuid());
+
+    await act.Should().NotThrowAsync();
+  }
+
+  [Fact]
   public async Task RemoveDealContactsByContactIdAsync_RemovesAllForContact()
   {
     using var ctx = CreateContext();
