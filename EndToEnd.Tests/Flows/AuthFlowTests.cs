@@ -9,9 +9,21 @@ public class AuthFlowTests : IDisposable
 {
     private readonly GatewayClient _client = new();
 
-    // Registers a user, logs in, sets the Bearer token, and returns the userId from /me.
+    // Logs in as the seeded admin and sets the Bearer token on the client.
+    private async Task LoginAsAdminAsync()
+    {
+        var loginResponse = await _client.PostAsync("/auth/api/login/login",
+            new { email = "admin@example.com", password = "Admin1234!" });
+        var token = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("token").GetString()!;
+        _client.SetToken(token);
+    }
+
+    // Registers a user (requires admin token already set), logs in as that user,
+    // sets the Bearer token, and returns the userId from /me.
     private async Task<string> RegisterAndLoginAsync(string email, string password)
     {
+        await LoginAsAdminAsync();
         await _client.PostAsync("/auth/api/registration/register", new { email, password });
         var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password });
         var token = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync())
@@ -27,11 +39,16 @@ public class AuthFlowTests : IDisposable
         var email = $"e2e-auth-{Guid.NewGuid()}@example.com";
         var password = "Password123!";
 
+        await LoginAsAdminAsync();
         var registerResponse = await _client.PostAsync("/auth/api/registration/register", new { email, password });
         registerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Login to get a token (role may be Unassigned until event is processed)
-        var userId = await RegisterAndLoginAsync(email, password);
+        var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password });
+        var token = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("token").GetString()!;
+        _client.SetToken(token);
+        var me = JsonDocument.Parse(await (await _client.GetAsync("/auth/api/login/me")).Content.ReadAsStringAsync());
+        var userId = me.RootElement.GetProperty("userId").GetString()!;
 
         // Poll until UserManagementService has processed the UserRegistered event
         await RetryHelper.WaitUntilAsync(async () =>
@@ -53,6 +70,7 @@ public class AuthFlowTests : IDisposable
         var email = $"e2e-login-{Guid.NewGuid()}@example.com";
         var password = "Password123!";
 
+        await LoginAsAdminAsync();
         await _client.PostAsync("/auth/api/registration/register", new { email, password });
 
         var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password });
@@ -73,6 +91,7 @@ public class AuthFlowTests : IDisposable
     public async Task Register_DuplicateEmail_Returns409()
     {
         var email = $"e2e-dup-{Guid.NewGuid()}@example.com";
+        await LoginAsAdminAsync();
         await _client.PostAsync("/auth/api/registration/register", new { email, password = "Password123!" });
 
         var second = await _client.PostAsync("/auth/api/registration/register",

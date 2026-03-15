@@ -24,10 +24,10 @@ public class GatewayAuthTests : IDisposable
     [Fact]
     public async Task PublicRoutes_WithoutToken_AreAccessible()
     {
-        // Registration endpoint — does not require auth
+        // Registration endpoint — requires Admin role; returns 401 without a token
         var registerResponse = await _client.PostAsync("/auth/api/registration/register",
             new { email = $"e2e-pub-{Guid.NewGuid()}@example.com", password = "Password123!" });
-        registerResponse.StatusCode.Should().NotBe(HttpStatusCode.Unauthorized);
+        registerResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         // Login endpoint — does not require auth
         var loginResponse = await _client.PostAsync("/auth/api/login/login",
