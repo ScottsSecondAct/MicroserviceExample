@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AuthService.Models.DTOs;
 using AuthService.Services;
@@ -19,13 +20,16 @@ public class RegistrationController : ControllerBase
   }
 
   // <summary>
-  // Register a new user
+  // Register a new user (admin only)
   // </summary>
   // <param name="request">RegisterRequest object</param>
   // <returns>RegisterResponse object</returns>
   // <response code="200">User registered successfully</response>
   // <response code="400">Email is already registered</response>
+  // <response code="401">Unauthorized — valid JWT required</response>
+  // <response code="403">Forbidden — Admin role required</response>
   // <response code="500">Internal server error</response>
+  [Authorize(Policy = "admin")]
   [HttpPost("register")]
   public async Task<IActionResult> Register(RegisterRequest request)
   {
