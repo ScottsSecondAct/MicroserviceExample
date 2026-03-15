@@ -10,58 +10,12 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Build and test all services
-  # ---------------------------------------------------------------------------
-  build:
-    name: Build & Test
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Restore dependencies
-        run: dotnet restore MicroserviceExample.sln
-
-      - name: Build
-        run: dotnet build MicroserviceExample.sln --no-restore --configuration Release
-
-      - name: Test
-        run: dotnet test MicroserviceExample.sln --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~EndToEnd"
-
-  # ---------------------------------------------------------------------------
-  # End-to-end tests against the live Docker Compose stack
-  # ---------------------------------------------------------------------------
-  e2e:
-    name: E2E Tests
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Run E2E suite
-        run: |
-          chmod +x scripts/run-e2e.sh
-          ./scripts/run-e2e.sh
-
-  # ---------------------------------------------------------------------------
   # Create GitHub Release
+  # The commit reaching a v* tag has already passed CI (feature branch) and
+  # Staging (merge to main, including E2E). No need to re-run tests here.
   # ---------------------------------------------------------------------------
   release:
     name: Create Release
-    needs: [build, e2e]
     runs-on: ubuntu-latest
 
     steps:

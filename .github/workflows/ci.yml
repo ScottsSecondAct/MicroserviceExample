@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build and run unit + integration tests
+  # Fast feedback on every feature branch push and PR — E2E skipped here.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore MicroserviceExample.sln
+
+      - name: Build
+        run: dotnet build MicroserviceExample.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test MicroserviceExample.sln --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~EndToEnd"
