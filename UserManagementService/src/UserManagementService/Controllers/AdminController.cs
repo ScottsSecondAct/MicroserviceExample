@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UserManagementService.Models.DTOs;
 using UserManagementService.Services;
@@ -6,6 +7,7 @@ namespace UserManagementService.Controllers;
 
 [ApiController]
 [Route("api/admin")]
+[Authorize(Policy = "admin")]
 public class AdminController : ControllerBase
 {
   private readonly IUserProfileService _userProfileService;

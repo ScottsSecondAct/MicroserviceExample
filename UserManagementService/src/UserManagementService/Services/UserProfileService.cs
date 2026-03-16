@@ -25,7 +25,7 @@ public class UserProfileService : IUserProfileService
     {
       UserId = request.UserId,
       Email = request.Email,
-      Role = UserRole.Member,
+      Role = UserRole.Unassigned,
       DisplayName = request.Email,
       CreatedAt = DateTime.UtcNow
     };
@@ -92,6 +92,9 @@ public class UserProfileService : IUserProfileService
 
   public async Task<ServiceResult> UpdateUserRoleAsync(Guid userId, UserRole role)
   {
+    if (role == UserRole.Unassigned)
+      return ServiceResult.Failure("Cannot set role to Unassigned. Use Member, SalesRep, Manager, or Admin.");
+
     var profile = await _repository.GetByIdAsync(userId);
     if (profile == null)
       return ServiceResult.Failure("User profile not found.", 404);

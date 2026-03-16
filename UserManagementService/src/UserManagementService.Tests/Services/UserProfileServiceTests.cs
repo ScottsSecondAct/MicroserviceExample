@@ -38,7 +38,33 @@ public class UserProfileServiceTests
     var response = result.Data as CreateUserProfileResponse;
     response.Should().NotBeNull();
     response!.UserId.Should().Be(request.UserId);
-    response.Role.Should().Be(UserRole.Member);
+    response.Role.Should().Be(UserRole.Unassigned);
+  }
+
+  [Fact]
+  public async Task UpdateUserRoleAsync_WithUnassignedRole_ReturnsFailure()
+  {
+    var userId = Guid.NewGuid();
+
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Unassigned);
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(400);
+  }
+
+  [Fact]
+  public async Task UpdateUserRoleAsync_PromotesUser_ReturnsSuccess()
+  {
+    var userId = Guid.NewGuid();
+    var profile = new UserProfile { UserId = userId, Email = "user@example.com", Role = UserRole.Unassigned };
+
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Member);
+
+    result.IsSuccess.Should().BeTrue();
+    result.StatusCode.Should().Be(200);
   }
 
   [Fact]

@@ -97,6 +97,8 @@ builder.Services.AddAuthorization(options =>
   options.AddPolicy("admin", policy => policy.RequireRole("Admin"));
   options.AddPolicy("manager", policy => policy.RequireRole("Manager", "Admin"));
   options.AddPolicy("salesRep", policy => policy.RequireRole("SalesRep", "Manager", "Admin"));
+  // Blocks Unassigned users from accessing CRM routes; any promoted role is sufficient
+  options.AddPolicy("member", policy => policy.RequireRole("Member", "SalesRep", "Manager", "Admin"));
 });
 
 // Health checks

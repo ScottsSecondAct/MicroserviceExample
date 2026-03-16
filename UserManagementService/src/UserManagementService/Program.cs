@@ -1,6 +1,9 @@
 using OpenTelemetry.Exporter;
 using Serilog.Enrichers.OpenTelemetry;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using UserManagementService.Consumers;
 using UserManagementService.Data;
 using UserManagementService.Infrastructure;
@@ -34,6 +37,37 @@ builder.Services.AddDbContext<UserManagementDbContext>(options =>
 
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+
+// Configure JWT authentication (validates tokens issued by AuthService)
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = jwtSettings.GetValue<string>("SecretKey") ?? throw new ArgumentNullException("SecretKey", "SecretKey cannot be null");
+
+builder.Services.AddAuthentication(options =>
+{
+  options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+  options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+  options.TokenValidationParameters = new TokenValidationParameters
+  {
+    ValidateIssuer = true,
+    ValidateAudience = true,
+    ValidateLifetime = true,
+    ValidateIssuerSigningKey = true,
+    ValidIssuer = jwtSettings.GetValue<string>("Issuer"),
+    ValidAudience = jwtSettings.GetValue<string>("Audience"),
+    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+  };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+  options.AddPolicy("admin", policy => policy.RequireRole("Admin"));
+  options.AddPolicy("manager", policy => policy.RequireRole("Manager", "Admin"));
+  options.AddPolicy("salesRep", policy => policy.RequireRole("SalesRep", "Manager", "Admin"));
+  options.AddPolicy("member", policy => policy.RequireRole("Member", "SalesRep", "Manager", "Admin"));
+});
 
 // MassTransit + RabbitMQ (consume UserRegistered events)
 builder.Services.AddMassTransit(x =>
@@ -111,6 +145,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
