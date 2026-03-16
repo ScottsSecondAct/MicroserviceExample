@@ -39,6 +39,10 @@ public class AuthServiceFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     builder.UseSetting("ConnectionStrings:AuthDbConnection", _db.GetConnectionString());
 
+    builder.UseSetting("DefaultAdmin:UserId", "00000000-0000-0000-0000-000000000001");
+    builder.UseSetting("DefaultAdmin:Email", "admin@example.com");
+    builder.UseSetting("DefaultAdmin:Password", "Admin1234!");
+
     builder.ConfigureServices(services =>
     {
       var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AuthDbContext>));

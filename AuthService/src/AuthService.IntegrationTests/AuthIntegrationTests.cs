@@ -3,6 +3,7 @@ using MassTransit.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using SharedLibrary.Messaging.Events;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using WireMock.RequestBuilders;
@@ -23,6 +24,8 @@ public class AuthIntegrationTests : IClassFixture<AuthServiceFactory>
     _harness = factory.Services.GetRequiredService<ITestHarness>();
   }
 
+  private static readonly Guid AdminId = new("00000000-0000-0000-0000-000000000001");
+
   private void StubRoleEndpoint(Guid userId, int roleValue = 1) // 1 = Member
   {
     _factory.UmsMock
@@ -33,9 +36,32 @@ public class AuthIntegrationTests : IClassFixture<AuthServiceFactory>
         .WithHeader("Content-Type", "application/json"));
   }
 
+  // Returns an Admin JWT by logging in as the seeded admin user.
+  private async Task<string> GetAdminTokenAsync()
+  {
+    StubRoleEndpoint(AdminId, roleValue: 4); // 4 = Admin
+    var loginResp = await _client.PostAsJsonAsync("/api/login/login",
+      new { email = "admin@example.com", password = "Admin1234!" });
+    loginResp.IsSuccessStatusCode.Should().BeTrue("admin login should succeed");
+    return JsonDocument.Parse(await loginResp.Content.ReadAsStringAsync())
+      .RootElement.GetProperty("token").GetString()!;
+  }
+
+  // Calls POST /api/registration/register authenticated as the seeded admin.
+  private async Task<HttpResponseMessage> RegisterAsAdminAsync(object body)
+  {
+    var token = await GetAdminTokenAsync();
+    var req = new HttpRequestMessage(HttpMethod.Post, "/api/registration/register")
+    {
+      Content = JsonContent.Create(body)
+    };
+    req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    return await _client.SendAsync(req);
+  }
+
   private async Task<Guid> RegisterAndGetUserId(string email, string password = "Test@1234")
   {
-    var response = await _client.PostAsJsonAsync("/api/registration/register", new { email, password });
+    var response = await RegisterAsAdminAsync(new { email, password });
     response.IsSuccessStatusCode.Should().BeTrue($"registration of {email} should succeed");
 
     // Retrieve the userId from the DB via the harness's published UserRegistered event
@@ -54,8 +80,7 @@ public class AuthIntegrationTests : IClassFixture<AuthServiceFactory>
   {
     var email = $"reg-{Guid.NewGuid()}@test.com";
 
-    var response = await _client.PostAsJsonAsync("/api/registration/register",
-      new { email, password = "Test@1234" });
+    var response = await RegisterAsAdminAsync(new { email, password = "Test@1234" });
 
     response.StatusCode.Should().Be(HttpStatusCode.OK);
     var published = await _harness.Published.SelectAsync<UserRegistered>().Any();
@@ -66,11 +91,10 @@ public class AuthIntegrationTests : IClassFixture<AuthServiceFactory>
   public async Task POST_register_Duplicate_Returns409_NoSecondEvent()
   {
     var email = $"dup-{Guid.NewGuid()}@test.com";
-    await _client.PostAsJsonAsync("/api/registration/register", new { email, password = "Test@1234" });
+    await RegisterAsAdminAsync(new { email, password = "Test@1234" });
 
     var countBefore = _harness.Published.SelectAsync<UserRegistered>().ToBlockingEnumerable().Count();
-    var response = await _client.PostAsJsonAsync("/api/registration/register",
-      new { email, password = "Test@1234" });
+    var response = await RegisterAsAdminAsync(new { email, password = "Test@1234" });
 
     response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     var countAfter = _harness.Published.SelectAsync<UserRegistered>().ToBlockingEnumerable().Count();
