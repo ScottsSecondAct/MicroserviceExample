@@ -26,10 +26,12 @@ import {
 } from '../../components/ui/dialog.jsx'
 import { EmptyState } from '../../components/EmptyState.jsx'
 
-const ROLES = ['Unassigned', 'Member', 'Admin']
+const ROLES = ['Unassigned', 'Member', 'SalesRep', 'Manager', 'Admin']
 
 const ROLE_VARIANT = {
   Admin: 'default',
+  Manager: 'default',
+  SalesRep: 'secondary',
   Member: 'secondary',
   Unassigned: 'outline',
 }

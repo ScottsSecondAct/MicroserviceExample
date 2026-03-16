@@ -3,6 +3,7 @@ using Moq;
 using SharedLibrary.DTOs;
 using SharedLibrary.Enums;
 using UserManagementService.Models;
+using UserManagementService.Models.DTOs;
 using UserManagementService.Repository;
 using UserManagementService.Services;
 
@@ -103,6 +104,52 @@ public class UserProfileServiceTests
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync((UserProfile?)null);
 
     var result = await _service.GetUserProfileAsync(userId);
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(404);
+  }
+
+  [Fact]
+  public async Task GetAllUsersAsync_ReturnsAllProfiles()
+  {
+    var profiles = new List<UserProfile>
+    {
+      new() { UserId = Guid.NewGuid(), Email = "a@test.com", DisplayName = "A", Role = UserRole.Member, IsActive = true },
+      new() { UserId = Guid.NewGuid(), Email = "b@test.com", DisplayName = "B", Role = UserRole.Admin, IsActive = false },
+    };
+    _mockRepository.Setup(r => r.GetAllAsync()).ReturnsAsync(profiles);
+
+    var result = await _service.GetAllUsersAsync();
+
+    result.IsSuccess.Should().BeTrue();
+    result.StatusCode.Should().Be(200);
+    var users = result.Data as List<AdminUserResponse>;
+    users.Should().HaveCount(2);
+  }
+
+  [Fact]
+  public async Task SetUserActiveAsync_WhenUserFound_TogglesStatus()
+  {
+    var userId = Guid.NewGuid();
+    var profile = new UserProfile { UserId = userId, Email = "user@test.com", Role = UserRole.Member, IsActive = true };
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    var result = await _service.SetUserActiveAsync(userId, false);
+
+    result.IsSuccess.Should().BeTrue();
+    result.StatusCode.Should().Be(200);
+    var response = result.Data as AdminUserResponse;
+    response!.IsActive.Should().BeFalse();
+  }
+
+  [Fact]
+  public async Task SetUserActiveAsync_WhenUserNotFound_ReturnsFailure()
+  {
+    var userId = Guid.NewGuid();
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync((UserProfile?)null);
+
+    var result = await _service.SetUserActiveAsync(userId, false);
 
     result.IsSuccess.Should().BeFalse();
     result.StatusCode.Should().Be(404);
