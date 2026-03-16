@@ -15,7 +15,7 @@ This document describes the three-layer testing strategy for this project: unit,
 
 ## Current State
 
-Thirteen test projects, 262 tests (unit + integration) + 8 E2E tests. All layers complete.
+Fifteen test projects, 399 tests (unit + integration) + 17 E2E tests. All layers complete.
 
 | Component | Unit | Integration | E2E |
 |-----------|------|-------------|-----|
@@ -46,7 +46,7 @@ Thirteen test projects, 262 tests (unit + integration) + 8 E2E tests. All layers
 | ReportingService — consumers | ✅ | ✅ | ✅ |
 | ReportingService — controller | ✅ | ✅ | ✅ |
 
-**377 tests total. 293 unit + 67 integration + 17 E2E. All passing.**
+**416 tests total. 328 unit + 71 integration + 17 E2E. All passing.**
 **E2E tests in EndToEnd.Tests require Docker Compose stack (`docker compose up --build -d`).**
 
 ### Coverage (March 2026)
@@ -61,29 +61,29 @@ Generated with `dotnet test --collect:"XPlat Code Coverage"` and `reportgenerato
 
 ### Unit test count by project
 
-| Project | Tests | Files |
-|---------|-------|-------|
-| AuthService.Tests | 55 | 9 |
-| UserManagementService.Tests | 48 | 8 |
-| ContactService.Tests | 40 | 5 |
-| AccountService.Tests | 33 | 4 |
-| DealService.Tests | 70 | 8 |
-| ActivityService.Tests | 42 | 3 |
-| ReportingService.Tests | 32 | 6 |
-| **Total** | **320** | **43** |
+| Project | Tests |
+|---------|-------|
+| AuthService.Tests | 55 |
+| UserManagementService.Tests | 48 |
+| ContactService.Tests | 42 |
+| AccountService.Tests | 35 |
+| DealService.Tests | 72 |
+| ActivityService.Tests | 44 |
+| ReportingService.Tests | 32 |
+| **Total** | **328** |
 
 ### Integration test count by project
 
 | Project | Tests |
 |---------|-------|
-| AuthService.IntegrationTests | 8 |
+| AuthService.IntegrationTests | 11 |
 | UserManagementService.IntegrationTests | 9 |
 | AccountService.IntegrationTests | 9 |
 | ContactService.IntegrationTests | 9 |
 | DealService.IntegrationTests | 12 |
 | ActivityService.IntegrationTests | 11 |
-| ReportingService.IntegrationTests | 9 |
-| **Total** | **67** |
+| ReportingService.IntegrationTests | 10 |
+| **Total** | **71** |
 
 ---
 
@@ -290,15 +290,19 @@ public class AccountServiceFactory : WebApplicationFactory<Program>, IAsyncLifet
 
 **AuthService.IntegrationTests**
 ```
-POST /api/registration/register                → 200, user row in DB, UserRegistered on bus
+POST /api/registration/register (admin JWT)    → 200, user row in DB, UserRegistered on bus
 POST /api/registration/register (duplicate)    → 409, no DB write, no event
 POST /api/login/login (valid credentials)      → 200, JWT with correct sub/UserId/role claims
 POST /api/login/login (wrong password)         → 401
 POST /api/login/login (unknown email)          → 401
 GET  /api/login/me (valid token)               → 200, claims match registration
 GET  /api/login/me (no token)                  → 401
+POST /api/login/refresh (valid token)          → 200, new JWT + rotated refresh token
+POST /api/login/refresh (invalid token)        → 401
+POST /api/login/refresh (empty token)          → 4xx
 GET  /health                                   → 200 Healthy
 ```
+Factory note: `AuthServiceFactory` seeds the default admin via `DefaultAdmin` config settings so integration tests can obtain an Admin JWT to call the register endpoint.
 
 **UserManagementService.IntegrationTests**
 ```
@@ -406,7 +410,9 @@ v1.4 is complete. The richest E2E scenario is the full sales flow: *register →
 EndToEnd.Tests/
   EndToEnd.Tests.csproj
   Infrastructure/
-    GatewayClient.cs          — HttpClient wrapper; stores JWT, attaches Bearer header
+    GatewayClient.cs          — HttpClient wrapper; stores JWT, attaches Bearer header;
+                                LoginAsAdminAsync() logs in as the seeded admin
+                                (reads DEFAULT_ADMIN_PASSWORD env var, default Admin1234!)
     RetryHelper.cs            — polls a condition until true or timeout
   Flows/
     AuthFlowTests.cs
@@ -441,23 +447,25 @@ public static async Task WaitUntilAsync(
 
 **AuthFlowTests**
 ```
-Register new user
-  → POST /auth/api/registration/register → 200
+Register new user (admin-provisioned)
+  → Login as seeded admin → GET admin JWT
+  → POST /auth/api/registration/register (admin JWT) → 200
   → Poll GET /users/api/users/{userId} until 200 (async consumer lag)
   → Profile exists and role is "Member"
 
 Login
+  → Admin registers a user, user logs in
   → POST /auth/api/login/login → 200, token returned
   → GET /auth/api/login/me → claims match registration email and role
 
 Duplicate registration
-  → Register same email twice → second returns 409
+  → Admin registers same email twice → second returns 409
 ```
 
 **AccountContactFlowTests**
 ```
 Full lifecycle
-  → Register + login
+  → Login as admin (seeded admin credentials)
   → POST /accounts/api/accounts → 201, capture accountId
   → POST /contacts/api/contacts (with accountId) → 201, capture contactId
   → GET /accounts/api/accounts/{accountId} → contacts section includes contactId
@@ -472,7 +480,7 @@ Invalid account reference
 **DealFlowTests**
 ```
 Pipeline lifecycle
-  → Register + login, create account + contact
+  → Login as admin, create account + contact
   → POST /deals/api/deals → 201, capture dealId
   → POST /deals/api/deals/{dealId}/contacts → 201
   → PUT /deals/api/deals/{dealId} { stage: "ClosedWon" } → 200
@@ -482,7 +490,7 @@ Pipeline lifecycle
 **ActivityFlowTests**
 ```
 Log and complete a task
-  → Register + login, create contact
+  → Login as admin, create contact
   → POST /activities/api/activities { type: "Task", subject: "Follow up", contactId } → 201
   → GET /activities/api/activities?contactId={id}&type=Task → task appears, completedAt null
   → PUT /activities/api/activities/{id} { completedAt: <now> } → 200
@@ -500,9 +508,9 @@ Unauthenticated access to protected routes
   → GET /accounts/api/accounts (no token)        → 401
   → GET /activities/api/activities (no token)    → 401
 
-Public routes accessible without token
-  → POST /auth/api/registration/register         → 200 (not 401)
-  → POST /auth/api/login/login                   → 200 or 400 (not 401)
+Auth-gated and public routes
+  → POST /auth/api/registration/register (no token) → 401 (Admin-only)
+  → POST /auth/api/login/login                      → 200 or 400 (not 401, public)
 
 Gateway health
   → GET /health → 200, all downstream services report Healthy

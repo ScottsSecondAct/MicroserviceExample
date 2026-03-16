@@ -151,8 +151,8 @@ The system currently allows anyone to self-register and is automatically assigne
 Two options; pick one based on deployment target:
 
 **Option A — Admin-managed accounts (simpler, self-hosted)**
-- [ ] **Disable public self-registration** — remove or gate the `POST /api/registration/register` endpoint behind an Admin-only policy
-- [ ] **Invite flow** — Admin calls `POST /api/users/invite` with an email address; AuthService generates a signed, time-limited token and sends an invite email; recipient clicks the link and sets their password via `POST /api/registration/accept-invite`
+- [x] **Disable public self-registration** — `POST /api/registration/register` gated behind Admin-only authorization policy
+- [x] **Invite flow** — Admin calls `POST /api/users/invite` with an email address; AuthService generates a crypto-secure, time-limited token (48h default) and sends an invite email; recipient sets their password via `POST /api/registration/accept-invite`; token is single-use
 - [ ] **`Unassigned` holding state** — newly invited users start as `Unassigned`; Admin explicitly promotes them to `Member`, `SalesRep`, or `Manager` before they can access CRM data
 
 **Option B — SSO / Identity Provider (recommended for enterprise)**

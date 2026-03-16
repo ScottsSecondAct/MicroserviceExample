@@ -19,9 +19,9 @@ The interesting problems are in the seams. When a user registers, AuthService an
 
 This project was developed with AI assistance (Anthropic's Claude) as a design and implementation collaborator. Architecture decisions, service boundaries, and every tradeoff were made and understood by hand. The AI accelerated the work; it didn't replace the thinking.
 
-## Current State — v1.6 (Enterprise UI Redesign) + v2.0 Hardening (partial)
+## Current State — v1.6 (Enterprise UI Redesign) + v2.0 Complete + v2.1 (partial)
 
-The full CRM is operational end-to-end with a professional, enterprise-grade frontend. Six v2.0 hardening items have landed: refresh token rotation, secrets management (Phase 1), structured logging, dead-letter queue handling, rate limiting, and soft delete + audit trail.
+The full CRM is operational end-to-end with a professional, enterprise-grade frontend. All v2.0 hardening items are complete. v2.1 (Enterprise User Management) is underway: self-registration is disabled, admin invite flow is live, and CRM-specific roles (SalesRep, Manager) are in place.
 
 **v1.6 (Enterprise UI Redesign):**
 - **Tailwind CSS + shadcn/ui** — full component library (Dialog, Sheet, Toast, Skeleton, Select, Combobox, Pagination, DropdownMenu) replaces hand-written CSS
@@ -34,13 +34,18 @@ The full CRM is operational end-to-end with a professional, enterprise-grade fro
 - **Dashboard** — KPI stat cards with trend indicators; interactive charts with hover tooltips and clickable segments
 - **Admin section** — user list page (Admin-only); role promotion/demotion; account deactivation
 
-**v2.0 Hardening (partial):**
+**v2.0 Hardening (complete):**
 - **Refresh token rotation** — login returns a JWT (2h) + an opaque refresh token stored in the AuthService DB; `POST /auth/api/login/refresh` issues a new JWT and rotates the refresh token; token invalidated on use
 - **Secrets management (Phase 1)** — all credentials (JWT key, DB passwords, RabbitMQ creds) injected via environment variables; `.env.example` documents every required variable; no secrets in committed files
 - **Structured logging** — consistent log fields (correlationId mapped to OTel trace ID, serviceId) across all services; JSON-formatted output; OTel trace context propagated via W3C `traceparent`
 - **Dead-letter queue handling** — DLQ depth health checks across all services; MassTransit retry policies with exponential backoff on all consumers; DLQ monitoring in the Docker stack
 - **Rate limiting** — per-IP and per-user limits at the YARP gateway; configurable thresholds via environment variables
 - **Soft delete + audit trail** — `IsDeleted`/`DeletedAt` on all CRM entities; lightweight audit log (actor, action, timestamp) per service; hard-delete replaced with soft-delete across all CRUD endpoints
+- **CRM-specific roles** — `UserRole` enum expanded to `Unassigned`, `Member`, `SalesRep`, `Manager`, `Admin`; matching authorization policies on AuthService and ApiGateway
+
+**v2.1 Enterprise User Management (partial):**
+- **Admin-only registration** — `POST /api/registration/register` gated behind Admin authorization policy; public self-registration is disabled
+- **Admin invite flow** — `POST /api/users/invite` (Admin) generates a time-limited, crypto-secure token and sends an invite email; `POST /api/registration/accept-invite` (public) validates the token, creates the user, and publishes `UserRegistered`
 
 v1.5 (Reporting & Dashboards):
 - ReportingService subscribes to domain events; read-model projections for pipeline value by stage, activity counts by rep, contact funnel by status; Dashboard in the frontend.
@@ -59,7 +64,7 @@ v1.2 (Contacts & Accounts):
 v1.1 (Infrastructure Foundation):
 - YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry.
 
-**Testing:** 377 tests total — 320 unit tests, 57 integration tests, and 17 E2E tests. All passing. See [TESTING.md](TESTING.md).
+**Testing:** 416 tests total — 328 unit tests, 71 integration tests, and 17 E2E tests. All passing. See [TESTING.md](TESTING.md).
 
 See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
@@ -166,7 +171,7 @@ See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
 **SharedLibrary.Auth**
 - `CreateUserProfileRequest` / `CreateUserProfileResponse` DTOs
-- `UserRole` enum: `Unassigned`, `Member`, `Admin`
+- `UserRole` enum: `Unassigned`, `Member`, `SalesRep`, `Manager`, `Admin`
 
 **SharedLibrary.Messaging**
 - `BaseEvent` record: `CorrelationId`, `OccurredAt`, `EventType`
@@ -332,12 +337,14 @@ All requests go through the gateway (`http://localhost:5000`). The gateway strip
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/auth/api/registration/register` | — | Register a new user |
+| `POST` | `/auth/api/registration/register` | Admin Bearer | Register a new user (admin-provisioned) |
+| `POST` | `/auth/api/users/invite` | Admin Bearer | Send a time-limited invite email to a new user |
+| `POST` | `/auth/api/registration/accept-invite` | — | Accept an invite and set a password |
 | `POST` | `/auth/api/login/login` | — | Login and receive a JWT + refresh token |
 | `POST` | `/auth/api/login/refresh` | — | Exchange a refresh token for a new JWT + rotated refresh token |
 | `GET`  | `/auth/api/login/me` | Bearer | Current user from JWT claims |
 
-**Register** `POST /auth/api/registration/register`
+**Register** `POST /auth/api/registration/register` *(requires Admin JWT)*
 ```json
 // Request
 { "email": "user@example.com", "password": "secret123" }
@@ -346,6 +353,26 @@ All requests go through the gateway (`http://localhost:5000`). The gateway strip
 { "message": "User registered successfully." }
 ```
 Profile creation happens asynchronously — UserManagementService processes the `UserRegistered` event from RabbitMQ.
+
+**Invite** `POST /auth/api/users/invite` *(requires Admin JWT)*
+```json
+// Request
+{ "email": "newuser@example.com" }
+
+// Response 200
+{ "message": "Invite sent to newuser@example.com." }
+```
+Generates a crypto-secure token (48-hour expiry by default) and sends an invite email. Token is stored in the AuthService DB and is single-use.
+
+**Accept Invite** `POST /auth/api/registration/accept-invite`
+```json
+// Request
+{ "token": "<invite-token>", "password": "NewPassword123!" }
+
+// Response 200
+{ "message": "Account created successfully." }
+```
+Validates the token (exists, not used, not expired), creates the user, and publishes `UserRegistered`. The invited user can then log in immediately.
 
 **Login** `POST /auth/api/login/login`
 ```json
@@ -444,7 +471,7 @@ Setting `completedAt` on a `Task` for the first time publishes a `TaskCompleted`
 
 ## Testing
 
-377 tests across 15 projects. All passing.
+416 tests across 15 projects. All passing.
 
 **Unit tests (320)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
 
@@ -475,8 +502,11 @@ ReportingService subscribes to domain events and builds read-model projections. 
 ### ✅ v1.6 — Enterprise UI Redesign
 Full frontend overhaul: Tailwind CSS + shadcn/ui component library, left sidebar layout, top bar, breadcrumbs, slideover panels, sortable/paginated data tables with bulk-select, toast notifications, skeleton screens, guided empty states, confirmation dialogs, KPI stat cards, interactive charts, and an Admin section.
 
-### v2.0 — Hardening (in progress)
-Refresh token rotation ✅, secrets management Phase 1 ✅, structured logging ✅, dead-letter queue handling ✅, rate limiting ✅, soft delete + audit trail ✅. Still open: integration test suite, CRM-specific roles.
+### ✅ v2.0 — Hardening
+All items complete: refresh token rotation, secrets management (Phase 1), structured logging, dead-letter queue handling, rate limiting, soft delete + audit trail, integration test suite, and CRM-specific roles (SalesRep, Manager).
+
+### v2.1 — Enterprise User Management (in progress)
+Admin-only registration ✅, admin invite flow ✅. Still open: `Unassigned` holding state, role assignment endpoint, account deactivation, password management, audit trail.
 
 See [ROADMAP.md](ROADMAP.md) for detailed feature lists per version.
 
