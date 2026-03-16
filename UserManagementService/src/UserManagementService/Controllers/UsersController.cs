@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SharedLibrary.DTOs;
+using SharedLibrary.Enums;
+using UserManagementService.Models.DTOs;
 using UserManagementService.Services;
 
 namespace UserManagementService.Controllers;
@@ -77,6 +80,25 @@ public class UsersController : ControllerBase
     {
       _logger.LogError(ex, "Error retrieving role for user {UserId}", userId);
       return StatusCode(500, "An error occurred while retrieving the user role.");
+    }
+  }
+
+  [HttpPatch("{userId:guid}/role")]
+  [Authorize(Policy = "admin")]
+  public async Task<IActionResult> PatchUserRole(Guid userId, [FromBody] UpdateUserRoleRequest request)
+  {
+    if (!Enum.IsDefined(typeof(UserRole), request.Role))
+      return BadRequest("Invalid role value.");
+
+    try
+    {
+      var result = await _userProfileService.UpdateUserRoleAsync(userId, request.Role);
+      return StatusCode(result.StatusCode, result.Data ?? result.Message);
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error updating role for user {UserId}", userId);
+      return StatusCode(500, "An error occurred while updating the user role.");
     }
   }
 }
