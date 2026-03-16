@@ -20,4 +20,8 @@ public class UserProfile
   public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
   public bool IsActive { get; set; } = true;
+
+  public string? InviteToken { get; set; }
+
+  public DateTime? InvitePendingAt { get; set; }
 }

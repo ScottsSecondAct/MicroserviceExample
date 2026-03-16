@@ -12,4 +12,5 @@ public interface IUserProfileService
   Task<ServiceResult> GetAllUsersAsync();
   Task<ServiceResult> UpdateUserRoleAsync(Guid userId, UserRole role);
   Task<ServiceResult> SetUserActiveAsync(Guid userId, bool isActive);
+  Task<ServiceResult> ResendInviteAsync(Guid userId);
 }

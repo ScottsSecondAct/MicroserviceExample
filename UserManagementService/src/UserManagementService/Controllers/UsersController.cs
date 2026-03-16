@@ -117,4 +117,20 @@ public class UsersController : ControllerBase
       return StatusCode(500, "An error occurred while updating the user role.");
     }
   }
+
+  [HttpPost("{userId:guid}/resend-invite")]
+  [Authorize(Policy = "admin")]
+  public async Task<IActionResult> ResendInvite(Guid userId)
+  {
+    try
+    {
+      var result = await _userProfileService.ResendInviteAsync(userId);
+      return StatusCode(result.StatusCode, result.Data ?? result.Message);
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error resending invite for user {UserId}", userId);
+      return StatusCode(500, "An error occurred while resending the invite.");
+    }
+  }
 }

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using SharedLibrary.DTOs;
 using SharedLibrary.Enums;
 using UserManagementService.Models;
@@ -9,10 +10,12 @@ namespace UserManagementService.Services;
 public class UserProfileService : IUserProfileService
 {
   private readonly IUserProfileRepository _repository;
+  private readonly IEmailService _emailService;
 
-  public UserProfileService(IUserProfileRepository repository)
+  public UserProfileService(IUserProfileRepository repository, IEmailService emailService)
   {
     _repository = repository;
+    _emailService = emailService;
   }
 
   public async Task<ServiceResult> CreateUserProfileAsync(CreateUserProfileRequest request)
@@ -131,6 +134,30 @@ public class UserProfileService : IUserProfileService
       Role = profile.Role,
       IsActive = profile.IsActive,
       CreatedAt = profile.CreatedAt
+    });
+  }
+
+  public async Task<ServiceResult> ResendInviteAsync(Guid userId)
+  {
+    var profile = await _repository.GetByIdAsync(userId);
+    if (profile == null)
+      return ServiceResult.Failure("User profile not found.", 404);
+
+    if (profile.InviteToken == null)
+      return ServiceResult.Failure("User does not have a pending invite.");
+
+    var newToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+    profile.InviteToken = newToken;
+    profile.InvitePendingAt = DateTime.UtcNow;
+    await _repository.UpdateAsync(profile);
+
+    await _emailService.SendInviteEmailAsync(profile.Email, newToken);
+
+    return ServiceResult.Success(new ResendInviteResponse
+    {
+      UserId = profile.UserId,
+      Email = profile.Email,
+      InviteSentAt = profile.InvitePendingAt.Value
     });
   }
 }

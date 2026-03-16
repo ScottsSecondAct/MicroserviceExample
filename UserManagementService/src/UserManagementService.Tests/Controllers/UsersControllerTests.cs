@@ -286,4 +286,57 @@ public class UsersControllerTests
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(500);
   }
+
+  // ── ResendInvite ──────────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task ResendInvite_ReturnsOk_WhenSuccessful()
+  {
+    var userId = Guid.NewGuid();
+    _serviceMock.Setup(s => s.ResendInviteAsync(userId))
+      .ReturnsAsync(ServiceResult.Success(new { userId, email = "user@example.com" }));
+
+    var result = await _sut.ResendInvite(userId);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(200);
+  }
+
+  [Fact]
+  public async Task ResendInvite_Returns404_WhenUserNotFound()
+  {
+    var userId = Guid.NewGuid();
+    _serviceMock.Setup(s => s.ResendInviteAsync(userId))
+      .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
+
+    var result = await _sut.ResendInvite(userId);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(404);
+  }
+
+  [Fact]
+  public async Task ResendInvite_Returns400_WhenNoPendingInvite()
+  {
+    var userId = Guid.NewGuid();
+    _serviceMock.Setup(s => s.ResendInviteAsync(userId))
+      .ReturnsAsync(ServiceResult.Failure("User does not have a pending invite."));
+
+    var result = await _sut.ResendInvite(userId);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(400);
+  }
+
+  [Fact]
+  public async Task ResendInvite_Returns500_OnException()
+  {
+    var userId = Guid.NewGuid();
+    _serviceMock.Setup(s => s.ResendInviteAsync(userId)).ThrowsAsync(new Exception());
+
+    var result = await _sut.ResendInvite(userId);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
 }
