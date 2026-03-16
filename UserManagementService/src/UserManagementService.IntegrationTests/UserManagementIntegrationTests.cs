@@ -157,6 +157,110 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
     matching.Should().Be(1);
   }
 
+  // ── GET /api/admin/users ──────────────────────────────────────────────────
+
+  [Fact]
+  public async Task GET_admin_users_Returns401_WithoutAuth()
+  {
+    var response = await _client.GetAsync("/api/admin/users");
+
+    response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+  }
+
+  [Fact]
+  public async Task GET_admin_users_Returns200_WithAdminJwt()
+  {
+    var adminClient = CreateAdminClient();
+
+    var response = await adminClient.GetAsync("/api/admin/users");
+
+    response.StatusCode.Should().Be(HttpStatusCode.OK);
+    var arr = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+    arr.ValueKind.Should().Be(JsonValueKind.Array);
+  }
+
+  [Fact]
+  public async Task GET_admin_users_ReturnsAllFields()
+  {
+    var userId = Guid.NewGuid();
+    var email = $"admin-list-{Guid.NewGuid()}@test.com";
+    await _client.PostAsJsonAsync("/api/users", new { userId, email, displayName = "List Me" });
+
+    var adminClient = CreateAdminClient();
+    var response = await adminClient.GetAsync("/api/admin/users");
+
+    response.StatusCode.Should().Be(HttpStatusCode.OK);
+    var arr = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+    var match = arr.EnumerateArray().FirstOrDefault(u => u.GetProperty("userId").GetGuid() == userId);
+    match.ValueKind.Should().NotBe(JsonValueKind.Undefined);
+    match.TryGetProperty("email", out _).Should().BeTrue();
+    match.TryGetProperty("displayName", out _).Should().BeTrue();
+    match.TryGetProperty("role", out _).Should().BeTrue();
+    match.TryGetProperty("isActive", out _).Should().BeTrue();
+  }
+
+  // ── PUT /api/admin/users/{id}/role ────────────────────────────────────────
+
+  [Fact]
+  public async Task PUT_admin_users_role_Returns401_WithoutAuth()
+  {
+    var userId = Guid.NewGuid();
+    var response = await _client.PutAsJsonAsync($"/api/admin/users/{userId}/role", new { role = 1 });
+
+    response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+  }
+
+  [Fact]
+  public async Task PUT_admin_users_role_Returns200_WhenRoleUpdated()
+  {
+    var userId = Guid.NewGuid();
+    await _client.PostAsJsonAsync("/api/users", new { userId, email = $"role-update-{Guid.NewGuid()}@test.com" });
+
+    var adminClient = CreateAdminClient();
+    var response = await adminClient.PutAsJsonAsync($"/api/admin/users/{userId}/role", new { role = 4 }); // Admin
+
+    response.StatusCode.Should().Be(HttpStatusCode.OK);
+    var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+    doc.RootElement.GetProperty("role").GetInt32().Should().Be(4);
+  }
+
+  [Fact]
+  public async Task PUT_admin_users_role_Returns400_WhenRoleIsUnassigned()
+  {
+    var userId = Guid.NewGuid();
+    await _client.PostAsJsonAsync("/api/users", new { userId, email = $"role-unassigned-{Guid.NewGuid()}@test.com" });
+
+    var adminClient = CreateAdminClient();
+    var response = await adminClient.PutAsJsonAsync($"/api/admin/users/{userId}/role", new { role = 0 }); // Unassigned
+
+    response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+  }
+
+  // ── PUT /api/admin/users/{id}/active ─────────────────────────────────────
+
+  [Fact]
+  public async Task PUT_admin_users_active_Returns401_WithoutAuth()
+  {
+    var userId = Guid.NewGuid();
+    var response = await _client.PutAsJsonAsync($"/api/admin/users/{userId}/active", new { isActive = false });
+
+    response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+  }
+
+  [Fact]
+  public async Task PUT_admin_users_active_Returns200_WhenStatusUpdated()
+  {
+    var userId = Guid.NewGuid();
+    await _client.PostAsJsonAsync("/api/users", new { userId, email = $"deactivate-{Guid.NewGuid()}@test.com" });
+
+    var adminClient = CreateAdminClient();
+    var response = await adminClient.PutAsJsonAsync($"/api/admin/users/{userId}/active", new { isActive = false });
+
+    response.StatusCode.Should().Be(HttpStatusCode.OK);
+    var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+    doc.RootElement.GetProperty("isActive").GetBoolean().Should().BeFalse();
+  }
+
   // ── Health ────────────────────────────────────────────────────────────────
 
   [Fact]
@@ -165,5 +269,16 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
     var response = await _client.GetAsync("/health");
 
     response.StatusCode.Should().Be(HttpStatusCode.OK);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  private HttpClient CreateAdminClient()
+  {
+    var token = _factory.CreateAdminJwt();
+    var client = _factory.CreateClient();
+    client.DefaultRequestHeaders.Authorization =
+      new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+    return client;
   }
 }
