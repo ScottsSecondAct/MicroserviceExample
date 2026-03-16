@@ -83,6 +83,22 @@ public class UsersController : ControllerBase
     }
   }
 
+  [HttpPatch("{userId:guid}/status")]
+  [Authorize(Policy = "admin")]
+  public async Task<IActionResult> PatchUserStatus(Guid userId, [FromBody] SetUserActiveRequest request)
+  {
+    try
+    {
+      var result = await _userProfileService.SetUserActiveAsync(userId, request.IsActive);
+      return StatusCode(result.StatusCode, result.Data ?? result.Message);
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error updating status for user {UserId}", userId);
+      return StatusCode(500, "An error occurred while updating the user status.");
+    }
+  }
+
   [HttpPatch("{userId:guid}/role")]
   [Authorize(Policy = "admin")]
   public async Task<IActionResult> PatchUserRole(Guid userId, [FromBody] UpdateUserRoleRequest request)

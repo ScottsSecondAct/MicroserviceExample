@@ -57,7 +57,8 @@ public class UserProfileService : IUserProfileService
     return ServiceResult.Success(new UserRoleResponse
     {
       UserId = profile.UserId,
-      Role = profile.Role
+      Role = profile.Role,
+      IsActive = profile.IsActive
     });
   }
 

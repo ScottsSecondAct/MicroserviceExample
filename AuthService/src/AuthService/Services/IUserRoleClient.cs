@@ -1,8 +1,8 @@
-using SharedLibrary.Enums;
+using AuthService.Models.DTOs;
 
 namespace AuthService.Services;
 
 public interface IUserRoleClient
 {
-  Task<UserRole> GetRoleAsync(Guid userId);
+  Task<UserRoleResponse> GetRoleAsync(Guid userId);
 }

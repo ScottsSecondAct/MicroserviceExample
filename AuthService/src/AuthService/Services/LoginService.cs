@@ -53,8 +53,14 @@ public class LoginService : ILoginService
       return ServiceResult.Failure("Invalid email or password.", 401);
     }
 
-    var role = await _userRoleClient.GetRoleAsync(user.UserId);
-    var jwtToken = _jwtTokenService.GenerateJwtToken(user, role);
+    var userStatus = await _userRoleClient.GetRoleAsync(user.UserId);
+    if (!userStatus.IsActive)
+    {
+      _logger.LogWarning("Login failed: User with email {Email} is deactivated.", request.Email);
+      return ServiceResult.Failure("Account is deactivated. Please contact an administrator.", 403);
+    }
+
+    var jwtToken = _jwtTokenService.GenerateJwtToken(user, userStatus.Role);
     var refreshToken = await CreateRefreshTokenAsync(user.UserId);
 
     _logger.LogInformation("User with email {Email} logged in successfully.", request.Email);
@@ -78,8 +84,14 @@ public class LoginService : ILoginService
 
     await _refreshTokenRepository.RevokeAsync(existing);
 
-    var role = await _userRoleClient.GetRoleAsync(existing.UserId);
-    var newJwt = _jwtTokenService.GenerateJwtToken(existing.User, role);
+    var userStatus = await _userRoleClient.GetRoleAsync(existing.UserId);
+    if (!userStatus.IsActive)
+    {
+      _logger.LogWarning("Refresh failed: User {UserId} is deactivated.", existing.UserId);
+      return ServiceResult.Failure("Account is deactivated.", 403);
+    }
+
+    var newJwt = _jwtTokenService.GenerateJwtToken(existing.User, userStatus.Role);
     var newRefreshToken = await CreateRefreshTokenAsync(existing.UserId);
 
     _logger.LogInformation("Refresh token rotated for user {UserId}.", existing.UserId);

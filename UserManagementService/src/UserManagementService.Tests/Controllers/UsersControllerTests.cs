@@ -162,6 +162,63 @@ public class UsersControllerTests
     obj.StatusCode.Should().Be(404);
   }
 
+  // ── PatchUserStatus ───────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task PatchUserStatus_ReturnsOk_WhenDeactivatingUser()
+  {
+    var userId = Guid.NewGuid();
+    var request = new SetUserActiveRequest { IsActive = false };
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false))
+      .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, IsActive = false }));
+
+    var result = await _sut.PatchUserStatus(userId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(200);
+  }
+
+  [Fact]
+  public async Task PatchUserStatus_ReturnsOk_WhenReactivatingUser()
+  {
+    var userId = Guid.NewGuid();
+    var request = new SetUserActiveRequest { IsActive = true };
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, true))
+      .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, IsActive = true }));
+
+    var result = await _sut.PatchUserStatus(userId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(200);
+  }
+
+  [Fact]
+  public async Task PatchUserStatus_Returns404_WhenUserNotFound()
+  {
+    var userId = Guid.NewGuid();
+    var request = new SetUserActiveRequest { IsActive = false };
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false))
+      .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
+
+    var result = await _sut.PatchUserStatus(userId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(404);
+  }
+
+  [Fact]
+  public async Task PatchUserStatus_Returns500_OnException()
+  {
+    var userId = Guid.NewGuid();
+    var request = new SetUserActiveRequest { IsActive = false };
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false)).ThrowsAsync(new Exception());
+
+    var result = await _sut.PatchUserStatus(userId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
+
   // ── PatchUserRole ─────────────────────────────────────────────────────────
 
   [Fact]

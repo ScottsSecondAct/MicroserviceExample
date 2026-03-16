@@ -26,13 +26,13 @@ public class AuthIntegrationTests : IClassFixture<AuthServiceFactory>
 
   private static readonly Guid AdminId = new("00000000-0000-0000-0000-000000000001");
 
-  private void StubRoleEndpoint(Guid userId, int roleValue = 1) // 1 = Member
+  private void StubRoleEndpoint(Guid userId, int roleValue = 1, bool isActive = true) // 1 = Member
   {
     _factory.UmsMock
       .Given(Request.Create().WithPath($"/api/users/{userId}/role").UsingGet())
       .RespondWith(Response.Create()
         .WithStatusCode(200)
-        .WithBody($"{{\"userId\":\"{userId}\",\"role\":{roleValue}}}")
+        .WithBody($"{{\"userId\":\"{userId}\",\"role\":{roleValue},\"isActive\":{isActive.ToString().ToLower()}}}")
         .WithHeader("Content-Type", "application/json"));
   }
 
