@@ -88,6 +88,20 @@ public class AdminControllerTests
     obj.StatusCode.Should().Be(500);
   }
 
+  [Fact]
+  public async Task UpdateUserRole_Returns400_WhenRoleIsUnassigned()
+  {
+    var userId = Guid.NewGuid();
+    var request = new UpdateUserRoleRequest { Role = UserRole.Unassigned };
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Unassigned))
+      .ReturnsAsync(ServiceResult.Failure("Cannot set role to Unassigned."));
+
+    var result = await _sut.UpdateUserRole(userId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(400);
+  }
+
   // ── SetUserActive ─────────────────────────────────────────────────────────
 
   [Fact]
