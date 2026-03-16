@@ -10,10 +10,12 @@ public class AuthDbContext : DbContext
   {
     Users = Set<User>();
     RefreshTokens = Set<RefreshToken>();
+    InviteTokens = Set<InviteToken>();
   }
 
   public DbSet<User> Users { get; set; }
   public DbSet<RefreshToken> RefreshTokens { get; set; }
+  public DbSet<InviteToken> InviteTokens { get; set; }
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -21,6 +23,10 @@ public class AuthDbContext : DbContext
 
     modelBuilder.Entity<RefreshToken>()
         .HasIndex(r => r.Token)
+        .IsUnique();
+
+    modelBuilder.Entity<InviteToken>()
+        .HasIndex(i => i.Token)
         .IsUnique();
   }
 }
