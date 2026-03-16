@@ -46,8 +46,11 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddScoped<IInviteTokenRepository, InviteTokenRepository>();
 builder.Services.AddScoped<IRegistrationService, RegistationService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IInviteService, InviteService>();
 
 // Typed HttpClient for role fetch (sync call on login)
 builder.Services.AddHttpClient<IUserRoleClient, UserRoleClient>(client =>
