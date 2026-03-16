@@ -43,7 +43,7 @@ public class LoginServiceTests
 
     _mockUserRepository.Setup(r => r.GetUserByEmailAsync(request.Email)).ReturnsAsync(user);
     _mockPasswordService.Setup(p => p.VerifyPassword(request.Password, user.PasswordHash)).Returns(true);
-    _mockUserRoleClient.Setup(r => r.GetRoleAsync(user.UserId)).ReturnsAsync(UserRole.Member);
+    _mockUserRoleClient.Setup(r => r.GetRoleAsync(user.UserId)).ReturnsAsync(new UserRoleResponse { UserId = user.UserId, Role = UserRole.Member, IsActive = true });
     _mockJwtTokenService.Setup(j => j.GenerateJwtToken(user, UserRole.Member)).Returns("jwt-token-string");
     _mockRefreshTokenRepository.Setup(r => r.AddAsync(It.IsAny<RefreshToken>())).Returns(Task.CompletedTask);
 
@@ -128,7 +128,7 @@ public class LoginServiceTests
     _mockRefreshTokenRepository.Setup(r => r.GetByTokenAsync("valid-refresh-token")).ReturnsAsync(existingToken);
     _mockRefreshTokenRepository.Setup(r => r.RevokeAsync(existingToken)).Returns(Task.CompletedTask);
     _mockRefreshTokenRepository.Setup(r => r.AddAsync(It.IsAny<RefreshToken>())).Returns(Task.CompletedTask);
-    _mockUserRoleClient.Setup(r => r.GetRoleAsync(userId)).ReturnsAsync(UserRole.Member);
+    _mockUserRoleClient.Setup(r => r.GetRoleAsync(userId)).ReturnsAsync(new UserRoleResponse { UserId = userId, Role = UserRole.Member, IsActive = true });
     _mockJwtTokenService.Setup(j => j.GenerateJwtToken(user, UserRole.Member)).Returns("new-jwt-token");
 
     // Act
@@ -219,5 +219,57 @@ public class LoginServiceTests
     Assert.False(result.IsSuccess);
     Assert.Equal(401, result.StatusCode);
     Assert.Equal("Invalid or expired refresh token.", result.Message);
+  }
+
+  [Fact]
+  public async Task LoginAsync_ShouldReturnFailure_WhenUserIsDeactivated()
+  {
+    // Arrange
+    var user = new User { UserId = Guid.NewGuid(), Email = "deactivated@example.com", PasswordHash = "hashed" };
+    var request = new LoginRequest { Email = "deactivated@example.com", Password = "SecurePassword123" };
+
+    _mockUserRepository.Setup(r => r.GetUserByEmailAsync(request.Email)).ReturnsAsync(user);
+    _mockPasswordService.Setup(p => p.VerifyPassword(request.Password, user.PasswordHash)).Returns(true);
+    _mockUserRoleClient.Setup(r => r.GetRoleAsync(user.UserId))
+      .ReturnsAsync(new UserRoleResponse { UserId = user.UserId, Role = UserRole.Member, IsActive = false });
+
+    // Act
+    var result = await _service.LoginAsync(request);
+
+    // Assert
+    Assert.False(result.IsSuccess);
+    Assert.Equal(403, result.StatusCode);
+    Assert.Contains("deactivated", result.Message, StringComparison.OrdinalIgnoreCase);
+  }
+
+  [Fact]
+  public async Task RefreshAsync_ShouldReturnFailure_WhenUserIsDeactivated()
+  {
+    // Arrange
+    var userId = Guid.NewGuid();
+    var user = new User { UserId = userId, Email = "deactivated@example.com", PasswordHash = "hashed" };
+    var existingToken = new RefreshToken
+    {
+      Id = Guid.NewGuid(),
+      Token = "valid-refresh-token",
+      UserId = userId,
+      User = user,
+      ExpiresAt = DateTime.UtcNow.AddDays(7),
+      IsRevoked = false
+    };
+    var request = new RefreshRequest { RefreshToken = "valid-refresh-token" };
+
+    _mockRefreshTokenRepository.Setup(r => r.GetByTokenAsync("valid-refresh-token")).ReturnsAsync(existingToken);
+    _mockRefreshTokenRepository.Setup(r => r.RevokeAsync(existingToken)).Returns(Task.CompletedTask);
+    _mockUserRoleClient.Setup(r => r.GetRoleAsync(userId))
+      .ReturnsAsync(new UserRoleResponse { UserId = userId, Role = UserRole.Member, IsActive = false });
+
+    // Act
+    var result = await _service.RefreshAsync(request);
+
+    // Assert
+    Assert.False(result.IsSuccess);
+    Assert.Equal(403, result.StatusCode);
+    Assert.Contains("deactivated", result.Message, StringComparison.OrdinalIgnoreCase);
   }
 }
