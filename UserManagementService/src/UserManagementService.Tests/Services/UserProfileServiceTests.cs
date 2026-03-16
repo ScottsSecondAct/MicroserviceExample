@@ -12,12 +12,16 @@ namespace UserManagementService.Tests.Services;
 public class UserProfileServiceTests
 {
   private readonly Mock<IUserProfileRepository> _mockRepository;
+  private readonly Mock<IEmailService> _mockEmailService;
   private readonly UserProfileService _service;
 
   public UserProfileServiceTests()
   {
     _mockRepository = new Mock<IUserProfileRepository>();
-    _service = new UserProfileService(_mockRepository.Object);
+    _mockEmailService = new Mock<IEmailService>();
+    _mockEmailService.Setup(e => e.SendInviteEmailAsync(It.IsAny<string>(), It.IsAny<string>()))
+      .Returns(Task.CompletedTask);
+    _service = new UserProfileService(_mockRepository.Object, _mockEmailService.Object);
   }
 
   [Fact]
@@ -153,5 +157,81 @@ public class UserProfileServiceTests
 
     result.IsSuccess.Should().BeFalse();
     result.StatusCode.Should().Be(404);
+  }
+
+  // ── ResendInviteAsync ────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task ResendInviteAsync_WhenUserNotFound_ReturnsFailure()
+  {
+    var userId = Guid.NewGuid();
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync((UserProfile?)null);
+
+    var result = await _service.ResendInviteAsync(userId);
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(404);
+  }
+
+  [Fact]
+  public async Task ResendInviteAsync_WhenNoPendingInvite_ReturnsFailure()
+  {
+    var userId = Guid.NewGuid();
+    var profile = new UserProfile { UserId = userId, Email = "user@example.com", InviteToken = null };
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
+
+    var result = await _service.ResendInviteAsync(userId);
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(400);
+    result.Message.Should().Contain("pending invite");
+  }
+
+  [Fact]
+  public async Task ResendInviteAsync_WithPendingInvite_RegeneratesTokenAndSendsEmail()
+  {
+    var userId = Guid.NewGuid();
+    var profile = new UserProfile
+    {
+      UserId = userId,
+      Email = "user@example.com",
+      InviteToken = "old-token",
+      InvitePendingAt = DateTime.UtcNow.AddDays(-3)
+    };
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    var result = await _service.ResendInviteAsync(userId);
+
+    result.IsSuccess.Should().BeTrue();
+    result.StatusCode.Should().Be(200);
+    var response = result.Data as ResendInviteResponse;
+    response.Should().NotBeNull();
+    response!.UserId.Should().Be(userId);
+    response.Email.Should().Be("user@example.com");
+    profile.InviteToken.Should().NotBe("old-token");
+    _mockEmailService.Verify(e => e.SendInviteEmailAsync("user@example.com", profile.InviteToken!), Times.Once);
+  }
+
+  [Fact]
+  public async Task ResendInviteAsync_WithPendingInvite_UpdatesInvitePendingAt()
+  {
+    var userId = Guid.NewGuid();
+    var originalTime = DateTime.UtcNow.AddDays(-3);
+    var profile = new UserProfile
+    {
+      UserId = userId,
+      Email = "user@example.com",
+      InviteToken = "old-token",
+      InvitePendingAt = originalTime
+    };
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    var before = DateTime.UtcNow;
+    await _service.ResendInviteAsync(userId);
+
+    profile.InvitePendingAt.Should().NotBeNull();
+    profile.InvitePendingAt!.Value.Should().BeOnOrAfter(before);
   }
 }

@@ -11,12 +11,16 @@ namespace UserManagementService.Tests.Services;
 public class AdminServiceTests
 {
   private readonly Mock<IUserProfileRepository> _mockRepository;
+  private readonly Mock<IEmailService> _mockEmailService;
   private readonly UserProfileService _service;
 
   public AdminServiceTests()
   {
     _mockRepository = new Mock<IUserProfileRepository>();
-    _service = new UserProfileService(_mockRepository.Object);
+    _mockEmailService = new Mock<IEmailService>();
+    _mockEmailService.Setup(e => e.SendInviteEmailAsync(It.IsAny<string>(), It.IsAny<string>()))
+      .Returns(Task.CompletedTask);
+    _service = new UserProfileService(_mockRepository.Object, _mockEmailService.Object);
   }
 
   // ── GetAllUsersAsync ──────────────────────────────────────────────────────
