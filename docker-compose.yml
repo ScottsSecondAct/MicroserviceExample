@@ -104,6 +104,9 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__UserManagementDbConnection: "Host=user-management-db;Port=5432;Database=userdb;Username=user_user;Password=${USER_DB_PASSWORD}"
+      JwtSettings__SecretKey: "${JWT_SECRET}"
+      JwtSettings__Issuer: "https://localhost"
+      JwtSettings__Audience: "YourAppUsers"
       RabbitMQ__Host: "rabbitmq"
       RabbitMQ__Username: "${RABBITMQ_USERNAME}"
       RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
