@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using SharedLibrary.DTOs;
+using SharedLibrary.Enums;
 using UserManagementService.Controllers;
+using UserManagementService.Models.DTOs;
 using UserManagementService.Services;
 
 namespace UserManagementService.Tests.Controllers;
@@ -158,5 +160,73 @@ public class UsersControllerTests
 
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(404);
+  }
+
+  // ── PatchUserRole ─────────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task PatchUserRole_ReturnsOk_WhenSuccessful()
+  {
+    var userId = Guid.NewGuid();
+    var request = new UpdateUserRoleRequest { Role = UserRole.Admin };
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin))
+      .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, Role = UserRole.Admin }));
+
+    var result = await _sut.PatchUserRole(userId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(200);
+  }
+
+  [Fact]
+  public async Task PatchUserRole_Returns400_WhenRoleIsInvalidEnumValue()
+  {
+    var userId = Guid.NewGuid();
+    var request = new UpdateUserRoleRequest { Role = (UserRole)999 };
+
+    var result = await _sut.PatchUserRole(userId, request);
+
+    result.Should().BeOfType<BadRequestObjectResult>();
+  }
+
+  [Fact]
+  public async Task PatchUserRole_Returns400_WhenRoleIsUnassigned()
+  {
+    var userId = Guid.NewGuid();
+    var request = new UpdateUserRoleRequest { Role = UserRole.Unassigned };
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Unassigned))
+      .ReturnsAsync(ServiceResult.Failure("Cannot set role to Unassigned. Use Member, SalesRep, Manager, or Admin."));
+
+    var result = await _sut.PatchUserRole(userId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(400);
+  }
+
+  [Fact]
+  public async Task PatchUserRole_Returns404_WhenUserNotFound()
+  {
+    var userId = Guid.NewGuid();
+    var request = new UpdateUserRoleRequest { Role = UserRole.Member };
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Member))
+      .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
+
+    var result = await _sut.PatchUserRole(userId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(404);
+  }
+
+  [Fact]
+  public async Task PatchUserRole_Returns500_OnException()
+  {
+    var userId = Guid.NewGuid();
+    var request = new UpdateUserRoleRequest { Role = UserRole.Member };
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Member)).ThrowsAsync(new Exception());
+
+    var result = await _sut.PatchUserRole(userId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
   }
 }
