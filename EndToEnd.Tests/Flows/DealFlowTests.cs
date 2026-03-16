@@ -9,16 +9,7 @@ public class DealFlowTests : IDisposable
 {
     private readonly GatewayClient _client = new();
 
-    private async Task LoginAsync()
-    {
-        var email = $"e2e-deal-{Guid.NewGuid()}@example.com";
-        var password = "Password123!";
-        await _client.PostAsync("/auth/api/registration/register", new { email, password });
-        var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password });
-        var token = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync())
-            .RootElement.GetProperty("token").GetString()!;
-        _client.SetToken(token);
-    }
+    private Task LoginAsync() => _client.LoginAsAdminAsync();
 
     [Fact]
     public async Task PipelineLifecycle_CreateDeal_AddContact_CloseWon()

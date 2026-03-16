@@ -11,13 +11,7 @@ public class ActivityFlowTests : IDisposable
 
     private async Task<Guid> LoginAndCreateContactAsync()
     {
-        var email = $"e2e-act-{Guid.NewGuid()}@example.com";
-        var password = "Password123!";
-        await _client.PostAsync("/auth/api/registration/register", new { email, password });
-        var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password });
-        var token = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync())
-            .RootElement.GetProperty("token").GetString()!;
-        _client.SetToken(token);
+        await _client.LoginAsAdminAsync();
 
         var contactResponse = await _client.PostAsync("/contacts/api/contacts",
             new { firstName = "Activity", lastName = "Owner", email = $"act-owner-{Guid.NewGuid()}@example.com" });
@@ -60,13 +54,7 @@ public class ActivityFlowTests : IDisposable
     [Fact]
     public async Task ActivityTimeline_FilterByDealId()
     {
-        var email = $"e2e-timeline-{Guid.NewGuid()}@example.com";
-        var password = "Password123!";
-        await _client.PostAsync("/auth/api/registration/register", new { email, password });
-        var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password });
-        var token = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync())
-            .RootElement.GetProperty("token").GetString()!;
-        _client.SetToken(token);
+        await _client.LoginAsAdminAsync();
 
         // Create a deal to associate activities with
         var dealResponse = await _client.PostAsync("/deals/api/deals",
