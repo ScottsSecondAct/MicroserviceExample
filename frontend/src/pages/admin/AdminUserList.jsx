@@ -78,14 +78,16 @@ export default function AdminUserList() {
       toast({ variant: 'success', title: 'Invite sent', description: `An invite email was sent to ${inviteEmail}.` })
       setInviteOpen(false)
       setInviteEmail('')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
     },
     onError: (err) => toast({ variant: 'destructive', title: 'Invite failed', description: err.message }),
   })
 
   const resendInviteMutation = useMutation({
     mutationFn: (userId) => adminApi.resendInvite(userId),
-    onSuccess: (_, userId) => {
+    onSuccess: () => {
       toast({ variant: 'success', title: 'Invite resent' })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
     },
     onError: (err) => toast({ variant: 'destructive', title: 'Resend failed', description: err.message }),
   })
