@@ -52,7 +52,7 @@ public class AdminControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new UpdateUserRoleRequest { Role = UserRole.Admin };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin))
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, Role = UserRole.Admin }));
 
     var result = await _sut.UpdateUserRole(userId, request);
@@ -66,7 +66,7 @@ public class AdminControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new UpdateUserRoleRequest { Role = UserRole.Admin };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin))
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
 
     var result = await _sut.UpdateUserRole(userId, request);
@@ -80,7 +80,7 @@ public class AdminControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new UpdateUserRoleRequest { Role = UserRole.Admin };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin)).ThrowsAsync(new Exception());
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin, It.IsAny<Guid>())).ThrowsAsync(new Exception());
 
     var result = await _sut.UpdateUserRole(userId, request);
 
@@ -93,7 +93,7 @@ public class AdminControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new UpdateUserRoleRequest { Role = UserRole.Unassigned };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Unassigned))
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Unassigned, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Failure("Cannot set role to Unassigned."));
 
     var result = await _sut.UpdateUserRole(userId, request);
@@ -109,7 +109,7 @@ public class AdminControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new SetUserActiveRequest { IsActive = false };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false))
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, IsActive = false }));
 
     var result = await _sut.SetUserActive(userId, request);
@@ -123,7 +123,7 @@ public class AdminControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new SetUserActiveRequest { IsActive = false };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false))
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
 
     var result = await _sut.SetUserActive(userId, request);
@@ -137,7 +137,7 @@ public class AdminControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new SetUserActiveRequest { IsActive = false };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false)).ThrowsAsync(new Exception());
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false, It.IsAny<Guid>())).ThrowsAsync(new Exception());
 
     var result = await _sut.SetUserActive(userId, request);
 

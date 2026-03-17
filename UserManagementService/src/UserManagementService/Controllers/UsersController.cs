@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SharedLibrary.DTOs;
@@ -12,13 +13,18 @@ namespace UserManagementService.Controllers;
 public class UsersController : ControllerBase
 {
   private readonly IUserProfileService _userProfileService;
+  private readonly IAuditLogService _auditLogService;
   private readonly ILogger<UsersController> _logger;
 
-  public UsersController(IUserProfileService userProfileService, ILogger<UsersController> logger)
+  public UsersController(IUserProfileService userProfileService, IAuditLogService auditLogService, ILogger<UsersController> logger)
   {
     _userProfileService = userProfileService;
+    _auditLogService = auditLogService;
     _logger = logger;
   }
+
+  private Guid GetActorUserId() =>
+    Guid.TryParse(User.FindFirstValue("UserId"), out var id) ? id : Guid.Empty;
 
   [HttpPost]
   public async Task<IActionResult> CreateUserProfile([FromBody] CreateUserProfileRequest request)
@@ -89,7 +95,7 @@ public class UsersController : ControllerBase
   {
     try
     {
-      var result = await _userProfileService.SetUserActiveAsync(userId, request.IsActive);
+      var result = await _userProfileService.SetUserActiveAsync(userId, request.IsActive, GetActorUserId());
       return StatusCode(result.StatusCode, result.Data ?? result.Message);
     }
     catch (Exception ex)
@@ -108,7 +114,7 @@ public class UsersController : ControllerBase
 
     try
     {
-      var result = await _userProfileService.UpdateUserRoleAsync(userId, request.Role);
+      var result = await _userProfileService.UpdateUserRoleAsync(userId, request.Role, GetActorUserId());
       return StatusCode(result.StatusCode, result.Data ?? result.Message);
     }
     catch (Exception ex)
@@ -124,13 +130,29 @@ public class UsersController : ControllerBase
   {
     try
     {
-      var result = await _userProfileService.ResendInviteAsync(userId);
+      var result = await _userProfileService.ResendInviteAsync(userId, GetActorUserId());
       return StatusCode(result.StatusCode, result.Data ?? result.Message);
     }
     catch (Exception ex)
     {
       _logger.LogError(ex, "Error resending invite for user {UserId}", userId);
       return StatusCode(500, "An error occurred while resending the invite.");
+    }
+  }
+
+  [HttpGet("audit")]
+  [Authorize(Policy = "admin")]
+  public async Task<IActionResult> GetAuditLog()
+  {
+    try
+    {
+      var entries = await _auditLogService.GetAuditLogsAsync();
+      return Ok(entries);
+    }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Error retrieving audit log");
+      return StatusCode(500, "An error occurred while retrieving the audit log.");
     }
   }
 }

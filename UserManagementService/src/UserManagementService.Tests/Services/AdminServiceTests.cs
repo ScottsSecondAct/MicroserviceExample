@@ -5,6 +5,7 @@ using UserManagementService.Models;
 using UserManagementService.Models.DTOs;
 using UserManagementService.Repository;
 using UserManagementService.Services;
+using AuditAction = UserManagementService.Models.AuditAction;
 
 namespace UserManagementService.Tests.Services;
 
@@ -12,7 +13,9 @@ public class AdminServiceTests
 {
   private readonly Mock<IUserProfileRepository> _mockRepository;
   private readonly Mock<IEmailService> _mockEmailService;
+  private readonly Mock<IAuditLogService> _mockAuditLogService;
   private readonly UserProfileService _service;
+  private readonly Guid _actorUserId = Guid.NewGuid();
 
   public AdminServiceTests()
   {
@@ -20,7 +23,10 @@ public class AdminServiceTests
     _mockEmailService = new Mock<IEmailService>();
     _mockEmailService.Setup(e => e.SendInviteEmailAsync(It.IsAny<string>(), It.IsAny<string>()))
       .Returns(Task.CompletedTask);
-    _service = new UserProfileService(_mockRepository.Object, _mockEmailService.Object);
+    _mockAuditLogService = new Mock<IAuditLogService>();
+    _mockAuditLogService.Setup(a => a.LogActionAsync(It.IsAny<AuditAction>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string?>()))
+      .Returns(Task.CompletedTask);
+    _service = new UserProfileService(_mockRepository.Object, _mockEmailService.Object, _mockAuditLogService.Object);
   }
 
   // ── GetAllUsersAsync ──────────────────────────────────────────────────────
@@ -56,7 +62,7 @@ public class AdminServiceTests
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
     _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
 
-    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Admin);
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Admin, _actorUserId);
 
     result.IsSuccess.Should().BeTrue();
     result.StatusCode.Should().Be(200);
@@ -70,7 +76,7 @@ public class AdminServiceTests
     var userId = Guid.NewGuid();
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync((UserProfile?)null);
 
-    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Admin);
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Admin, _actorUserId);
 
     result.IsSuccess.Should().BeFalse();
     result.StatusCode.Should().Be(404);
@@ -84,7 +90,7 @@ public class AdminServiceTests
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
     _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
 
-    var result = await _service.UpdateUserRoleAsync(userId, UserRole.SalesRep);
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.SalesRep, _actorUserId);
 
     result.IsSuccess.Should().BeTrue();
     result.StatusCode.Should().Be(200);
@@ -100,7 +106,7 @@ public class AdminServiceTests
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
     _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
 
-    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Manager);
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Manager, _actorUserId);
 
     result.IsSuccess.Should().BeTrue();
     result.StatusCode.Should().Be(200);
@@ -118,7 +124,7 @@ public class AdminServiceTests
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
     _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
 
-    var result = await _service.SetUserActiveAsync(userId, false);
+    var result = await _service.SetUserActiveAsync(userId, false, _actorUserId);
 
     result.IsSuccess.Should().BeTrue();
     result.StatusCode.Should().Be(200);
@@ -132,7 +138,7 @@ public class AdminServiceTests
     var userId = Guid.NewGuid();
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync((UserProfile?)null);
 
-    var result = await _service.SetUserActiveAsync(userId, false);
+    var result = await _service.SetUserActiveAsync(userId, false, _actorUserId);
 
     result.IsSuccess.Should().BeFalse();
     result.StatusCode.Should().Be(404);
