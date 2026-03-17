@@ -10,17 +10,20 @@ public class ForgotPasswordService : IForgotPasswordService
   private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
   private readonly IPasswordService _passwordService;
   private readonly IEmailService _emailService;
+  private readonly IPasswordPolicyService _passwordPolicyService;
 
   public ForgotPasswordService(
       IUserRepository userRepository,
       IPasswordResetTokenRepository passwordResetTokenRepository,
       IPasswordService passwordService,
-      IEmailService emailService)
+      IEmailService emailService,
+      IPasswordPolicyService passwordPolicyService)
   {
     _userRepository = userRepository;
     _passwordResetTokenRepository = passwordResetTokenRepository;
     _passwordService = passwordService;
     _emailService = emailService;
+    _passwordPolicyService = passwordPolicyService;
   }
 
   public async Task<ServiceResult> ForgotPasswordAsync(string email)
@@ -55,6 +58,10 @@ public class ForgotPasswordService : IForgotPasswordService
 
   public async Task<ServiceResult> ResetPasswordAsync(string token, string newPassword)
   {
+    var (isValid, errors) = _passwordPolicyService.Validate(newPassword);
+    if (!isValid)
+      return ServiceResult.Failure(string.Join(" ", errors), 400);
+
     var resetToken = await _passwordResetTokenRepository.GetByTokenAsync(token);
 
     if (resetToken == null)

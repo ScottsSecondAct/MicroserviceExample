@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using AuthService.Configuration;
 using AuthService.Data;
 using AuthService.Middleware;
 using AuthService.Services;
@@ -40,6 +41,10 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
 // Configure JWT authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings.GetValue<string>("SecretKey") ?? throw new ArgumentNullException("SecretKey", "SecretKey cannot be null");
+
+// Password policy
+builder.Services.Configure<PasswordPolicy>(builder.Configuration.GetSection("PasswordPolicy"));
+builder.Services.AddSingleton<IPasswordPolicyService, PasswordPolicyService>();
 
 // Register services
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();

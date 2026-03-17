@@ -13,6 +13,7 @@ public class ChangePasswordServiceTests
   private readonly Mock<IJwtTokenService> _mockJwtTokenService;
   private readonly Mock<IUserRoleClient> _mockUserRoleClient;
   private readonly Mock<ILogger<ChangePasswordService>> _mockLogger;
+  private readonly Mock<IPasswordPolicyService> _mockPasswordPolicyService;
   private readonly ChangePasswordService _service;
 
   public ChangePasswordServiceTests()
@@ -22,13 +23,20 @@ public class ChangePasswordServiceTests
     _mockJwtTokenService = new Mock<IJwtTokenService>();
     _mockUserRoleClient = new Mock<IUserRoleClient>();
     _mockLogger = new Mock<ILogger<ChangePasswordService>>();
+    _mockPasswordPolicyService = new Mock<IPasswordPolicyService>();
+
+    // Default: policy passes
+    _mockPasswordPolicyService
+        .Setup(p => p.Validate(It.IsAny<string>()))
+        .Returns((true, (IReadOnlyList<string>)Array.Empty<string>()));
 
     _service = new ChangePasswordService(
         _mockUserRepository.Object,
         _mockPasswordService.Object,
         _mockJwtTokenService.Object,
         _mockUserRoleClient.Object,
-        _mockLogger.Object);
+        _mockLogger.Object,
+        _mockPasswordPolicyService.Object);
   }
 
   [Fact]
@@ -95,6 +103,24 @@ public class ChangePasswordServiceTests
     // Assert
     Assert.False(result.IsSuccess);
     Assert.Equal(400, result.StatusCode);
+    _mockUserRepository.Verify(r => r.GetUserByIdAsync(It.IsAny<Guid>()), Times.Never);
+  }
+
+  [Fact]
+  public async Task ChangePasswordAsync_ShouldReturnFailure_WhenPasswordViolatesPolicy()
+  {
+    // Arrange
+    var userId = Guid.NewGuid();
+    var errors = (IReadOnlyList<string>)new[] { "Password must contain at least one uppercase letter." };
+    _mockPasswordPolicyService.Setup(p => p.Validate("alllower1!")).Returns((false, errors));
+
+    // Act
+    var result = await _service.ChangePasswordAsync(userId, "alllower1!");
+
+    // Assert
+    Assert.False(result.IsSuccess);
+    Assert.Equal(400, result.StatusCode);
+    Assert.Contains("uppercase", result.Message);
     _mockUserRepository.Verify(r => r.GetUserByIdAsync(It.IsAny<Guid>()), Times.Never);
   }
 

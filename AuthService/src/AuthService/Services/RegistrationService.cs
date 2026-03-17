@@ -10,15 +10,18 @@ public class RegistationService : IRegistrationService
   private readonly IUserRepository _userRepository;
   private readonly IPasswordService _passwordService;
   private readonly IPublishEndpoint _publishEndpoint;
+  private readonly IPasswordPolicyService _passwordPolicyService;
 
   public RegistationService(
       IUserRepository userRepository,
       IPasswordService passwordService,
-      IPublishEndpoint publishEndpoint)
+      IPublishEndpoint publishEndpoint,
+      IPasswordPolicyService passwordPolicyService)
   {
     _userRepository = userRepository;
     _passwordService = passwordService;
     _publishEndpoint = publishEndpoint;
+    _passwordPolicyService = passwordPolicyService;
   }
 
   public async Task<bool> ValidateEmailAsync(string email)
@@ -29,6 +32,10 @@ public class RegistationService : IRegistrationService
 
   public async Task<ServiceResult> RegisterUserAsync(string email, string password)
   {
+    var (isValid, errors) = _passwordPolicyService.Validate(password);
+    if (!isValid)
+      return ServiceResult.Failure(string.Join(" ", errors), 400);
+
     if (!await ValidateEmailAsync(email))
     {
       return ServiceResult.Failure("Email is already registered.", 409);

@@ -14,6 +14,7 @@ public class InviteService : IInviteService
   private readonly IEmailService _emailService;
   private readonly IPublishEndpoint _publishEndpoint;
   private readonly IConfiguration _configuration;
+  private readonly IPasswordPolicyService _passwordPolicyService;
 
   public InviteService(
       IInviteTokenRepository inviteTokenRepository,
@@ -21,7 +22,8 @@ public class InviteService : IInviteService
       IPasswordService passwordService,
       IEmailService emailService,
       IPublishEndpoint publishEndpoint,
-      IConfiguration configuration)
+      IConfiguration configuration,
+      IPasswordPolicyService passwordPolicyService)
   {
     _inviteTokenRepository = inviteTokenRepository;
     _userRepository = userRepository;
@@ -29,6 +31,7 @@ public class InviteService : IInviteService
     _emailService = emailService;
     _publishEndpoint = publishEndpoint;
     _configuration = configuration;
+    _passwordPolicyService = passwordPolicyService;
   }
 
   public async Task<ServiceResult> CreateInviteAsync(string email, Guid adminUserId)
@@ -64,6 +67,10 @@ public class InviteService : IInviteService
 
   public async Task<ServiceResult> AcceptInviteAsync(string token, string password)
   {
+    var (isValid, errors) = _passwordPolicyService.Validate(password);
+    if (!isValid)
+      return ServiceResult.Failure(string.Join(" ", errors), 400);
+
     var inviteToken = await _inviteTokenRepository.GetByTokenAsync(token);
 
     if (inviteToken == null)

@@ -13,6 +13,7 @@ public class InviteServiceTests
   private readonly Mock<IPasswordService> _mockPasswordService;
   private readonly Mock<IEmailService> _mockEmailService;
   private readonly Mock<IPublishEndpoint> _mockPublishEndpoint;
+  private readonly Mock<IPasswordPolicyService> _mockPasswordPolicyService;
   private readonly IConfiguration _configuration;
   private readonly InviteService _service;
 
@@ -23,6 +24,12 @@ public class InviteServiceTests
     _mockPasswordService = new Mock<IPasswordService>();
     _mockEmailService = new Mock<IEmailService>();
     _mockPublishEndpoint = new Mock<IPublishEndpoint>();
+    _mockPasswordPolicyService = new Mock<IPasswordPolicyService>();
+
+    // Default: policy passes
+    _mockPasswordPolicyService
+        .Setup(p => p.Validate(It.IsAny<string>()))
+        .Returns((true, (IReadOnlyList<string>)Array.Empty<string>()));
 
     _configuration = new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?>
@@ -38,7 +45,8 @@ public class InviteServiceTests
         _mockPasswordService.Object,
         _mockEmailService.Object,
         _mockPublishEndpoint.Object,
-        _configuration);
+        _configuration,
+        _mockPasswordPolicyService.Object);
   }
 
   [Fact]
@@ -122,6 +130,20 @@ public class InviteServiceTests
     _mockPublishEndpoint.Verify(
         p => p.Publish(It.Is<UserRegistered>(e => e.Email == inviteToken.Email), It.IsAny<CancellationToken>()),
         Times.Once);
+  }
+
+  [Fact]
+  public async Task AcceptInviteAsync_ShouldReturnFailure_WhenPasswordViolatesPolicy()
+  {
+    var errors = (IReadOnlyList<string>)new[] { "Password must be at least 8 characters long." };
+    _mockPasswordPolicyService.Setup(p => p.Validate("weak")).Returns((false, errors));
+
+    var result = await _service.AcceptInviteAsync("any-token", "weak");
+
+    Assert.False(result.IsSuccess);
+    Assert.Equal(400, result.StatusCode);
+    Assert.Contains("8 characters", result.Message);
+    _mockInviteTokenRepository.Verify(r => r.GetByTokenAsync(It.IsAny<string>()), Times.Never);
   }
 
   [Fact]
