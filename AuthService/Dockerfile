@@ -7,7 +7,8 @@ WORKDIR /src
 COPY ["SharedLibrary.Auth/SharedLibrary.Auth.csproj", "SharedLibrary.Auth/"]
 COPY ["SharedLibrary.Messaging/SharedLibrary.Messaging.csproj", "SharedLibrary.Messaging/"]
 COPY ["AuthService/src/AuthService/AuthService.csproj", "AuthService/src/AuthService/"]
-RUN dotnet restore "AuthService/src/AuthService/AuthService.csproj"
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore "AuthService/src/AuthService/AuthService.csproj"
 COPY SharedLibrary.Auth/ SharedLibrary.Auth/
 COPY SharedLibrary.Messaging/ SharedLibrary.Messaging/
 COPY AuthService/src/AuthService/ AuthService/src/AuthService/

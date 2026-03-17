@@ -8,7 +8,8 @@ COPY ["SharedLibrary.Messaging/SharedLibrary.Messaging.csproj", "SharedLibrary.M
 COPY ["SharedLibrary.Deals/SharedLibrary.Deals.csproj", "SharedLibrary.Deals/"]
 COPY ["SharedLibrary.Contacts/SharedLibrary.Contacts.csproj", "SharedLibrary.Contacts/"]
 COPY ["DealService/src/DealService/DealService.csproj", "DealService/src/DealService/"]
-RUN dotnet restore "DealService/src/DealService/DealService.csproj"
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore "DealService/src/DealService/DealService.csproj"
 COPY SharedLibrary.Messaging/ SharedLibrary.Messaging/
 COPY SharedLibrary.Deals/ SharedLibrary.Deals/
 COPY SharedLibrary.Contacts/ SharedLibrary.Contacts/

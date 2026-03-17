@@ -9,7 +9,8 @@ COPY ["SharedLibrary.Deals/SharedLibrary.Deals.csproj", "SharedLibrary.Deals/"]
 COPY ["SharedLibrary.Activities/SharedLibrary.Activities.csproj", "SharedLibrary.Activities/"]
 COPY ["SharedLibrary.Contacts/SharedLibrary.Contacts.csproj", "SharedLibrary.Contacts/"]
 COPY ["ReportingService/src/ReportingService/ReportingService.csproj", "ReportingService/src/ReportingService/"]
-RUN dotnet restore "ReportingService/src/ReportingService/ReportingService.csproj"
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore "ReportingService/src/ReportingService/ReportingService.csproj"
 COPY SharedLibrary.Messaging/ SharedLibrary.Messaging/
 COPY SharedLibrary.Deals/ SharedLibrary.Deals/
 COPY SharedLibrary.Activities/ SharedLibrary.Activities/

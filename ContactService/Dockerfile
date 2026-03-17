@@ -7,7 +7,8 @@ WORKDIR /src
 COPY ["SharedLibrary.Messaging/SharedLibrary.Messaging.csproj", "SharedLibrary.Messaging/"]
 COPY ["SharedLibrary.Contacts/SharedLibrary.Contacts.csproj", "SharedLibrary.Contacts/"]
 COPY ["ContactService/src/ContactService/ContactService.csproj", "ContactService/src/ContactService/"]
-RUN dotnet restore "ContactService/src/ContactService/ContactService.csproj"
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore "ContactService/src/ContactService/ContactService.csproj"
 COPY SharedLibrary.Messaging/ SharedLibrary.Messaging/
 COPY SharedLibrary.Contacts/ SharedLibrary.Contacts/
 COPY ContactService/src/ContactService/ ContactService/src/ContactService/
