@@ -5,6 +5,9 @@ import AdminRoute from './components/AdminRoute.jsx'
 import Layout from './components/Layout.jsx'
 import Login from './pages/auth/Login.jsx'
 import Register from './pages/auth/Register.jsx'
+import ForgotPassword from './pages/auth/ForgotPassword.jsx'
+import ResetPassword from './pages/auth/ResetPassword.jsx'
+import AcceptInvite from './pages/auth/AcceptInvite.jsx'
 import ChangePassword from './pages/auth/ChangePassword.jsx'
 import Profile from './pages/profile/Profile.jsx'
 import ContactList from './pages/contacts/ContactList.jsx'
@@ -26,7 +29,9 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/accept-invite" element={<AcceptInvite />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/change-password" element={<ChangePassword />} />
           </Route>
@@ -50,6 +55,7 @@ export default function App() {
               <Route path="/profile" element={<Profile />} />
               <Route element={<AdminRoute />}>
                 <Route path="/admin/users" element={<AdminUserList />} />
+                <Route path="/register" element={<Register />} />
               </Route>
             </Route>
           </Route>

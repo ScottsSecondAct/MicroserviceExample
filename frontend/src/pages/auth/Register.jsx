@@ -67,9 +67,12 @@ export default function Register() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
                 autoComplete="new-password"
               />
+              <p className="text-xs text-gray-500">
+                Must be at least 8 characters with uppercase, lowercase, digit, and special character.
+              </p>
             </div>
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Creating account…' : 'Create account'}

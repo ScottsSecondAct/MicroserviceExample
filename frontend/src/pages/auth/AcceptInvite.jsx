@@ -1,34 +1,48 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi } from '../../api/auth.api.js'
-import { useAuth } from '../../context/AuthContext.jsx'
 import { Button } from '../../components/ui/button.jsx'
 import { Input } from '../../components/ui/input.jsx'
 import { Label } from '../../components/ui/label.jsx'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card.jsx'
 
-export default function ChangePassword() {
-  const { login } = useAuth()
+export default function AcceptInvite() {
   const navigate = useNavigate()
-  const [newPassword, setNewPassword] = useState('')
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token') ?? ''
+
+  const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <Card className="w-full max-w-sm shadow-md">
+          <CardContent className="pt-6">
+            <p className="text-sm text-red-600">
+              Invalid or missing invite token. Please contact your administrator for a new invite link.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
 
-    if (newPassword !== confirmPassword) {
+    if (password !== confirmPassword) {
       setError('Passwords do not match.')
       return
     }
 
     setLoading(true)
     try {
-      const data = await authApi.changePassword(newPassword)
-      login(data.token)
-      navigate('/contacts', { replace: true })
+      await authApi.acceptInvite(token, password)
+      navigate('/login', { replace: true, state: { message: 'Account created successfully. You can now sign in.' } })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -40,9 +54,9 @@ export default function ChangePassword() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-sm shadow-md">
         <CardHeader>
-          <CardTitle className="text-xl">Set your password</CardTitle>
+          <CardTitle className="text-xl">Accept invitation</CardTitle>
           <p className="text-sm text-gray-500 mt-1">
-            You must set a new password before continuing.
+            Set a password to activate your account.
           </p>
         </CardHeader>
         <CardContent>
@@ -53,19 +67,16 @@ export default function ChangePassword() {
               </p>
             )}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="newPassword">New password</Label>
+              <Label htmlFor="password">Password</Label>
               <Input
-                id="newPassword"
+                id="password"
                 type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
                 autoComplete="new-password"
               />
-              <p className="text-xs text-gray-500">
-                Must be at least 8 characters with uppercase, lowercase, digit, and special character.
-              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="confirmPassword">Confirm password</Label>
@@ -79,9 +90,18 @@ export default function ChangePassword() {
                 autoComplete="new-password"
               />
             </div>
+            <p className="text-xs text-gray-500">
+              Must be at least 8 characters with uppercase, lowercase, digit, and special character.
+            </p>
             <Button type="submit" disabled={loading} className="w-full">
-              {loading ? 'Saving…' : 'Set password'}
+              {loading ? 'Activating…' : 'Activate account'}
             </Button>
+            <p className="text-sm text-gray-500 text-center">
+              Already have an account?{' '}
+              <Link to="/login" className="text-blue-600 hover:underline">
+                Sign in
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>

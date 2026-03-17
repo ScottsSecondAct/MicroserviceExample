@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { authApi } from '../../api/auth.api.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { Button } from '../../components/ui/button.jsx'
@@ -10,10 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const successMessage = location.state?.message ?? null
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -43,6 +45,11 @@ export default function Login() {
                 {error}
               </p>
             )}
+            {successMessage && (
+              <p className="text-sm text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md border border-emerald-200">
+                {successMessage}
+              </p>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -55,7 +62,12 @@ export default function Login() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link to="/forgot-password" className="text-xs text-blue-600 hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -68,12 +80,6 @@ export default function Login() {
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
-            <p className="text-sm text-gray-500 text-center">
-              No account?{' '}
-              <Link to="/register" className="text-blue-600 hover:underline">
-                Register
-              </Link>
-            </p>
           </form>
         </CardContent>
       </Card>

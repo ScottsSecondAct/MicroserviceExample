@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ShieldCheck, UserCheck, UserX } from 'lucide-react'
+import { Mail, RefreshCw, ShieldCheck, UserCheck, UserPlus, UserX } from 'lucide-react'
 import { adminApi } from '../../api/users.api.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { toast } from '../../hooks/use-toast.js'
@@ -24,6 +24,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../../components/ui/dialog.jsx'
+import { Input } from '../../components/ui/input.jsx'
+import { Label } from '../../components/ui/label.jsx'
 import { EmptyState } from '../../components/EmptyState.jsx'
 
 const ROLES = ['Unassigned', 'Member', 'SalesRep', 'Manager', 'Admin']
@@ -40,6 +42,8 @@ export default function AdminUserList() {
   const { user: currentUser } = useAuth()
   const queryClient = useQueryClient()
   const [confirmAction, setConfirmAction] = useState(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
 
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ['admin', 'users'],
@@ -68,6 +72,24 @@ export default function AdminUserList() {
     },
   })
 
+  const inviteMutation = useMutation({
+    mutationFn: (email) => adminApi.inviteUser(email),
+    onSuccess: () => {
+      toast({ variant: 'success', title: 'Invite sent', description: `An invite email was sent to ${inviteEmail}.` })
+      setInviteOpen(false)
+      setInviteEmail('')
+    },
+    onError: (err) => toast({ variant: 'destructive', title: 'Invite failed', description: err.message }),
+  })
+
+  const resendInviteMutation = useMutation({
+    mutationFn: (userId) => adminApi.resendInvite(userId),
+    onSuccess: (_, userId) => {
+      toast({ variant: 'success', title: 'Invite resent' })
+    },
+    onError: (err) => toast({ variant: 'destructive', title: 'Resend failed', description: err.message }),
+  })
+
   function handleRoleChange(userId, role) {
     roleMutation.mutate({ userId, role })
   }
@@ -84,11 +106,22 @@ export default function AdminUserList() {
     activeMutation.mutate({ userId: confirmAction.user.userId, isActive: false })
   }
 
+  function handleInviteSubmit(e) {
+    e.preventDefault()
+    inviteMutation.mutate(inviteEmail)
+  }
+
   return (
     <div>
-      <div className="flex items-center gap-3 mb-5">
-        <ShieldCheck size={24} className="text-blue-600" />
-        <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <ShieldCheck size={24} className="text-blue-600" />
+          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+        </div>
+        <Button size="sm" onClick={() => setInviteOpen(true)}>
+          <UserPlus size={14} className="mr-1.5" />
+          Invite user
+        </Button>
       </div>
 
       {isLoading ? (
@@ -130,12 +163,13 @@ export default function AdminUserList() {
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead className="w-32" />
+                <TableHead className="w-48" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.map((u) => {
                 const isSelf = u.userId === currentUser?.userId
+                const isPendingInvite = !!u.invitePendingAt
                 return (
                   <TableRow key={u.userId} className={!u.isActive ? 'opacity-50' : ''}>
                     <TableCell className="font-medium">
@@ -162,14 +196,33 @@ export default function AdminUserList() {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={u.isActive ? 'customer' : 'churned'}>
-                        {u.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
+                      {isPendingInvite ? (
+                        <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
+                          <Mail size={10} className="mr-1" />
+                          Invite pending
+                        </Badge>
+                      ) : (
+                        <Badge variant={u.isActive ? 'customer' : 'churned'}>
+                          {u.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>{new Date(u.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex gap-1 justify-end">
-                        {u.isActive ? (
+                        {isPendingInvite ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => resendInviteMutation.mutate(u.userId)}
+                            disabled={resendInviteMutation.isPending}
+                            title="Resend invite email"
+                          >
+                            <RefreshCw size={14} className="mr-1" />
+                            Resend invite
+                          </Button>
+                        ) : u.isActive ? (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -204,6 +257,48 @@ export default function AdminUserList() {
         </Card>
       )}
 
+      {/* Invite user dialog */}
+      <Dialog open={inviteOpen} onOpenChange={(open) => { if (!open) { setInviteOpen(false); setInviteEmail('') } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Invite user</DialogTitle>
+            <DialogDescription>
+              Send an invite email to a new user. They'll receive a link to set their password.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleInviteSubmit}>
+            <div className="flex flex-col gap-3 py-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="inviteEmail">Email address</Label>
+                <Input
+                  id="inviteEmail"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  required
+                  autoComplete="off"
+                  placeholder="user@example.com"
+                />
+              </div>
+            </div>
+            <DialogFooter className="mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setInviteOpen(false); setInviteEmail('') }}
+                disabled={inviteMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={inviteMutation.isPending}>
+                {inviteMutation.isPending ? 'Sending…' : 'Send invite'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deactivate confirmation dialog */}
       <Dialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

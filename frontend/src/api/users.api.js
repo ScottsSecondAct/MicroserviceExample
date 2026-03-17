@@ -20,4 +20,13 @@ export const adminApi = {
       method: 'PUT',
       body: JSON.stringify({ isActive }),
     }),
+  inviteUser: (email) =>
+    apiFetch('/auth/api/users/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  resendInvite: (userId) =>
+    apiFetch(`${BASE}/${userId}/resend-invite`, {
+      method: 'POST',
+    }),
 }
