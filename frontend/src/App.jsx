@@ -5,6 +5,7 @@ import AdminRoute from './components/AdminRoute.jsx'
 import Layout from './components/Layout.jsx'
 import Login from './pages/auth/Login.jsx'
 import Register from './pages/auth/Register.jsx'
+import ChangePassword from './pages/auth/ChangePassword.jsx'
 import Profile from './pages/profile/Profile.jsx'
 import ContactList from './pages/contacts/ContactList.jsx'
 import ContactDetail from './pages/contacts/ContactDetail.jsx'
@@ -26,6 +27,9 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/change-password" element={<ChangePassword />} />
+          </Route>
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route index element={<Navigate to="/contacts" replace />} />

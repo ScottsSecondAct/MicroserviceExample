@@ -1,4 +1,5 @@
 using System;
+using System.IdentityModel.Tokens.Jwt;
 using AuthService.Models;
 using AuthService.Services;
 using Microsoft.Extensions.Configuration;
@@ -50,5 +51,39 @@ public class JwtTokenServiceTests
 
     Assert.NotNull(token);
     Assert.NotEmpty(token);
+  }
+
+  [Fact]
+  public void GenerateJwtToken_ShouldIncludeMustChangePasswordClaim_WhenTrue()
+  {
+    // Arrange
+    var user = new User { UserId = Guid.NewGuid(), Email = "invited@example.com", MustChangePassword = true };
+
+    // Act
+    var token = _jwtTokenService.GenerateJwtToken(user, UserRole.Member);
+
+    // Assert
+    var handler = new JwtSecurityTokenHandler();
+    var parsed = handler.ReadJwtToken(token);
+    var claim = parsed.Claims.FirstOrDefault(c => c.Type == "MustChangePassword");
+    Assert.NotNull(claim);
+    Assert.Equal("true", claim.Value);
+  }
+
+  [Fact]
+  public void GenerateJwtToken_ShouldIncludeMustChangePasswordClaim_WhenFalse()
+  {
+    // Arrange
+    var user = new User { UserId = Guid.NewGuid(), Email = "user@example.com", MustChangePassword = false };
+
+    // Act
+    var token = _jwtTokenService.GenerateJwtToken(user, UserRole.Member);
+
+    // Assert
+    var handler = new JwtSecurityTokenHandler();
+    var parsed = handler.ReadJwtToken(token);
+    var claim = parsed.Claims.FirstOrDefault(c => c.Type == "MustChangePassword");
+    Assert.NotNull(claim);
+    Assert.Equal("false", claim.Value);
   }
 }

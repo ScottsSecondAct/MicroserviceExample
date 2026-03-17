@@ -10,6 +10,7 @@ function parseToken(token) {
       userId: payload['UserId'],
       email: payload['sub'],
       role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'],
+      mustChangePassword: payload['MustChangePassword'] === 'true',
     }
   } catch {
     return null
