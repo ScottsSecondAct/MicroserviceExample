@@ -11,11 +11,13 @@ public class UserProfileService : IUserProfileService
 {
   private readonly IUserProfileRepository _repository;
   private readonly IEmailService _emailService;
+  private readonly IAuditLogService _auditLogService;
 
-  public UserProfileService(IUserProfileRepository repository, IEmailService emailService)
+  public UserProfileService(IUserProfileRepository repository, IEmailService emailService, IAuditLogService auditLogService)
   {
     _repository = repository;
     _emailService = emailService;
+    _auditLogService = auditLogService;
   }
 
   public async Task<ServiceResult> CreateUserProfileAsync(CreateUserProfileRequest request)
@@ -94,7 +96,7 @@ public class UserProfileService : IUserProfileService
     return ServiceResult.Success(users);
   }
 
-  public async Task<ServiceResult> UpdateUserRoleAsync(Guid userId, UserRole role)
+  public async Task<ServiceResult> UpdateUserRoleAsync(Guid userId, UserRole role, Guid actorUserId)
   {
     if (role == UserRole.Unassigned)
       return ServiceResult.Failure("Cannot set role to Unassigned. Use Member, SalesRep, Manager, or Admin.");
@@ -103,8 +105,15 @@ public class UserProfileService : IUserProfileService
     if (profile == null)
       return ServiceResult.Failure("User profile not found.", 404);
 
+    var previousRole = profile.Role;
     profile.Role = role;
     await _repository.UpdateAsync(profile);
+
+    await _auditLogService.LogActionAsync(
+      AuditAction.RoleChanged,
+      actorUserId,
+      userId,
+      $"Role changed from {previousRole} to {role}");
 
     return ServiceResult.Success(new AdminUserResponse
     {
@@ -117,7 +126,7 @@ public class UserProfileService : IUserProfileService
     });
   }
 
-  public async Task<ServiceResult> SetUserActiveAsync(Guid userId, bool isActive)
+  public async Task<ServiceResult> SetUserActiveAsync(Guid userId, bool isActive, Guid actorUserId)
   {
     var profile = await _repository.GetByIdAsync(userId);
     if (profile == null)
@@ -126,6 +135,9 @@ public class UserProfileService : IUserProfileService
     profile.IsActive = isActive;
     await _repository.UpdateAsync(profile);
 
+    var action = isActive ? AuditAction.AccountActivated : AuditAction.AccountDeactivated;
+    await _auditLogService.LogActionAsync(action, actorUserId, userId);
+
     return ServiceResult.Success(new AdminUserResponse
     {
       UserId = profile.UserId,
@@ -137,7 +149,7 @@ public class UserProfileService : IUserProfileService
     });
   }
 
-  public async Task<ServiceResult> ResendInviteAsync(Guid userId)
+  public async Task<ServiceResult> ResendInviteAsync(Guid userId, Guid actorUserId)
   {
     var profile = await _repository.GetByIdAsync(userId);
     if (profile == null)
@@ -152,6 +164,7 @@ public class UserProfileService : IUserProfileService
     await _repository.UpdateAsync(profile);
 
     await _emailService.SendInviteEmailAsync(profile.Email, newToken);
+    await _auditLogService.LogActionAsync(AuditAction.InviteSent, actorUserId, userId);
 
     return ServiceResult.Success(new ResendInviteResponse
     {

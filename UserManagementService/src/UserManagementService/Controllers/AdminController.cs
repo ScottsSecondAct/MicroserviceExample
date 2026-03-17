@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UserManagementService.Models.DTOs;
@@ -19,6 +20,9 @@ public class AdminController : ControllerBase
     _logger = logger;
   }
 
+  private Guid GetActorUserId() =>
+    Guid.TryParse(User.FindFirstValue("UserId"), out var id) ? id : Guid.Empty;
+
   [HttpGet("users")]
   public async Task<IActionResult> GetAllUsers()
   {
@@ -39,7 +43,7 @@ public class AdminController : ControllerBase
   {
     try
     {
-      var result = await _userProfileService.UpdateUserRoleAsync(userId, request.Role);
+      var result = await _userProfileService.UpdateUserRoleAsync(userId, request.Role, GetActorUserId());
       return StatusCode(result.StatusCode, result.Data ?? result.Message);
     }
     catch (Exception ex)
@@ -54,7 +58,7 @@ public class AdminController : ControllerBase
   {
     try
     {
-      var result = await _userProfileService.SetUserActiveAsync(userId, request.IsActive);
+      var result = await _userProfileService.SetUserActiveAsync(userId, request.IsActive, GetActorUserId());
       return StatusCode(result.StatusCode, result.Data ?? result.Message);
     }
     catch (Exception ex)

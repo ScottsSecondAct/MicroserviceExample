@@ -36,7 +36,9 @@ builder.Services.AddDbContext<UserManagementDbContext>(options =>
   options.UseNpgsql(builder.Configuration.GetConnectionString("UserManagementDbConnection")));
 
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddSingleton<IEmailService, EmailService>();
 
 // Configure JWT authentication (validates tokens issued by AuthService)

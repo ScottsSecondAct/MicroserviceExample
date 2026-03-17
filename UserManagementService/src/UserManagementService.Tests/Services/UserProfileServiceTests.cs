@@ -6,6 +6,7 @@ using UserManagementService.Models;
 using UserManagementService.Models.DTOs;
 using UserManagementService.Repository;
 using UserManagementService.Services;
+using AuditAction = UserManagementService.Models.AuditAction;
 
 namespace UserManagementService.Tests.Services;
 
@@ -13,7 +14,9 @@ public class UserProfileServiceTests
 {
   private readonly Mock<IUserProfileRepository> _mockRepository;
   private readonly Mock<IEmailService> _mockEmailService;
+  private readonly Mock<IAuditLogService> _mockAuditLogService;
   private readonly UserProfileService _service;
+  private readonly Guid _actorUserId = Guid.NewGuid();
 
   public UserProfileServiceTests()
   {
@@ -21,7 +24,10 @@ public class UserProfileServiceTests
     _mockEmailService = new Mock<IEmailService>();
     _mockEmailService.Setup(e => e.SendInviteEmailAsync(It.IsAny<string>(), It.IsAny<string>()))
       .Returns(Task.CompletedTask);
-    _service = new UserProfileService(_mockRepository.Object, _mockEmailService.Object);
+    _mockAuditLogService = new Mock<IAuditLogService>();
+    _mockAuditLogService.Setup(a => a.LogActionAsync(It.IsAny<AuditAction>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string?>()))
+      .Returns(Task.CompletedTask);
+    _service = new UserProfileService(_mockRepository.Object, _mockEmailService.Object, _mockAuditLogService.Object);
   }
 
   [Fact]
@@ -51,7 +57,7 @@ public class UserProfileServiceTests
   {
     var userId = Guid.NewGuid();
 
-    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Unassigned);
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Unassigned, _actorUserId);
 
     result.IsSuccess.Should().BeFalse();
     result.StatusCode.Should().Be(400);
@@ -66,7 +72,7 @@ public class UserProfileServiceTests
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
     _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
 
-    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Member);
+    var result = await _service.UpdateUserRoleAsync(userId, UserRole.Member, _actorUserId);
 
     result.IsSuccess.Should().BeTrue();
     result.StatusCode.Should().Be(200);
@@ -139,7 +145,7 @@ public class UserProfileServiceTests
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
     _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
 
-    var result = await _service.SetUserActiveAsync(userId, false);
+    var result = await _service.SetUserActiveAsync(userId, false, _actorUserId);
 
     result.IsSuccess.Should().BeTrue();
     result.StatusCode.Should().Be(200);
@@ -153,7 +159,7 @@ public class UserProfileServiceTests
     var userId = Guid.NewGuid();
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync((UserProfile?)null);
 
-    var result = await _service.SetUserActiveAsync(userId, false);
+    var result = await _service.SetUserActiveAsync(userId, false, _actorUserId);
 
     result.IsSuccess.Should().BeFalse();
     result.StatusCode.Should().Be(404);
@@ -167,7 +173,7 @@ public class UserProfileServiceTests
     var userId = Guid.NewGuid();
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync((UserProfile?)null);
 
-    var result = await _service.ResendInviteAsync(userId);
+    var result = await _service.ResendInviteAsync(userId, _actorUserId);
 
     result.IsSuccess.Should().BeFalse();
     result.StatusCode.Should().Be(404);
@@ -180,7 +186,7 @@ public class UserProfileServiceTests
     var profile = new UserProfile { UserId = userId, Email = "user@example.com", InviteToken = null };
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
 
-    var result = await _service.ResendInviteAsync(userId);
+    var result = await _service.ResendInviteAsync(userId, _actorUserId);
 
     result.IsSuccess.Should().BeFalse();
     result.StatusCode.Should().Be(400);
@@ -201,7 +207,7 @@ public class UserProfileServiceTests
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
     _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
 
-    var result = await _service.ResendInviteAsync(userId);
+    var result = await _service.ResendInviteAsync(userId, _actorUserId);
 
     result.IsSuccess.Should().BeTrue();
     result.StatusCode.Should().Be(200);
@@ -229,7 +235,7 @@ public class UserProfileServiceTests
     _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
 
     var before = DateTime.UtcNow;
-    await _service.ResendInviteAsync(userId);
+    await _service.ResendInviteAsync(userId, _actorUserId);
 
     profile.InvitePendingAt.Should().NotBeNull();
     profile.InvitePendingAt!.Value.Should().BeOnOrAfter(before);

@@ -13,12 +13,13 @@ namespace UserManagementService.Tests.Controllers;
 public class UsersControllerTests
 {
   private readonly Mock<IUserProfileService> _serviceMock = new();
+  private readonly Mock<IAuditLogService> _auditLogServiceMock = new();
   private readonly Mock<ILogger<UsersController>> _loggerMock = new();
   private readonly UsersController _sut;
 
   public UsersControllerTests()
   {
-    _sut = new UsersController(_serviceMock.Object, _loggerMock.Object);
+    _sut = new UsersController(_serviceMock.Object, _auditLogServiceMock.Object, _loggerMock.Object);
   }
 
   // ── CreateUserProfile ─────────────────────────────────────────────────────
@@ -169,7 +170,7 @@ public class UsersControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new SetUserActiveRequest { IsActive = false };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false))
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, IsActive = false }));
 
     var result = await _sut.PatchUserStatus(userId, request);
@@ -183,7 +184,7 @@ public class UsersControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new SetUserActiveRequest { IsActive = true };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, true))
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, true, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, IsActive = true }));
 
     var result = await _sut.PatchUserStatus(userId, request);
@@ -197,7 +198,7 @@ public class UsersControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new SetUserActiveRequest { IsActive = false };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false))
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
 
     var result = await _sut.PatchUserStatus(userId, request);
@@ -211,7 +212,7 @@ public class UsersControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new SetUserActiveRequest { IsActive = false };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false)).ThrowsAsync(new Exception());
+    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false, It.IsAny<Guid>())).ThrowsAsync(new Exception());
 
     var result = await _sut.PatchUserStatus(userId, request);
 
@@ -226,7 +227,7 @@ public class UsersControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new UpdateUserRoleRequest { Role = UserRole.Admin };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin))
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, Role = UserRole.Admin }));
 
     var result = await _sut.PatchUserRole(userId, request);
@@ -251,7 +252,7 @@ public class UsersControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new UpdateUserRoleRequest { Role = UserRole.Unassigned };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Unassigned))
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Unassigned, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Failure("Cannot set role to Unassigned. Use Member, SalesRep, Manager, or Admin."));
 
     var result = await _sut.PatchUserRole(userId, request);
@@ -265,7 +266,7 @@ public class UsersControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new UpdateUserRoleRequest { Role = UserRole.Member };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Member))
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Member, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
 
     var result = await _sut.PatchUserRole(userId, request);
@@ -279,7 +280,7 @@ public class UsersControllerTests
   {
     var userId = Guid.NewGuid();
     var request = new UpdateUserRoleRequest { Role = UserRole.Member };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Member)).ThrowsAsync(new Exception());
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Member, It.IsAny<Guid>())).ThrowsAsync(new Exception());
 
     var result = await _sut.PatchUserRole(userId, request);
 
@@ -293,7 +294,7 @@ public class UsersControllerTests
   public async Task ResendInvite_ReturnsOk_WhenSuccessful()
   {
     var userId = Guid.NewGuid();
-    _serviceMock.Setup(s => s.ResendInviteAsync(userId))
+    _serviceMock.Setup(s => s.ResendInviteAsync(userId, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Success(new { userId, email = "user@example.com" }));
 
     var result = await _sut.ResendInvite(userId);
@@ -306,7 +307,7 @@ public class UsersControllerTests
   public async Task ResendInvite_Returns404_WhenUserNotFound()
   {
     var userId = Guid.NewGuid();
-    _serviceMock.Setup(s => s.ResendInviteAsync(userId))
+    _serviceMock.Setup(s => s.ResendInviteAsync(userId, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
 
     var result = await _sut.ResendInvite(userId);
@@ -319,7 +320,7 @@ public class UsersControllerTests
   public async Task ResendInvite_Returns400_WhenNoPendingInvite()
   {
     var userId = Guid.NewGuid();
-    _serviceMock.Setup(s => s.ResendInviteAsync(userId))
+    _serviceMock.Setup(s => s.ResendInviteAsync(userId, It.IsAny<Guid>()))
       .ReturnsAsync(ServiceResult.Failure("User does not have a pending invite."));
 
     var result = await _sut.ResendInvite(userId);
@@ -332,9 +333,33 @@ public class UsersControllerTests
   public async Task ResendInvite_Returns500_OnException()
   {
     var userId = Guid.NewGuid();
-    _serviceMock.Setup(s => s.ResendInviteAsync(userId)).ThrowsAsync(new Exception());
+    _serviceMock.Setup(s => s.ResendInviteAsync(userId, It.IsAny<Guid>())).ThrowsAsync(new Exception());
 
     var result = await _sut.ResendInvite(userId);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
+
+  // ── GetAuditLog ───────────────────────────────────────────────────────────
+
+  [Fact]
+  public async Task GetAuditLog_ReturnsOk_WithEntries()
+  {
+    _auditLogServiceMock.Setup(s => s.GetAuditLogsAsync())
+      .ReturnsAsync(new List<AuditLogResponse>());
+
+    var result = await _sut.GetAuditLog();
+
+    result.Should().BeOfType<OkObjectResult>();
+  }
+
+  [Fact]
+  public async Task GetAuditLog_Returns500_OnException()
+  {
+    _auditLogServiceMock.Setup(s => s.GetAuditLogsAsync()).ThrowsAsync(new Exception());
+
+    var result = await _sut.GetAuditLog();
 
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(500);

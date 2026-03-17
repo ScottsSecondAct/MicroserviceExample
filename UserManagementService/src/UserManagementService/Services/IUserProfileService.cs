@@ -10,7 +10,7 @@ public interface IUserProfileService
   Task<ServiceResult> GetUserRoleAsync(Guid userId);
   Task<ServiceResult> GetTeamAsync();
   Task<ServiceResult> GetAllUsersAsync();
-  Task<ServiceResult> UpdateUserRoleAsync(Guid userId, UserRole role);
-  Task<ServiceResult> SetUserActiveAsync(Guid userId, bool isActive);
-  Task<ServiceResult> ResendInviteAsync(Guid userId);
+  Task<ServiceResult> UpdateUserRoleAsync(Guid userId, UserRole role, Guid actorUserId);
+  Task<ServiceResult> SetUserActiveAsync(Guid userId, bool isActive, Guid actorUserId);
+  Task<ServiceResult> ResendInviteAsync(Guid userId, Guid actorUserId);
 }
