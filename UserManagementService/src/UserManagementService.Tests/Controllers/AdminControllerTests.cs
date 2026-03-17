@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -18,6 +20,16 @@ public class AdminControllerTests
   public AdminControllerTests()
   {
     _sut = new AdminController(_serviceMock.Object, _loggerMock.Object);
+    _sut.ControllerContext = new ControllerContext
+    {
+      HttpContext = new DefaultHttpContext
+      {
+        User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+          new Claim("UserId", Guid.NewGuid().ToString()),
+        })),
+      },
+    };
   }
 
   // ── GetAllUsers ───────────────────────────────────────────────────────────
