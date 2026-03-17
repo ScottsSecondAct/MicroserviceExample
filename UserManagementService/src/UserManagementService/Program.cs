@@ -120,7 +120,7 @@ using (var scope = app.Services.CreateScope())
   var db = scope.ServiceProvider.GetRequiredService<UserManagementDbContext>();
   db.Database.EnsureCreated();
 
-  // Seed default admin profile if not present
+  // Ensure default admin profile exists and is always active with Admin role
   var adminConfig = app.Configuration.GetSection("DefaultAdmin");
   var adminIdStr = adminConfig["UserId"];
   var adminEmail = adminConfig["Email"];
@@ -128,7 +128,8 @@ using (var scope = app.Services.CreateScope())
   if (!string.IsNullOrEmpty(adminIdStr) && !string.IsNullOrEmpty(adminEmail))
   {
     var adminId = Guid.Parse(adminIdStr);
-    if (!db.UserProfiles.Any(u => u.UserId == adminId))
+    var adminProfile = db.UserProfiles.FirstOrDefault(u => u.UserId == adminId);
+    if (adminProfile == null)
     {
       db.UserProfiles.Add(new UserManagementService.Models.UserProfile
       {
@@ -139,8 +140,13 @@ using (var scope = app.Services.CreateScope())
         CreatedAt = DateTime.UtcNow,
         IsActive = true
       });
-      db.SaveChanges();
     }
+    else
+    {
+      adminProfile.Role = SharedLibrary.Enums.UserRole.Admin;
+      adminProfile.IsActive = true;
+    }
+    db.SaveChanges();
   }
 }
 
