@@ -42,6 +42,11 @@ async function request(method, path, body) {
 const post = (path, body) => request('POST', path, body)
 const get  = (path)       => request('GET',  path)
 
+const SEED_USERS = [
+  { email: 'sarah.lee@example.com',   password: 'SeedUser1!', displayName: 'Sarah Lee' },
+  { email: 'marcus.wade@example.com', password: 'SeedUser2!', displayName: 'Marcus Wade' },
+]
+
 function log(msg) { process.stdout.write(`  ${msg}\n`) }
 function section(msg) { process.stdout.write(`\n▸ ${msg}\n`) }
 
@@ -55,6 +60,38 @@ async function login() {
   })
   token = result.token
   log(`Logged in as ${ADMIN_EMAIL}`)
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+async function seedUsers() {
+  section('Creating users')
+
+  for (const u of SEED_USERS) {
+    try {
+      await post('/auth/api/registration/register', { email: u.email, password: u.password })
+      log(`  ${u.displayName} (${u.email})`)
+    } catch (err) {
+      if (err.message.includes('409')) {
+        log(`  ${u.displayName} already exists, skipping`)
+      } else {
+        throw err
+      }
+    }
+  }
+
+  // Wait briefly for UserRegistered events to be consumed by UMS
+  await new Promise(r => setTimeout(r, 1500))
+
+  const team = await get('/users/api/users/team')
+  const userIds = {}
+  for (const member of team) {
+    const seedUser = SEED_USERS.find(u => u.displayName === member.displayName)
+    if (seedUser) userIds[seedUser.email] = member.userId
+  }
+
+  log(`  Resolved ${Object.keys(userIds).length} seed user IDs`)
+  return userIds
 }
 
 // ─── Accounts ─────────────────────────────────────────────────────────────────
@@ -114,26 +151,27 @@ async function seedAccounts() {
 
 // ─── Contacts ─────────────────────────────────────────────────────────────────
 
-async function seedContacts(accounts, adminId) {
+async function seedContacts(accounts, adminId, userIds) {
   section('Creating contacts')
 
   const [acme, globex, initech, umbrella, stark] = accounts
+  const [sarah, marcus] = Object.values(userIds)
 
   const contacts = await Promise.all([
-    // Acme
+    // Acme — admin
     post('/contacts/api/contacts', { firstName: 'Alice',   lastName: 'Chen',    email: 'alice.chen@acme.example.com',     phone: '415-555-0101', status: 2, accountId: acme.accountId,     ownerId: adminId }),
     post('/contacts/api/contacts', { firstName: 'Bob',     lastName: 'Martinez',email: 'bob.martinez@acme.example.com',   phone: '415-555-0102', status: 1, accountId: acme.accountId,     ownerId: adminId }),
-    // Globex
-    post('/contacts/api/contacts', { firstName: 'Carol',   lastName: 'Singh',   email: 'carol.singh@globex.example.com',  phone: '312-555-0201', status: 1, accountId: globex.accountId,   ownerId: adminId }),
-    post('/contacts/api/contacts', { firstName: 'David',   lastName: 'Kim',     email: 'david.kim@globex.example.com',    phone: '312-555-0202', status: 0, accountId: globex.accountId,   ownerId: adminId }),
-    // Initech
-    post('/contacts/api/contacts', { firstName: 'Eve',     lastName: 'Johnson', email: 'eve.johnson@initech.example.com', phone: '512-555-0301', status: 1, accountId: initech.accountId,  ownerId: adminId }),
-    post('/contacts/api/contacts', { firstName: 'Frank',   lastName: 'Liu',     email: 'frank.liu@initech.example.com',   phone: '512-555-0302', status: 0, accountId: initech.accountId,  ownerId: adminId }),
-    // Umbrella
-    post('/contacts/api/contacts', { firstName: 'Grace',   lastName: 'Patel',   email: 'grace.patel@umbrella.example.com',phone: '212-555-0401', status: 2, accountId: umbrella.accountId, ownerId: adminId }),
-    // Stark
-    post('/contacts/api/contacts', { firstName: 'Henry',   lastName: 'Torres',  email: 'henry.torres@stark.example.com',  phone: '313-555-0501', status: 0, accountId: stark.accountId,    ownerId: adminId }),
-    post('/contacts/api/contacts', { firstName: 'Irene',   lastName: 'Nakamura',email: 'irene.nakamura@stark.example.com',phone: '313-555-0502', status: 3, accountId: stark.accountId,    ownerId: adminId }),
+    // Globex — Sarah
+    post('/contacts/api/contacts', { firstName: 'Carol',   lastName: 'Singh',   email: 'carol.singh@globex.example.com',  phone: '312-555-0201', status: 1, accountId: globex.accountId,   ownerId: sarah ?? adminId }),
+    post('/contacts/api/contacts', { firstName: 'David',   lastName: 'Kim',     email: 'david.kim@globex.example.com',    phone: '312-555-0202', status: 0, accountId: globex.accountId,   ownerId: sarah ?? adminId }),
+    // Initech — Marcus
+    post('/contacts/api/contacts', { firstName: 'Eve',     lastName: 'Johnson', email: 'eve.johnson@initech.example.com', phone: '512-555-0301', status: 1, accountId: initech.accountId,  ownerId: marcus ?? adminId }),
+    post('/contacts/api/contacts', { firstName: 'Frank',   lastName: 'Liu',     email: 'frank.liu@initech.example.com',   phone: '512-555-0302', status: 0, accountId: initech.accountId,  ownerId: marcus ?? adminId }),
+    // Umbrella — Sarah
+    post('/contacts/api/contacts', { firstName: 'Grace',   lastName: 'Patel',   email: 'grace.patel@umbrella.example.com',phone: '212-555-0401', status: 2, accountId: umbrella.accountId, ownerId: sarah ?? adminId }),
+    // Stark — Marcus
+    post('/contacts/api/contacts', { firstName: 'Henry',   lastName: 'Torres',  email: 'henry.torres@stark.example.com',  phone: '313-555-0501', status: 0, accountId: stark.accountId,    ownerId: marcus ?? adminId }),
+    post('/contacts/api/contacts', { firstName: 'Irene',   lastName: 'Nakamura',email: 'irene.nakamura@stark.example.com',phone: '313-555-0502', status: 3, accountId: stark.accountId,    ownerId: marcus ?? adminId }),
   ])
 
   for (const c of contacts) log(`  ${c.firstName} ${c.lastName} (${c.contactId})`)
@@ -142,21 +180,22 @@ async function seedContacts(accounts, adminId) {
 
 // ─── Deals ────────────────────────────────────────────────────────────────────
 
-async function seedDeals(accounts, contacts, adminId) {
+async function seedDeals(accounts, contacts, adminId, userIds) {
   section('Creating deals')
 
   const [acme, globex, initech, umbrella, stark] = accounts
   const [alice, bob, carol, david, eve, frank, grace, henry] = contacts
+  const [sarah, marcus] = Object.values(userIds)
 
   const future = (days) => new Date(Date.now() + days * 86400000).toISOString()
 
   const deals = await Promise.all([
     post('/deals/api/deals', { title: 'Acme Platform Upgrade',       accountId: acme.accountId,     stage: 2, value: 125000, probability: 70, expectedCloseDate: future(30),  ownerId: adminId }),
     post('/deals/api/deals', { title: 'Acme Support Contract',       accountId: acme.accountId,     stage: 1, value: 48000,  probability: 50, expectedCloseDate: future(45),  ownerId: adminId }),
-    post('/deals/api/deals', { title: 'Globex Analytics Suite',      accountId: globex.accountId,   stage: 1, value: 89000,  probability: 40, expectedCloseDate: future(60),  ownerId: adminId }),
-    post('/deals/api/deals', { title: 'Initech Cloud Migration',     accountId: initech.accountId,  stage: 0, value: 210000, probability: 20, expectedCloseDate: future(90),  ownerId: adminId }),
-    post('/deals/api/deals', { title: 'Umbrella POS Integration',    accountId: umbrella.accountId, stage: 3, value: 67500,  probability: 90, expectedCloseDate: future(14),  ownerId: adminId }),
-    post('/deals/api/deals', { title: 'Stark ERP Rollout',           accountId: stark.accountId,    stage: 0, value: 155000, probability: 15, expectedCloseDate: future(120), ownerId: adminId }),
+    post('/deals/api/deals', { title: 'Globex Analytics Suite',      accountId: globex.accountId,   stage: 1, value: 89000,  probability: 40, expectedCloseDate: future(60),  ownerId: sarah ?? adminId }),
+    post('/deals/api/deals', { title: 'Initech Cloud Migration',     accountId: initech.accountId,  stage: 0, value: 210000, probability: 20, expectedCloseDate: future(90),  ownerId: marcus ?? adminId }),
+    post('/deals/api/deals', { title: 'Umbrella POS Integration',    accountId: umbrella.accountId, stage: 3, value: 67500,  probability: 90, expectedCloseDate: future(14),  ownerId: sarah ?? adminId }),
+    post('/deals/api/deals', { title: 'Stark ERP Rollout',           accountId: stark.accountId,    stage: 0, value: 155000, probability: 15, expectedCloseDate: future(120), ownerId: marcus ?? adminId }),
   ])
 
   for (const d of deals) log(`  ${d.title} (${d.dealId})`)
@@ -181,25 +220,26 @@ async function seedDeals(accounts, contacts, adminId) {
 
 // ─── Activities ───────────────────────────────────────────────────────────────
 
-async function seedActivities(accounts, contacts, deals, adminId) {
+async function seedActivities(accounts, contacts, deals, adminId, userIds) {
   section('Creating activities')
 
   const [acme, globex, initech, umbrella, stark] = accounts
   const [alice, bob, carol, david, eve, frank, grace, henry, irene] = contacts
+  const [sarah, marcus] = Object.values(userIds)
   const past   = (days) => new Date(Date.now() - days * 86400000).toISOString()
   const future = (days) => new Date(Date.now() + days * 86400000).toISOString()
 
   const activities = await Promise.all([
-    post('/activities/api/activities', { type: 0, subject: 'Discovery call with Alice Chen',       contactId: alice.contactId, dealId: deals[0].dealId, accountId: acme.accountId,     ownerId: adminId, scheduledAt: past(10),   notes: 'Discussed platform pain points. Strong interest in automation features.' }),
-    post('/activities/api/activities', { type: 3, subject: 'Send contract for review',             contactId: alice.contactId, dealId: deals[0].dealId, accountId: acme.accountId,     ownerId: adminId, scheduledAt: future(3) }),
-    post('/activities/api/activities', { type: 1, subject: 'Follow-up: Acme support pricing',      contactId: bob.contactId,   dealId: deals[1].dealId, accountId: acme.accountId,     ownerId: adminId, scheduledAt: past(5),    notes: 'Sent pricing deck. Bob forwarded to procurement.' }),
-    post('/activities/api/activities', { type: 2, subject: 'Globex demo presentation',             contactId: carol.contactId, dealId: deals[2].dealId, accountId: globex.accountId,   ownerId: adminId, scheduledAt: future(7),  notes: 'Live demo of analytics dashboard scheduled.' }),
-    post('/activities/api/activities', { type: 0, subject: 'Intro call with David Kim',            contactId: david.contactId,                           accountId: globex.accountId,   ownerId: adminId, scheduledAt: past(2),    notes: 'New stakeholder. Needs technical deep-dive.' }),
-    post('/activities/api/activities', { type: 4, subject: 'Initech cloud migration scope notes',  contactId: eve.contactId,   dealId: deals[3].dealId, accountId: initech.accountId,  ownerId: adminId,                          notes: 'Estimated 18-month migration timeline. 3 legacy systems involved.' }),
-    post('/activities/api/activities', { type: 2, subject: 'Umbrella POS pilot review',            contactId: grace.contactId, dealId: deals[4].dealId, accountId: umbrella.accountId, ownerId: adminId, scheduledAt: future(2) }),
-    post('/activities/api/activities', { type: 0, subject: 'Stark ERP requirements call',          contactId: henry.contactId, dealId: deals[5].dealId, accountId: stark.accountId,    ownerId: adminId, scheduledAt: future(14), notes: 'Initial scoping call. Budget not yet approved.' }),
-    post('/activities/api/activities', { type: 3, subject: 'Re-engage Irene Nakamura',             contactId: irene.contactId,                           accountId: stark.accountId,    ownerId: adminId, scheduledAt: future(5),  notes: 'Churned contact — check in on new budget cycle.' }),
-    post('/activities/api/activities', { type: 1, subject: 'Quarterly newsletter',                                                                                                      ownerId: adminId, scheduledAt: past(1) }),
+    post('/activities/api/activities', { type: 0, subject: 'Discovery call with Alice Chen',       contactId: alice.contactId, dealId: deals[0].dealId, accountId: acme.accountId,     ownerId: adminId,            scheduledAt: past(10),   notes: 'Discussed platform pain points. Strong interest in automation features.' }),
+    post('/activities/api/activities', { type: 3, subject: 'Send contract for review',             contactId: alice.contactId, dealId: deals[0].dealId, accountId: acme.accountId,     ownerId: adminId,            scheduledAt: future(3) }),
+    post('/activities/api/activities', { type: 1, subject: 'Follow-up: Acme support pricing',      contactId: bob.contactId,   dealId: deals[1].dealId, accountId: acme.accountId,     ownerId: adminId,            scheduledAt: past(5),    notes: 'Sent pricing deck. Bob forwarded to procurement.' }),
+    post('/activities/api/activities', { type: 2, subject: 'Globex demo presentation',             contactId: carol.contactId, dealId: deals[2].dealId, accountId: globex.accountId,   ownerId: sarah ?? adminId,   scheduledAt: future(7),  notes: 'Live demo of analytics dashboard scheduled.' }),
+    post('/activities/api/activities', { type: 0, subject: 'Intro call with David Kim',            contactId: david.contactId,                           accountId: globex.accountId,   ownerId: sarah ?? adminId,   scheduledAt: past(2),    notes: 'New stakeholder. Needs technical deep-dive.' }),
+    post('/activities/api/activities', { type: 4, subject: 'Initech cloud migration scope notes',  contactId: eve.contactId,   dealId: deals[3].dealId, accountId: initech.accountId,  ownerId: marcus ?? adminId,                            notes: 'Estimated 18-month migration timeline. 3 legacy systems involved.' }),
+    post('/activities/api/activities', { type: 2, subject: 'Umbrella POS pilot review',            contactId: grace.contactId, dealId: deals[4].dealId, accountId: umbrella.accountId, ownerId: sarah ?? adminId,   scheduledAt: future(2) }),
+    post('/activities/api/activities', { type: 0, subject: 'Stark ERP requirements call',          contactId: henry.contactId, dealId: deals[5].dealId, accountId: stark.accountId,    ownerId: marcus ?? adminId,  scheduledAt: future(14), notes: 'Initial scoping call. Budget not yet approved.' }),
+    post('/activities/api/activities', { type: 3, subject: 'Re-engage Irene Nakamura',             contactId: irene.contactId,                           accountId: stark.accountId,    ownerId: marcus ?? adminId,  scheduledAt: future(5),  notes: 'Churned contact — check in on new budget cycle.' }),
+    post('/activities/api/activities', { type: 1, subject: 'Quarterly newsletter',                                                                                                      ownerId: adminId,            scheduledAt: past(1) }),
   ])
 
   log(`Created ${activities.length} activities`)
@@ -217,10 +257,11 @@ async function main() {
   const adminId = payload['UserId']
   log(`Admin UserId: ${adminId}`)
 
+  const userIds    = await seedUsers()
   const accounts   = await seedAccounts()
-  const contacts   = await seedContacts(accounts, adminId)
-  const deals      = await seedDeals(accounts, contacts, adminId)
-  await seedActivities(accounts, contacts, deals, adminId)
+  const contacts   = await seedContacts(accounts, adminId, userIds)
+  const deals      = await seedDeals(accounts, contacts, adminId, userIds)
+  await seedActivities(accounts, contacts, deals, adminId, userIds)
 
   console.log(`\n${'─'.repeat(50)}\nSeed complete.\n`)
 }
