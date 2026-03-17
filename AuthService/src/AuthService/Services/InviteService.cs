@@ -48,6 +48,8 @@ public class InviteService : IInviteService
 
     var expiryHours = _configuration.GetValue<int>("InviteSettings:TokenExpiryHours", 48);
 
+    var invitedUserId = Guid.NewGuid();
+
     var inviteToken = new InviteToken
     {
       Id = Guid.NewGuid(),
@@ -56,11 +58,19 @@ public class InviteService : IInviteService
       ExpiresAt = DateTime.UtcNow.AddHours(expiryHours),
       IsUsed = false,
       CreatedByUserId = adminUserId,
+      InvitedUserId = invitedUserId,
       CreatedAt = DateTime.UtcNow
     };
 
     await _inviteTokenRepository.AddAsync(inviteToken);
     await _emailService.SendInviteEmailAsync(email, token);
+
+    await _publishEndpoint.Publish(new UserInvited
+    {
+      InvitedUserId = invitedUserId,
+      Email = email,
+      InvitedByUserId = adminUserId
+    });
 
     return ServiceResult.Success(null, "Invite sent successfully.");
   }
@@ -96,7 +106,7 @@ public class InviteService : IInviteService
 
     var user = new User
     {
-      UserId = Guid.NewGuid(),
+      UserId = inviteToken.InvitedUserId,
       Email = inviteToken.Email,
       PasswordHash = _passwordService.HashPassword(password),
       MustChangePassword = true

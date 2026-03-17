@@ -20,5 +20,7 @@ public class InviteToken
 
   public Guid CreatedByUserId { get; set; }
 
+  public Guid InvitedUserId { get; set; }
+
   public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

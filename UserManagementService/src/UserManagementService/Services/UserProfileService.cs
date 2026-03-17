@@ -24,13 +24,24 @@ public class UserProfileService : IUserProfileService
   {
     var existing = await _repository.GetByIdAsync(request.UserId);
     if (existing != null)
-      return ServiceResult.Failure("User profile already exists.");
+    {
+      // Profile was pre-created by UserInvitedConsumer; clear the pending state.
+      existing.InvitePendingAt = null;
+      existing.InviteToken = null;
+      existing.IsActive = true;
+      await _repository.UpdateAsync(existing);
+      return ServiceResult.Success(new CreateUserProfileResponse
+      {
+        UserId = existing.UserId,
+        Role = existing.Role
+      }, "User profile activated successfully.", 200);
+    }
 
     var profile = new UserProfile
     {
       UserId = request.UserId,
       Email = request.Email,
-      Role = UserRole.Member,
+      Role = UserRole.Unassigned,
       DisplayName = request.Email,
       CreatedAt = DateTime.UtcNow
     };
@@ -90,7 +101,8 @@ public class UserProfileService : IUserProfileService
       DisplayName = p.DisplayName,
       Role = p.Role,
       IsActive = p.IsActive,
-      CreatedAt = p.CreatedAt
+      CreatedAt = p.CreatedAt,
+      InvitePendingAt = p.InvitePendingAt
     }).ToList();
 
     return ServiceResult.Success(users);
@@ -122,7 +134,8 @@ public class UserProfileService : IUserProfileService
       DisplayName = profile.DisplayName,
       Role = profile.Role,
       IsActive = profile.IsActive,
-      CreatedAt = profile.CreatedAt
+      CreatedAt = profile.CreatedAt,
+      InvitePendingAt = profile.InvitePendingAt
     });
   }
 
@@ -145,7 +158,8 @@ public class UserProfileService : IUserProfileService
       DisplayName = profile.DisplayName,
       Role = profile.Role,
       IsActive = profile.IsActive,
-      CreatedAt = profile.CreatedAt
+      CreatedAt = profile.CreatedAt,
+      InvitePendingAt = profile.InvitePendingAt
     });
   }
 

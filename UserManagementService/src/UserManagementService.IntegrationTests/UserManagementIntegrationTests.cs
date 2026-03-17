@@ -44,14 +44,15 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
   }
 
   [Fact]
-  public async Task POST_users_DuplicateUserId_Returns400()
+  public async Task POST_users_DuplicateUserId_ActivatesStubAndReturns200()
   {
+    // Second POST with the same UserId activates an existing stub profile (e.g. created by UserInvitedConsumer)
     var userId = Guid.NewGuid();
     await _client.PostAsJsonAsync("/api/users", CreateProfilePayload(userId));
 
     var response = await _client.PostAsJsonAsync("/api/users", CreateProfilePayload(userId));
 
-    response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    response.StatusCode.Should().Be(HttpStatusCode.OK);
   }
 
   // ── GET /api/users/{id} ───────────────────────────────────────────────────
@@ -92,7 +93,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
 
     response.StatusCode.Should().Be(HttpStatusCode.OK);
     var body = await response.Content.ReadAsStringAsync();
-    body.Should().Contain("\"role\":1");
+    body.Should().Contain("\"role\":0"); // New profiles default to Unassigned until admin promotes
   }
 
   // ── GET /api/users/team ───────────────────────────────────────────────────

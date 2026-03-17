@@ -49,7 +49,32 @@ public class UserRegisteredConsumerTests
   }
 
   [Fact]
-  public async Task Consume_ShouldNotThrow_WhenProfileAlreadyExists()
+  public async Task Consume_ShouldActivateStubProfile_WhenProfileExistedFromInvite()
+  {
+    // Arrange — service returns 200 (stub was updated, not 201 created)
+    var userId = Guid.NewGuid();
+    var message = new UserRegistered { UserId = userId, Email = "invited@example.com" };
+
+    var mockContext = new Mock<ConsumeContext<UserRegistered>>();
+    mockContext.Setup(c => c.Message).Returns(message);
+
+    _mockUserProfileService
+        .Setup(s => s.CreateUserProfileAsync(It.Is<CreateUserProfileRequest>(r =>
+            r.UserId == userId && r.Email == message.Email)))
+        .ReturnsAsync(ServiceResult.Success(null, "User profile activated successfully.", 200));
+
+    // Act
+    await _consumer.Consume(mockContext.Object);
+
+    // Assert
+    _mockUserProfileService.Verify(
+        s => s.CreateUserProfileAsync(It.Is<CreateUserProfileRequest>(r =>
+            r.UserId == userId && r.Email == message.Email)),
+        Times.Once);
+  }
+
+  [Fact]
+  public async Task Consume_ShouldNotThrow_WhenProfileCreationFails()
   {
     // Arrange
     var userId = Guid.NewGuid();
@@ -60,12 +85,12 @@ public class UserRegisteredConsumerTests
 
     _mockUserProfileService
         .Setup(s => s.CreateUserProfileAsync(It.IsAny<CreateUserProfileRequest>()))
-        .ReturnsAsync(ServiceResult.Failure("User profile already exists."));
+        .ReturnsAsync(ServiceResult.Failure("Unexpected error."));
 
     // Act
     var act = () => _consumer.Consume(mockContext.Object);
 
-    // Assert — idempotent: should not throw even when profile already exists
+    // Assert — should not throw even on failure
     await act.Should().NotThrowAsync();
   }
 }

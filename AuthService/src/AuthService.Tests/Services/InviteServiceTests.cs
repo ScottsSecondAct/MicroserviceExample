@@ -50,7 +50,7 @@ public class InviteServiceTests
   }
 
   [Fact]
-  public async Task CreateInviteAsync_ShouldSaveTokenAndSendEmail_WhenEmailIsNew()
+  public async Task CreateInviteAsync_ShouldSaveTokenSendEmailAndPublishEvent_WhenEmailIsNew()
   {
     // Arrange
     var email = "newuser@example.com";
@@ -59,6 +59,9 @@ public class InviteServiceTests
     _mockUserRepository.Setup(r => r.GetUserByEmailAsync(email)).ReturnsAsync((User?)null);
     _mockInviteTokenRepository.Setup(r => r.AddAsync(It.IsAny<InviteToken>())).Returns(Task.CompletedTask);
     _mockEmailService.Setup(e => e.SendInviteEmailAsync(email, It.IsAny<string>())).Returns(Task.CompletedTask);
+    _mockPublishEndpoint
+        .Setup(p => p.Publish(It.IsAny<UserInvited>(), It.IsAny<CancellationToken>()))
+        .Returns(Task.CompletedTask);
 
     // Act
     var result = await _service.CreateInviteAsync(email, adminId);
@@ -67,9 +70,14 @@ public class InviteServiceTests
     Assert.True(result.IsSuccess);
     Assert.Equal(200, result.StatusCode);
     _mockInviteTokenRepository.Verify(
-        r => r.AddAsync(It.Is<InviteToken>(t => t.Email == email && !t.IsUsed && t.CreatedByUserId == adminId)),
+        r => r.AddAsync(It.Is<InviteToken>(t =>
+            t.Email == email && !t.IsUsed && t.CreatedByUserId == adminId && t.InvitedUserId != Guid.Empty)),
         Times.Once);
     _mockEmailService.Verify(e => e.SendInviteEmailAsync(email, It.IsAny<string>()), Times.Once);
+    _mockPublishEndpoint.Verify(
+        p => p.Publish(It.Is<UserInvited>(e => e.Email == email && e.InvitedByUserId == adminId && e.InvitedUserId != Guid.Empty),
+            It.IsAny<CancellationToken>()),
+        Times.Once);
   }
 
   [Fact]
@@ -91,11 +99,12 @@ public class InviteServiceTests
   }
 
   [Fact]
-  public async Task AcceptInviteAsync_ShouldCreateUserAndPublishEvent_WhenTokenIsValid()
+  public async Task AcceptInviteAsync_ShouldCreateUserWithPreassignedIdAndPublishEvent_WhenTokenIsValid()
   {
     // Arrange
     var token = "valid-token";
     var password = "SecurePass123";
+    var preassignedUserId = Guid.NewGuid();
     var inviteToken = new InviteToken
     {
       Id = Guid.NewGuid(),
@@ -103,7 +112,8 @@ public class InviteServiceTests
       Email = "invited@example.com",
       ExpiresAt = DateTime.UtcNow.AddHours(24),
       IsUsed = false,
-      CreatedByUserId = Guid.NewGuid()
+      CreatedByUserId = Guid.NewGuid(),
+      InvitedUserId = preassignedUserId
     };
 
     _mockInviteTokenRepository.Setup(r => r.GetByTokenAsync(token)).ReturnsAsync(inviteToken);
@@ -122,13 +132,15 @@ public class InviteServiceTests
     Assert.True(result.IsSuccess);
     Assert.Equal(200, result.StatusCode);
     _mockUserRepository.Verify(
-        r => r.AddUserAsync(It.Is<User>(u => u.Email == inviteToken.Email && u.MustChangePassword)),
+        r => r.AddUserAsync(It.Is<User>(u =>
+            u.UserId == preassignedUserId && u.Email == inviteToken.Email && u.MustChangePassword)),
         Times.Once);
     _mockInviteTokenRepository.Verify(
         r => r.UpdateAsync(It.Is<InviteToken>(t => t.IsUsed)),
         Times.Once);
     _mockPublishEndpoint.Verify(
-        p => p.Publish(It.Is<UserRegistered>(e => e.Email == inviteToken.Email), It.IsAny<CancellationToken>()),
+        p => p.Publish(It.Is<UserRegistered>(e => e.UserId == preassignedUserId && e.Email == inviteToken.Email),
+            It.IsAny<CancellationToken>()),
         Times.Once);
   }
 

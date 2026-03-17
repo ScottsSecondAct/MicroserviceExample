@@ -49,7 +49,7 @@ public class UserProfileServiceTests
     var response = result.Data as CreateUserProfileResponse;
     response.Should().NotBeNull();
     response!.UserId.Should().Be(request.UserId);
-    response.Role.Should().Be(UserRole.Member);
+    response.Role.Should().Be(UserRole.Unassigned);
   }
 
   [Fact]
@@ -79,18 +79,27 @@ public class UserProfileServiceTests
   }
 
   [Fact]
-  public async Task CreateUserProfileAsync_WhenProfileAlreadyExists_ReturnsFailure()
+  public async Task CreateUserProfileAsync_WhenStubProfileExists_ActivatesItAndReturnsSuccess()
   {
     var userId = Guid.NewGuid();
     var request = new CreateUserProfileRequest { UserId = userId, Email = "test@example.com" };
-    var existing = new UserProfile { UserId = userId, Email = "test@example.com" };
+    var existing = new UserProfile
+    {
+      UserId = userId,
+      Email = "test@example.com",
+      Role = UserRole.Unassigned,
+      IsActive = false,
+      InvitePendingAt = DateTime.UtcNow.AddHours(-1)
+    };
 
     _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(existing);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
 
     var result = await _service.CreateUserProfileAsync(request);
 
-    result.IsSuccess.Should().BeFalse();
-    result.StatusCode.Should().Be(400);
+    result.IsSuccess.Should().BeTrue();
+    _mockRepository.Verify(r => r.UpdateAsync(It.Is<UserProfile>(p =>
+        p.IsActive && p.InvitePendingAt == null && p.InviteToken == null)), Times.Once);
   }
 
   [Fact]

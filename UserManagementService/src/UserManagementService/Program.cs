@@ -76,6 +76,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddMassTransit(x =>
 {
   x.AddConsumer<UserRegisteredConsumer>();
+  x.AddConsumer<UserInvitedConsumer>();
 
   x.UsingRabbitMq((ctx, cfg) =>
   {
