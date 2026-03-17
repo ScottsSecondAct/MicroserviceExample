@@ -10,6 +10,7 @@ public class ForgotPasswordServiceTests
   private readonly Mock<IPasswordResetTokenRepository> _mockResetTokenRepository;
   private readonly Mock<IPasswordService> _mockPasswordService;
   private readonly Mock<IEmailService> _mockEmailService;
+  private readonly Mock<IPasswordPolicyService> _mockPasswordPolicyService;
   private readonly ForgotPasswordService _service;
 
   public ForgotPasswordServiceTests()
@@ -18,12 +19,19 @@ public class ForgotPasswordServiceTests
     _mockResetTokenRepository = new Mock<IPasswordResetTokenRepository>();
     _mockPasswordService = new Mock<IPasswordService>();
     _mockEmailService = new Mock<IEmailService>();
+    _mockPasswordPolicyService = new Mock<IPasswordPolicyService>();
+
+    // Default: policy passes
+    _mockPasswordPolicyService
+        .Setup(p => p.Validate(It.IsAny<string>()))
+        .Returns((true, (IReadOnlyList<string>)Array.Empty<string>()));
 
     _service = new ForgotPasswordService(
         _mockUserRepository.Object,
         _mockResetTokenRepository.Object,
         _mockPasswordService.Object,
-        _mockEmailService.Object);
+        _mockEmailService.Object,
+        _mockPasswordPolicyService.Object);
   }
 
   // ── ForgotPasswordAsync ──────────────────────────────────────────────────────
@@ -100,6 +108,20 @@ public class ForgotPasswordServiceTests
     Assert.True(result.IsSuccess);
     _mockUserRepository.Verify(r => r.UpdateUserAsync(It.Is<User>(u => u.PasswordHash == "new-hash")), Times.Once);
     _mockResetTokenRepository.Verify(r => r.UpdateAsync(It.Is<PasswordResetToken>(t => t.IsUsed)), Times.Once);
+  }
+
+  [Fact]
+  public async Task ResetPasswordAsync_ShouldReturnFailure_WhenPasswordViolatesPolicy()
+  {
+    var errors = (IReadOnlyList<string>)new[] { "Password must be at least 8 characters long." };
+    _mockPasswordPolicyService.Setup(p => p.Validate("weak")).Returns((false, errors));
+
+    var result = await _service.ResetPasswordAsync("any-token", "weak");
+
+    Assert.False(result.IsSuccess);
+    Assert.Equal(400, result.StatusCode);
+    Assert.Contains("8 characters", result.Message);
+    _mockResetTokenRepository.Verify(r => r.GetByTokenAsync(It.IsAny<string>()), Times.Never);
   }
 
   [Fact]

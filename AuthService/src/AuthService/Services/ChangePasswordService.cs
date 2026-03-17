@@ -10,19 +10,22 @@ public class ChangePasswordService : IChangePasswordService
   private readonly IJwtTokenService _jwtTokenService;
   private readonly IUserRoleClient _userRoleClient;
   private readonly ILogger<ChangePasswordService> _logger;
+  private readonly IPasswordPolicyService _passwordPolicyService;
 
   public ChangePasswordService(
       IUserRepository userRepository,
       IPasswordService passwordService,
       IJwtTokenService jwtTokenService,
       IUserRoleClient userRoleClient,
-      ILogger<ChangePasswordService> logger)
+      ILogger<ChangePasswordService> logger,
+      IPasswordPolicyService passwordPolicyService)
   {
     _userRepository = userRepository;
     _passwordService = passwordService;
     _jwtTokenService = jwtTokenService;
     _userRoleClient = userRoleClient;
     _logger = logger;
+    _passwordPolicyService = passwordPolicyService;
   }
 
   public async Task<ServiceResult> ChangePasswordAsync(Guid userId, string newPassword)
@@ -31,6 +34,10 @@ public class ChangePasswordService : IChangePasswordService
     {
       return ServiceResult.Failure("New password is required.", 400);
     }
+
+    var (isValid, errors) = _passwordPolicyService.Validate(newPassword);
+    if (!isValid)
+      return ServiceResult.Failure(string.Join(" ", errors), 400);
 
     var user = await _userRepository.GetUserByIdAsync(userId);
     if (user == null)
