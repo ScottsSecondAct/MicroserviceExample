@@ -19,9 +19,9 @@ The interesting problems are in the seams. When a user registers, AuthService an
 
 This project was developed with AI assistance (Anthropic's Claude) as a design and implementation collaborator. Architecture decisions, service boundaries, and every tradeoff were made and understood by hand. The AI accelerated the work; it didn't replace the thinking.
 
-## Current State — v1.6 (Enterprise UI Redesign) + v2.0 Complete + v2.1 (partial)
+## Current State — v2.1 Complete
 
-The full CRM is operational end-to-end with a professional, enterprise-grade frontend. All v2.0 hardening items are complete. v2.1 (Enterprise User Management) is underway: self-registration is disabled, admin invite flow is live, and CRM-specific roles (SalesRep, Manager) are in place.
+The full CRM is operational end-to-end with a professional, enterprise-grade frontend. All v2.0 hardening and v2.1 Enterprise User Management items are complete. v2.2 (Username Login & Tenancy Foundation) is the active milestone.
 
 **v1.6 (Enterprise UI Redesign):**
 - **Tailwind CSS + shadcn/ui** — full component library (Dialog, Sheet, Toast, Skeleton, Select, Combobox, Pagination, DropdownMenu) replaces hand-written CSS
@@ -43,9 +43,14 @@ The full CRM is operational end-to-end with a professional, enterprise-grade fro
 - **Soft delete + audit trail** — `IsDeleted`/`DeletedAt` on all CRM entities; lightweight audit log (actor, action, timestamp) per service; hard-delete replaced with soft-delete across all CRUD endpoints
 - **CRM-specific roles** — `UserRole` enum expanded to `Unassigned`, `Member`, `SalesRep`, `Manager`, `Admin`; matching authorization policies on AuthService and ApiGateway
 
-**v2.1 Enterprise User Management (partial):**
-- **Admin-only registration** — `POST /api/registration/register` gated behind Admin authorization policy; public self-registration is disabled
-- **Admin invite flow** — `POST /api/users/invite` (Admin) generates a time-limited, crypto-secure token and sends an invite email; `POST /api/registration/accept-invite` (public) validates the token, creates the user, and publishes `UserRegistered`
+**v2.1 Enterprise User Management (complete):**
+- **Admin-only registration** — public self-registration disabled; `POST /api/registration/register` requires Admin JWT
+- **Admin invite flow** — `POST /api/users/invite` generates a crypto-secure 48h token and sends an invite email via MailKit/SMTP; `POST /api/registration/accept-invite` validates the token, creates the user, and publishes `UserRegistered`
+- **`Unassigned` holding state** — invited users start as `Unassigned`; Admin promotes them to `Member`, `SalesRep`, or `Manager` before they can access CRM data
+- **Role & account admin** — `PATCH /api/users/{id}/role` (Admin), `PATCH /api/users/{id}/status` (deactivate/reactivate), resend invite for pending users; deactivated users rejected at login and token refresh
+- **Password management** — forgot/reset password flow with single-use tokens; force-change on first login for invited users; configurable password policy (length, complexity)
+- **Identity audit log** — admin actions (invite, role change, deactivation) logged with actor and timestamp; `GET /api/users/audit` (Admin only)
+- **Auth UI** — invite accept, forgot/reset password, forced change-password pages; password strength indicator
 
 v1.5 (Reporting & Dashboards):
 - ReportingService subscribes to domain events; read-model projections for pipeline value by stage, activity counts by rep, contact funnel by status; Dashboard in the frontend.
@@ -64,7 +69,7 @@ v1.2 (Contacts & Accounts):
 v1.1 (Infrastructure Foundation):
 - YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry.
 
-**Testing:** 416 tests total — 328 unit tests, 71 integration tests, and 17 E2E tests. All passing. See [TESTING.md](TESTING.md).
+**Testing:** 623 tests total — 479 unit tests, 124 integration tests, and 20 E2E tests. All passing. See [TESTING.md](TESTING.md).
 
 See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
@@ -471,13 +476,13 @@ Setting `completedAt` on a `Task` for the first time publishes a `TaskCompleted`
 
 ## Testing
 
-416 tests across 15 projects. All passing.
+623 tests across 15 projects. All passing.
 
-**Unit tests (320)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
+**Unit tests (479)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
 
-**Integration tests (57)** — `WebApplicationFactory<Program>` boots the real ASP.NET Core pipeline in-process. `Testcontainers.PostgreSql` provides a real PostgreSQL instance per test class. MassTransit test harness replaces RabbitMQ. `WireMock.Net` stubs downstream HTTP services. Each service has its own integration test project under `*.IntegrationTests/`.
+**Integration tests (124)** — `WebApplicationFactory<Program>` boots the real ASP.NET Core pipeline in-process. `Testcontainers.PostgreSql` provides a real PostgreSQL instance per test class. MassTransit test harness replaces RabbitMQ. `WireMock.Net` stubs downstream HTTP services. Each service has its own integration test project under `*.IntegrationTests/`.
 
-**E2E tests (17)** — `EndToEnd.Tests` runs against the full Docker Compose stack. Requires `docker compose up` before running.
+**E2E tests (20)** — `EndToEnd.Tests` runs against the full Docker Compose stack. Requires `docker compose up` before running.
 
 ## Roadmap
 
@@ -505,8 +510,11 @@ Full frontend overhaul: Tailwind CSS + shadcn/ui component library, left sidebar
 ### ✅ v2.0 — Hardening
 All items complete: refresh token rotation, secrets management (Phase 1), structured logging, dead-letter queue handling, rate limiting, soft delete + audit trail, integration test suite, and CRM-specific roles (SalesRep, Manager).
 
-### v2.1 — Enterprise User Management (in progress)
-Admin-only registration ✅, admin invite flow ✅. Still open: `Unassigned` holding state, role assignment endpoint, account deactivation, password management, audit trail.
+### ✅ v2.1 — Enterprise User Management
+All items complete: admin invite flow, `Unassigned` holding state, role assignment, account deactivation, resend invite, forgot/reset password, force-change on first login, configurable password policy, identity audit log, MailKit email integration, and auth UI (invite accept, forgot/reset, change-password pages).
+
+### v2.2 — Username Login & Tenancy Foundation (planned)
+Add username login (email or username accepted), introduce a `Tenant` entity with composite `(TenantId, Username)` uniqueness, and lay the schema foundation for multi-tenancy across all three deployment models (on-prem, dedicated cloud, shared cloud SaaS). See [issue #99](https://github.com/ScottsSecondAct/MicroserviceExample/issues/99).
 
 See [ROADMAP.md](ROADMAP.md) for detailed feature lists per version.
 

@@ -139,40 +139,66 @@ Upgrade the frontend from a functional but basic layout to a professional, enter
 
 ---
 
-## v2.1 — Enterprise User Management
+## v2.1 — Enterprise User Management ✅
 
-Replaces the current open self-registration model with an admin-controlled identity system suitable for enterprise deployment. Builds on the CRM-specific roles added in v2.0.
+Replaces the open self-registration model with an admin-controlled identity system suitable for enterprise deployment. Option A (admin-managed accounts) was selected and fully implemented. Option B (SSO/OIDC) is deferred to a future version.
 
-### Current Gaps
-The system currently allows anyone to self-register and is automatically assigned the `Member` role. There is no admin-managed provisioning, no invite flow, no password reset, no account deactivation, and no SSO. The `Unassigned` role exists in the enum but is never used — it was always intended as a holding state pending admin approval.
-
-### Account Provisioning
-
-Two options; pick one based on deployment target:
-
-**Option A — Admin-managed accounts (simpler, self-hosted)**
+### Account Provisioning — Option A (admin-managed)
 - [x] **Disable public self-registration** — `POST /api/registration/register` gated behind Admin-only authorization policy
-- [x] **Invite flow** — Admin calls `POST /api/users/invite` with an email address; AuthService generates a crypto-secure, time-limited token (48h default) and sends an invite email; recipient sets their password via `POST /api/registration/accept-invite`; token is single-use
-- [ ] **`Unassigned` holding state** — newly invited users start as `Unassigned`; Admin explicitly promotes them to `Member`, `SalesRep`, or `Manager` before they can access CRM data
-
-**Option B — SSO / Identity Provider (recommended for enterprise)**
-- [ ] **OIDC integration** — add `AddOpenIdConnect` to AuthService; support Okta, Azure AD, or Google Workspace as the upstream IdP; users authenticate through the corporate IdP and never set a password in this system
-- [ ] **JIT provisioning** — on first successful OIDC callback, AuthService creates an `Unassigned` user record and a UserManagement profile automatically; Admin promotes the role before the user can proceed
-- [ ] **Disable password-based login** — when SSO is enabled, the username/password login path is removed entirely; AuthService becomes a thin OIDC relay + JWT minter
+- [x] **Invite flow** — Admin calls `POST /api/users/invite`; AuthService generates a crypto-secure 48h token and sends an invite email via MailKit/SMTP; recipient sets password via `POST /api/registration/accept-invite`; token is single-use
+- [x] **`Unassigned` holding state** — newly invited users start as `Unassigned`; Admin explicitly promotes them to `Member`, `SalesRep`, or `Manager` before they can access CRM data
 
 ### Role & Account Administration
-- [ ] **Admin: user list** — `GET /api/users` (Admin only) returning all users with email, display name, role, and active status; exposed in frontend Admin section (see v1.6)
-- [ ] **Admin: role assignment** — `PATCH /api/users/{id}/role` (Admin only); replaces the current automatic `Member` assignment on registration
-- [ ] **Admin: deactivate / reactivate** — `PATCH /api/users/{id}/status`; deactivated users are rejected at JWT validation time in the gateway; soft-delete, not hard-delete
-- [ ] **Admin: resend invite** — re-issue a fresh invite token for a pending user
+- [x] **Admin: user list** — `GET /api/users` (Admin only) returning all users with email, display name, role, and active status; Admin section in frontend
+- [x] **Admin: role assignment** — `PATCH /api/users/{id}/role` (Admin only)
+- [x] **Admin: deactivate / reactivate** — `PATCH /api/users/{id}/status`; deactivated users rejected at login and refresh; soft-delete, not hard-delete
+- [x] **Admin: resend invite** — re-issue a fresh invite token for a pending user
 
-### Password Management (Option A only)
-- [ ] **Forgot password flow** — `POST /api/auth/forgot-password` generates a signed reset token; `POST /api/auth/reset-password` consumes it; tokens are single-use and expire in 1 hour
-- [ ] **Force password change on first login** — invite-accepted users are flagged `MustChangePassword`; AuthService returns a specific claim that the frontend detects and redirects to a change-password page before allowing further navigation
-- [ ] **Password policy** — minimum length, complexity rules enforced at AuthService; policy configurable via `appsettings.json`
+### Password Management
+- [x] **Forgot password flow** — `POST /api/auth/forgot-password` generates a signed reset token; `POST /api/auth/reset-password` consumes it; tokens are single-use with 1-hour expiry
+- [x] **Force password change on first login** — invite-accepted users flagged `MustChangePassword`; frontend detects the claim and redirects to change-password before allowing further navigation
+- [x] **Password policy** — minimum length, complexity rules enforced at AuthService; policy configurable via `appsettings.json`
 
 ### Audit Trail (identity events)
-- [ ] **Identity audit log** — record who performed admin actions (invite sent, role changed, account deactivated) with timestamp and actor UserId; stored in UserManagementService; accessible via `GET /api/users/audit` (Admin only)
+- [x] **Identity audit log** — records admin actions (invite sent, role changed, account deactivated) with timestamp and actor UserId; stored in UserManagementService; accessible via `GET /api/users/audit` (Admin only)
+
+### Frontend
+- [x] **Auth UI** — invite accept flow, forgot/reset password pages, forced change-password page, password policy enforcement with strength indicator
+
+---
+
+## v2.2 — Username Login & Tenancy Foundation
+
+Adds username-based login and lays the structural groundwork for multi-tenancy so the username feature is built on the correct schema from day one — avoiding a breaking migration when v3.0 multi-tenancy is implemented.
+
+Supports all three planned deployment models:
+- **On-prem / dedicated cloud** — single tenant; `TenantId` is always the same value, invisible to users; username `admin` works without conflict
+- **Shared cloud (SaaS)** — multiple tenants on one instance; tenant resolved from subdomain at the gateway; `(TenantId, Username)` composite uniqueness allows `admin` in every tenant
+
+### Tenant Entity (new)
+- [ ] **Tenant table** — add a `Tenant` entity to `AuthDbContext` and `UserManagementDbContext`; fields: `TenantId` (PK), `Slug` (unique), `DisplayName`, `CreatedAt`
+- [ ] **Default tenant seed** — single-tenant deployments seed one tenant on startup via `appsettings.json` `DefaultTenant` section; invisible to users
+
+### TenantId on Users and Profiles
+- [ ] **`TenantId` FK on `AuthService.User`** — single-tenant deployments always use the seeded default; no UI exposure needed
+- [ ] **`TenantId` FK on `UserManagementService.UserProfile`** — same pattern
+
+### Username Login
+- [ ] **`Username` field on `User`** — nullable string with composite `(TenantId, Username)` unique constraint; replaces any global unique index
+- [ ] **Admin seed** — default admin gets `Username = "admin"` (or value from `DefaultAdmin` config)
+- [ ] **Registration** — username auto-derived from email prefix (e.g. `john.doe@corp.com` → `john.doe`); numeric suffix appended on collision within tenant
+- [ ] **`LoginRequest.EmailOrUsername`** — rename `Email` field; drop `[EmailAddress]` validation; `LoginService` branches on `@` to look up by email or by `(TenantId, Username)`
+- [ ] **Forgot-password stays email-only** — email is still required to send a reset link
+
+### Admin Provisioning Flow
+- [ ] **Startup seed** preserved for single-tenant deployments (on-prem / dedicated cloud) where `DefaultTenant` + `DefaultAdmin` config is present
+- [ ] **Provisioning endpoint** — `POST /api/tenants/provision` (bootstrap-secret auth) for shared cloud tenant creation; creates tenant + first admin atomically
+
+### Gateway Update
+- [ ] **Subdomain → `X-Tenant-Id`** — YARP middleware extracts subdomain from `Host` header and forwards `X-Tenant-Id` to downstream services for shared cloud deployments; single-tenant deployments fall back to the default tenant
+
+### Frontend
+- [ ] **Login form** — label changes to "Email or username"; `type="text"`, `autoComplete="username"`
 
 ---
 

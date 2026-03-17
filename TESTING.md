@@ -15,7 +15,7 @@ This document describes the three-layer testing strategy for this project: unit,
 
 ## Current State
 
-Fifteen test projects, 399 tests (unit + integration) + 17 E2E tests. All layers complete.
+Fifteen test projects, 603 tests (unit + integration) + 20 E2E tests. All layers complete.
 
 | Component | Unit | Integration | E2E |
 |-----------|------|-------------|-----|
@@ -46,10 +46,10 @@ Fifteen test projects, 399 tests (unit + integration) + 17 E2E tests. All layers
 | ReportingService — consumers | ✅ | ✅ | ✅ |
 | ReportingService — controller | ✅ | ✅ | ✅ |
 
-**416 tests total. 328 unit + 71 integration + 17 E2E. All passing.**
+**623 tests total. 479 unit + 124 integration + 20 E2E. All passing.**
 **E2E tests in EndToEnd.Tests require Docker Compose stack (`docker compose up --build -d`).**
 
-### Coverage (March 2026)
+### Coverage (last measured: March 2026, pre-v2.1 completion)
 
 | Metric | Coverage |
 |--------|----------|
@@ -57,33 +57,33 @@ Fifteen test projects, 399 tests (unit + integration) + 17 E2E tests. All layers
 | Branch | 80.7% |
 | Method | 98.6% |
 
-Generated with `dotnet test --collect:"XPlat Code Coverage"` and `reportgenerator`. Excludes `*.Tests`, `*.IntegrationTests`, and `EndToEnd.Tests` assemblies.
+Generated with `dotnet test --collect:"XPlat Code Coverage"` and `reportgenerator`. Excludes `*.Tests`, `*.IntegrationTests`, and `EndToEnd.Tests` assemblies. Coverage figures are from before the v2.1 feature additions; a fresh coverage run is recommended.
 
 ### Unit test count by project
 
 | Project | Tests |
 |---------|-------|
-| AuthService.Tests | 55 |
-| UserManagementService.Tests | 48 |
-| ContactService.Tests | 42 |
-| AccountService.Tests | 35 |
-| DealService.Tests | 72 |
-| ActivityService.Tests | 44 |
-| ReportingService.Tests | 32 |
-| **Total** | **328** |
+| AuthService.Tests | 132 |
+| UserManagementService.Tests | 86 |
+| ContactService.Tests | 48 |
+| AccountService.Tests | 41 |
+| DealService.Tests | 79 |
+| ActivityService.Tests | 50 |
+| ReportingService.Tests | 43 |
+| **Total** | **479** |
 
 ### Integration test count by project
 
 | Project | Tests |
 |---------|-------|
-| AuthService.IntegrationTests | 11 |
-| UserManagementService.IntegrationTests | 9 |
-| AccountService.IntegrationTests | 9 |
-| ContactService.IntegrationTests | 9 |
-| DealService.IntegrationTests | 12 |
-| ActivityService.IntegrationTests | 11 |
-| ReportingService.IntegrationTests | 10 |
-| **Total** | **71** |
+| AuthService.IntegrationTests | 17 |
+| UserManagementService.IntegrationTests | 23 |
+| AccountService.IntegrationTests | 15 |
+| ContactService.IntegrationTests | 15 |
+| DealService.IntegrationTests | 19 |
+| ActivityService.IntegrationTests | 17 |
+| ReportingService.IntegrationTests | 18 |
+| **Total** | **124** |
 
 ---
 
@@ -570,6 +570,16 @@ ActivityService.Tests (30 unit tests: services, controller, repository) and Acti
 
 The `EndToEnd.Tests` project and Docker Compose test orchestration. Scenarios span six services via the YARP gateway. Run with `docker compose up --build -d` then `dotnet test EndToEnd.Tests/EndToEnd.Tests.csproj`.
 
+### ✅ Done during v2.1 (Enterprise User Management tests)
+
+AuthService and UserManagementService test suites grew substantially with v2.1 features:
+
+- **AuthService.Tests** grew from 55 → 132: invite flow, accept-invite, forgot/reset password, force-change-on-first-login, password policy enforcement, MailKit email service, PasswordResetTokenRepository, InviteTokenRepository
+- **UserManagementService.Tests** grew from 48 → 86: admin user list, role assignment, deactivate/reactivate, resend invite, identity audit log (service + repository + controller)
+- **AuthService.IntegrationTests** grew from 11 → 17: forgot password, reset password, force-change redirect, invite acceptance, admin endpoints
+- **UserManagementService.IntegrationTests** grew from 9 → 23: role assignment, status change, audit log retrieval, resend invite, team endpoint
+- **E2E tests** grew from 17 → 20: full invite flow, deactivation enforcement, password reset flow
+
 ### ✅ Done during v1.6 (branch coverage push to ≥80%)
 
 A targeted coverage pass raised branch coverage from 70.9% → **80.7%**. Key findings and additions:
@@ -595,6 +605,33 @@ A targeted coverage pass raised branch coverage from 70.9% → **80.7%**. Key fi
 | Zero-coverage classes | `ServiceResult.Error()`, `RegisterResponse`, `DealClosedConsumer`, `RefreshTokenRepository` | 13 tests across 4 new files |
 | AuthService refresh integration | No integration test for `/api/login/refresh` endpoint | 3 tests |
 | ReportingService DealClosed integration | No test verifying DealClosed consumer is a no-op | 1 test |
+
+---
+
+### v2.2 — Username Login & Tenancy Foundation (planned)
+
+New test scenarios to add alongside v2.2 implementation:
+
+**Unit tests (AuthService.Tests)**
+- `LoginService`: email login (contains `@`), username login (no `@`), unknown username → 401, username wrong tenant → 401
+- `UserRepository`: `GetByUsernameAsync` found / not-found
+- Tenant seed: default tenant created on startup, existing tenant not duplicated
+
+**Unit tests (UserManagementService.Tests)**
+- `UserProfileRepository`: composite `(TenantId, Username)` uniqueness enforced; duplicate username in same tenant → conflict; same username in different tenant → allowed
+
+**Integration tests (AuthService.IntegrationTests)**
+- `POST /api/login/login` with username → 200, correct claims
+- `POST /api/login/login` with email → still works (backward compatible)
+- `POST /api/login/login` with unknown username → 401
+
+**Integration tests (UserManagementService.IntegrationTests)**
+- User created with auto-derived username from email prefix
+- Username collision within tenant → numeric suffix appended
+
+**E2E tests (EndToEnd.Tests)**
+- Login as admin using `admin` (username) instead of `admin@example.com`
+- Register user → verify username derived from email; login with that username succeeds
 
 ---
 

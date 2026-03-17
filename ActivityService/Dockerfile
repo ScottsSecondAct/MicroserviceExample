@@ -7,7 +7,8 @@ WORKDIR /src
 COPY ["SharedLibrary.Messaging/SharedLibrary.Messaging.csproj", "SharedLibrary.Messaging/"]
 COPY ["SharedLibrary.Activities/SharedLibrary.Activities.csproj", "SharedLibrary.Activities/"]
 COPY ["ActivityService/src/ActivityService/ActivityService.csproj", "ActivityService/src/ActivityService/"]
-RUN dotnet restore "ActivityService/src/ActivityService/ActivityService.csproj"
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore "ActivityService/src/ActivityService/ActivityService.csproj"
 COPY SharedLibrary.Messaging/ SharedLibrary.Messaging/
 COPY SharedLibrary.Activities/ SharedLibrary.Activities/
 COPY ActivityService/src/ActivityService/ ActivityService/src/ActivityService/
