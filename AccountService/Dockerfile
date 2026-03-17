@@ -7,7 +7,7 @@ WORKDIR /src
 COPY ["SharedLibrary.Messaging/SharedLibrary.Messaging.csproj", "SharedLibrary.Messaging/"]
 COPY ["SharedLibrary.Accounts/SharedLibrary.Accounts.csproj", "SharedLibrary.Accounts/"]
 COPY ["AccountService/src/AccountService/AccountService.csproj", "AccountService/src/AccountService/"]
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+RUN --mount=type=cache,id=nuget-account,target=/root/.nuget/packages \
     dotnet restore "AccountService/src/AccountService/AccountService.csproj"
 COPY SharedLibrary.Messaging/ SharedLibrary.Messaging/
 COPY SharedLibrary.Accounts/ SharedLibrary.Accounts/

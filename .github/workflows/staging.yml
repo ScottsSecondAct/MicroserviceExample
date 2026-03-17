@@ -52,9 +52,6 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Clear Docker BuildKit NuGet cache
-        run: docker builder prune --filter type=exec.cachemount --force
-
       - name: Run E2E suite
         run: |
           chmod +x scripts/run-e2e.sh

@@ -5,7 +5,7 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY ["ApiGateway/src/ApiGateway/ApiGateway.csproj", "ApiGateway/src/ApiGateway/"]
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+RUN --mount=type=cache,id=nuget-gateway,target=/root/.nuget/packages \
     dotnet restore "ApiGateway/src/ApiGateway/ApiGateway.csproj"
 COPY ApiGateway/src/ApiGateway/ ApiGateway/src/ApiGateway/
 WORKDIR "/src/ApiGateway/src/ApiGateway"
