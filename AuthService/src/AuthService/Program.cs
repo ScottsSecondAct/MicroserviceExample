@@ -47,10 +47,12 @@ builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IInviteTokenRepository, InviteTokenRepository>();
+builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<IRegistrationService, RegistationService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IInviteService, InviteService>();
+builder.Services.AddScoped<IForgotPasswordService, ForgotPasswordService>();
 
 // Typed HttpClient for role fetch (sync call on login)
 builder.Services.AddHttpClient<IUserRoleClient, UserRoleClient>(client =>
