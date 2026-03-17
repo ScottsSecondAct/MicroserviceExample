@@ -91,7 +91,8 @@ public class InviteService : IInviteService
     {
       UserId = Guid.NewGuid(),
       Email = inviteToken.Email,
-      PasswordHash = _passwordService.HashPassword(password)
+      PasswordHash = _passwordService.HashPassword(password),
+      MustChangePassword = true
     };
 
     await _userRepository.AddUserAsync(user);

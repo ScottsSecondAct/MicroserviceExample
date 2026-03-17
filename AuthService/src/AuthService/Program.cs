@@ -53,6 +53,7 @@ builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IInviteService, InviteService>();
 builder.Services.AddScoped<IForgotPasswordService, ForgotPasswordService>();
+builder.Services.AddScoped<IChangePasswordService, ChangePasswordService>();
 
 // Typed HttpClient for role fetch (sync call on login)
 builder.Services.AddHttpClient<IUserRoleClient, UserRoleClient>(client =>

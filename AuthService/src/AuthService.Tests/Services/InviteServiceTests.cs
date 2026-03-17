@@ -114,7 +114,7 @@ public class InviteServiceTests
     Assert.True(result.IsSuccess);
     Assert.Equal(200, result.StatusCode);
     _mockUserRepository.Verify(
-        r => r.AddUserAsync(It.Is<User>(u => u.Email == inviteToken.Email)),
+        r => r.AddUserAsync(It.Is<User>(u => u.Email == inviteToken.Email && u.MustChangePassword)),
         Times.Once);
     _mockInviteTokenRepository.Verify(
         r => r.UpdateAsync(It.Is<InviteToken>(t => t.IsUsed)),

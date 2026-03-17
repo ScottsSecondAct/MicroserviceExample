@@ -14,4 +14,9 @@ export const authApi = {
       body: JSON.stringify({ email, password }),
     }),
   me: () => apiFetch(`${BASE}/login/me`),
+  changePassword: (newPassword) =>
+    apiFetch(`${BASE}/auth/change-password`, {
+      method: 'POST',
+      body: JSON.stringify({ newPassword }),
+    }),
 }

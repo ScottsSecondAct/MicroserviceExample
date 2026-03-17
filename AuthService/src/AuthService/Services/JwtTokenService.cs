@@ -38,6 +38,7 @@ public class JwtTokenService : IJwtTokenService
       new Claim(JwtRegisteredClaimNames.Sub, user.Email),
       new Claim("UserId", user.UserId.ToString()),
       new Claim(ClaimTypes.Role, role.ToString()),
+      new Claim("MustChangePassword", user.MustChangePassword.ToString().ToLower()),
       new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
     };
 
