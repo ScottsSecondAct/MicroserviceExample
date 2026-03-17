@@ -37,6 +37,7 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<DealStageChangedConsumer>();
     x.AddConsumer<DealClosedConsumer>();
     x.AddConsumer<ActivityLoggedConsumer>();
+    x.AddConsumer<ContactCreatedConsumer>();
     x.AddConsumer<ContactStatusChangedConsumer>();
 
     x.UsingRabbitMq((ctx, cfg) =>
