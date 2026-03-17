@@ -93,7 +93,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
 
     response.StatusCode.Should().Be(HttpStatusCode.OK);
     var body = await response.Content.ReadAsStringAsync();
-    body.Should().Contain("\"role\":0"); // New profiles default to Unassigned until admin promotes
+    body.Should().Contain("\"role\":1"); // New profiles are created as Member
   }
 
   // ── GET /api/users/team ───────────────────────────────────────────────────

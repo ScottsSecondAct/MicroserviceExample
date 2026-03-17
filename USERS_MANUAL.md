@@ -243,17 +243,24 @@ Use this view to identify invites that may need to be resent.
 
 ### 5.5 Assigning Roles
 
-New users start with the **Unassigned** role, which grants no access to CRM features. An administrator must promote the user to an appropriate role after they accept their invite.
+The role a new user receives depends on how they were added to the system:
+
+- **Invited users** (added via **Admin > Users > Invite**) start with the **Unassigned** role. They have no CRM access until an administrator promotes them after they accept the invite.
+- **Self-registered users** start with the **Member** role and have read access to CRM features immediately upon first login.
+
+To change a user's role:
 
 1. On the **Admin > Users** page, find the user.
 2. Use the role dropdown in their row to select the desired role.
 3. The change takes effect immediately. The user's next page load or login will reflect the new role.
 
+> **Note:** Administrators cannot set a user's role back to **Unassigned**. It is a system-assigned holding state, not an assignable role.
+
 Available roles and their access level:
 
 | Role | Description |
 |---|---|
-| **Unassigned** | Default state. No CRM access. Used for newly invited users pending role assignment. |
+| **Unassigned** | Holding state for invited users who have not yet accepted their invite. No CRM access. Cannot be assigned by an administrator. |
 | **Member** | Read-only access to CRM data. Can view contacts, accounts, deals, activities, and dashboard. |
 | **SalesRep** | Full CRM access. Can create and edit contacts, accounts, deals, and activities. |
 | **Manager** | All SalesRep permissions. Can view team-wide reporting. |

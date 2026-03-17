@@ -41,7 +41,7 @@ public class UserProfileService : IUserProfileService
     {
       UserId = request.UserId,
       Email = request.Email,
-      Role = UserRole.Unassigned,
+      Role = UserRole.Member,
       DisplayName = request.Email,
       CreatedAt = DateTime.UtcNow
     };

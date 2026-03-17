@@ -49,7 +49,7 @@ public class UserProfileServiceTests
     var response = result.Data as CreateUserProfileResponse;
     response.Should().NotBeNull();
     response!.UserId.Should().Be(request.UserId);
-    response.Role.Should().Be(UserRole.Unassigned);
+    response.Role.Should().Be(UserRole.Member);
   }
 
   [Fact]
