@@ -25,7 +25,7 @@ graph TD
         Rep["ReportingService"]
     end
 
-
+    Seq["Seq\n:5341"]
 
     subgraph dbs [Databases]
         AuthDB[(authdb)]
@@ -72,17 +72,22 @@ graph TD
     Act --- ActDB
     Rep --- RepDB
 
+    %% Structured logging → Seq (indices 29–36)
+    GW -.->|logs| Seq
+    Auth & UMS & Acc & Con & Deal & Act & Rep -.->|logs| Seq
+
     %% Subgraph styling
     style svc fill:none,stroke:#666,stroke-width:2px
     style dbs fill:none,stroke:#666,stroke-width:2px
 
     %% Remove fill from all nodes
     classDef noFill fill:none,stroke:#333,stroke-width:2px,color:#000
-    class Client,GW,Auth,UMS,Acc,Con,Deal,Act,Rep,RMQ,AuthDB,UserDB,AccDB,ConDB,DealDB,ActDB,RepDB noFill
+    class Client,GW,Auth,UMS,Acc,Con,Deal,Act,Rep,RMQ,Seq,AuthDB,UserDB,AccDB,ConDB,DealDB,ActDB,RepDB noFill
 
     %% Edge thickness
     linkStyle default stroke-width:2.5px,color:#333
     linkStyle 12,13,14,15,16,17,18,19 stroke:#0066cc,stroke-width:2.5px,color:#0066cc
+    linkStyle 29,30,31,32,33,34,35,36 stroke:#888888,stroke-width:1.5px,color:#888888
 ```
 
 > **Edge styles:** Solid arrows (`→`) are synchronous HTTP calls; dashed arrows (`⇢`) are asynchronous RabbitMQ messages.

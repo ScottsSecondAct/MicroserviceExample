@@ -10,6 +10,7 @@ public class UserRoleClient : IUserRoleClient
 {
   private static readonly JsonSerializerOptions _jsonOptions = new()
   {
+    PropertyNameCaseInsensitive = true,
     Converters = { new JsonStringEnumConverter() }
   };
 

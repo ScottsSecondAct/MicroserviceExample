@@ -89,7 +89,7 @@ services:
       RabbitMQ__Host: "rabbitmq"
       RabbitMQ__Username: "${RABBITMQ_USERNAME}"
       RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
-      Seq__Url: "http://seq:5341"
+      Seq__Url: "http://seq:80"
     depends_on:
       auth-db:
         condition: service_healthy
@@ -113,7 +113,7 @@ services:
       RabbitMQ__Host: "rabbitmq"
       RabbitMQ__Username: "${RABBITMQ_USERNAME}"
       RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
-      Seq__Url: "http://seq:5341"
+      Seq__Url: "http://seq:80"
     depends_on:
       user-management-db:
         condition: service_healthy
@@ -131,7 +131,7 @@ services:
       RabbitMQ__Host: "rabbitmq"
       RabbitMQ__Username: "${RABBITMQ_USERNAME}"
       RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
-      Seq__Url: "http://seq:5341"
+      Seq__Url: "http://seq:80"
     depends_on:
       account-db:
         condition: service_healthy
@@ -150,7 +150,7 @@ services:
       RabbitMQ__Host: "rabbitmq"
       RabbitMQ__Username: "${RABBITMQ_USERNAME}"
       RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
-      Seq__Url: "http://seq:5341"
+      Seq__Url: "http://seq:80"
     depends_on:
       contact-db:
         condition: service_healthy
@@ -187,7 +187,7 @@ services:
       RabbitMQ__Host: "rabbitmq"
       RabbitMQ__Username: "${RABBITMQ_USERNAME}"
       RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
-      Seq__Url: "http://seq:5341"
+      Seq__Url: "http://seq:80"
     depends_on:
       deal-db:
         condition: service_healthy
@@ -224,7 +224,7 @@ services:
       RabbitMQ__Host: "rabbitmq"
       RabbitMQ__Username: "${RABBITMQ_USERNAME}"
       RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
-      Seq__Url: "http://seq:5341"
+      Seq__Url: "http://seq:80"
     depends_on:
       activity-db:
         condition: service_healthy
@@ -257,7 +257,7 @@ services:
       RabbitMQ__Host: "rabbitmq"
       RabbitMQ__Username: "${RABBITMQ_USERNAME}"
       RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
-      Seq__Url: "http://seq:5341"
+      Seq__Url: "http://seq:80"
     depends_on:
       reporting-db:
         condition: service_healthy
@@ -277,7 +277,7 @@ services:
       JwtSettings__Issuer: "https://localhost"
       JwtSettings__Audience: "YourAppUsers"
       AllowedOrigins: "http://localhost:5173"
-      Seq__Url: "http://seq:5341"
+      Seq__Url: "http://seq:80"
       ReverseProxy__Clusters__auth-cluster__Destinations__auth-service__Address: "http://auth-service:8080"
       ReverseProxy__Clusters__users-cluster__Destinations__user-management-service__Address: "http://user-management-service:8080"
       ReverseProxy__Clusters__contacts-cluster__Destinations__contact-service__Address: "http://contact-service:8080"
