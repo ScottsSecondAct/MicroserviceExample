@@ -11,11 +11,13 @@ public class AuthDbContext : DbContext
     Users = Set<User>();
     RefreshTokens = Set<RefreshToken>();
     InviteTokens = Set<InviteToken>();
+    PasswordResetTokens = Set<PasswordResetToken>();
   }
 
   public DbSet<User> Users { get; set; }
   public DbSet<RefreshToken> RefreshTokens { get; set; }
   public DbSet<InviteToken> InviteTokens { get; set; }
+  public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -27,6 +29,10 @@ public class AuthDbContext : DbContext
 
     modelBuilder.Entity<InviteToken>()
         .HasIndex(i => i.Token)
+        .IsUnique();
+
+    modelBuilder.Entity<PasswordResetToken>()
+        .HasIndex(p => p.Token)
         .IsUnique();
   }
 }

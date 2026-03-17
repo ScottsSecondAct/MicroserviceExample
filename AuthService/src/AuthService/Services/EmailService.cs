@@ -65,4 +65,55 @@ public class EmailService : IEmailService
 
     _logger.LogInformation("Invite email sent to {Email}", toEmail);
   }
+
+  public async Task SendPasswordResetEmailAsync(string toEmail, string resetToken)
+  {
+    var frontendUrl = _configuration["InviteSettings:FrontendUrl"] ?? "http://localhost:3000";
+    var resetUrl = $"{frontendUrl}/reset-password?token={resetToken}";
+
+    var smtpHost = _configuration["Smtp:Host"];
+    if (string.IsNullOrWhiteSpace(smtpHost))
+    {
+      _logger.LogInformation(
+          "PASSWORD RESET EMAIL (dev stub — no SMTP configured) — To: {Email} | Reset URL: {ResetUrl}",
+          toEmail,
+          resetUrl);
+      return;
+    }
+
+    var smtpPort = int.TryParse(_configuration["Smtp:Port"], out var port) ? port : 587;
+    var smtpUser = _configuration["Smtp:Username"] ?? string.Empty;
+    var smtpPass = _configuration["Smtp:Password"] ?? string.Empty;
+    var fromAddress = _configuration["Smtp:FromAddress"] ?? smtpUser;
+    var fromName = _configuration["Smtp:FromName"] ?? "CRM System";
+    var useSsl = string.Equals(_configuration["Smtp:SecureSocketOptions"], "SslOnConnect",
+        StringComparison.OrdinalIgnoreCase);
+
+    var message = new MimeMessage();
+    message.From.Add(new MailboxAddress(fromName, fromAddress));
+    message.To.Add(new MailboxAddress(string.Empty, toEmail));
+    message.Subject = "Reset your password";
+
+    message.Body = new BodyBuilder
+    {
+      HtmlBody = $"""
+        <p>We received a request to reset your password. Click the link below to set a new password:</p>
+        <p><a href="{resetUrl}">{resetUrl}</a></p>
+        <p>This link expires in 1 hour. If you did not request a password reset, you can ignore this email.</p>
+        """,
+      TextBody = $"Reset your password at: {resetUrl} — expires in 1 hour."
+    }.ToMessageBody();
+
+    using var client = new SmtpClient();
+    var socketOptions = useSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable;
+    await client.ConnectAsync(smtpHost, smtpPort, socketOptions);
+
+    if (!string.IsNullOrEmpty(smtpUser))
+      await client.AuthenticateAsync(smtpUser, smtpPass);
+
+    await client.SendAsync(message);
+    await client.DisconnectAsync(true);
+
+    _logger.LogInformation("Password reset email sent to {Email}", toEmail);
+  }
 }
