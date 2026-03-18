@@ -60,8 +60,7 @@ public class AuthFlowTests : IDisposable
         var profileResponse = await _client.GetAsync($"/users/api/users/{userId}");
         profileResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var profile = JsonDocument.Parse(await profileResponse.Content.ReadAsStringAsync());
-        // UserManagementService serializes Role as an integer (1 = Member per UserRole enum)
-        profile.RootElement.GetProperty("role").GetInt32().Should().Be(1);
+        profile.RootElement.GetProperty("role").GetString().Should().Be("Member");
     }
 
     [Fact]
