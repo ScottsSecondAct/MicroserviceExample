@@ -24,7 +24,8 @@ public class UserRegisteredConsumer : IConsumer<UserRegistered>
     var request = new CreateUserProfileRequest
     {
       UserId = message.UserId,
-      Email = message.Email
+      Email = message.Email,
+      TenantId = message.TenantId
     };
 
     var result = await _userProfileService.CreateUserProfileAsync(request);

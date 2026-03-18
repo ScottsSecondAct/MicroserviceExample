@@ -3,10 +3,10 @@ import { apiFetch } from './apiClient.js'
 const BASE = '/auth/api'
 
 export const authApi = {
-  login: (email, password) =>
+  login: (emailOrUsername, password) =>
     apiFetch(`${BASE}/login/login`, {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: emailOrUsername, password }),
     }),
   register: (email, password) =>
     apiFetch(`${BASE}/registration/register`, {

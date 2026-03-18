@@ -5,8 +5,7 @@ namespace AuthService.Models.DTOs;
 public class LoginRequest
 {
   [Required]
-  [EmailAddress]
-  public string Email { get; set; } = String.Empty;
+  public string Email { get; set; } = String.Empty;  // accepts email or username
 
   [Required]
   [MinLength(6, ErrorMessage = "Password must be at least 6 characters.")]

@@ -24,6 +24,18 @@ public class UserRepository : IUserRepository
     return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
   }
 
+  public async Task<User?> GetUserByUsernameAsync(Guid tenantId, string username)
+  {
+    return await _context.Users.FirstOrDefaultAsync(
+        u => u.TenantId == tenantId && u.Username == username);
+  }
+
+  public async Task<Guid> GetDefaultTenantIdAsync()
+  {
+    var tenant = await _context.Tenants.OrderBy(t => t.CreatedAt).FirstOrDefaultAsync();
+    return tenant?.TenantId ?? Guid.Empty;
+  }
+
   public async Task<User?> GetUserByIdAsync(Guid userId)
   {
     return await _context.Users.FindAsync(userId);

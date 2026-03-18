@@ -1,7 +1,9 @@
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using SharedLibrary.DTOs;
 using SharedLibrary.Enums;
+using UserManagementService.Data;
 using UserManagementService.Models;
 using UserManagementService.Models.DTOs;
 using UserManagementService.Repository;
@@ -15,8 +17,11 @@ public class UserProfileServiceTests
   private readonly Mock<IUserProfileRepository> _mockRepository;
   private readonly Mock<IEmailService> _mockEmailService;
   private readonly Mock<IAuditLogService> _mockAuditLogService;
+  private readonly UserManagementDbContext _db;
   private readonly UserProfileService _service;
   private readonly Guid _actorUserId = Guid.NewGuid();
+
+  private static readonly Guid TestTenantId = new("00000000-0000-0000-0000-000000000010");
 
   public UserProfileServiceTests()
   {
@@ -27,7 +32,17 @@ public class UserProfileServiceTests
     _mockAuditLogService = new Mock<IAuditLogService>();
     _mockAuditLogService.Setup(a => a.LogActionAsync(It.IsAny<AuditAction>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string?>()))
       .Returns(Task.CompletedTask);
-    _service = new UserProfileService(_mockRepository.Object, _mockEmailService.Object, _mockAuditLogService.Object);
+
+    _db = new UserManagementDbContext(
+      new DbContextOptionsBuilder<UserManagementDbContext>()
+        .UseInMemoryDatabase(Guid.NewGuid().ToString())
+        .Options);
+
+    // Seed a default tenant so GetDefaultTenantIdAsync returns a known ID
+    _db.Tenants.Add(new Tenant { TenantId = TestTenantId, Slug = "default", DisplayName = "Default Tenant", CreatedAt = DateTime.UtcNow });
+    _db.SaveChanges();
+
+    _service = new UserProfileService(_mockRepository.Object, _mockEmailService.Object, _mockAuditLogService.Object, _db);
   }
 
   [Fact]

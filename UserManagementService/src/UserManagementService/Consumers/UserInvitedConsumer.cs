@@ -1,6 +1,8 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using SharedLibrary.Enums;
 using SharedLibrary.Messaging.Events;
+using UserManagementService.Data;
 using UserManagementService.Models;
 using UserManagementService.Repository;
 
@@ -9,11 +11,13 @@ namespace UserManagementService.Consumers;
 public class UserInvitedConsumer : IConsumer<UserInvited>
 {
   private readonly IUserProfileRepository _repository;
+  private readonly UserManagementDbContext _db;
   private readonly ILogger<UserInvitedConsumer> _logger;
 
-  public UserInvitedConsumer(IUserProfileRepository repository, ILogger<UserInvitedConsumer> logger)
+  public UserInvitedConsumer(IUserProfileRepository repository, UserManagementDbContext db, ILogger<UserInvitedConsumer> logger)
   {
     _repository = repository;
+    _db = db;
     _logger = logger;
   }
 
@@ -29,10 +33,13 @@ public class UserInvitedConsumer : IConsumer<UserInvited>
       return;
     }
 
+    var tenantId = message.TenantId ?? await GetDefaultTenantIdAsync();
+
     var profile = new UserProfile
     {
       UserId = message.InvitedUserId,
       Email = message.Email,
+      TenantId = tenantId,
       Role = UserRole.Unassigned,
       DisplayName = message.Email,
       IsActive = false,
@@ -42,5 +49,11 @@ public class UserInvitedConsumer : IConsumer<UserInvited>
 
     await _repository.AddAsync(profile);
     _logger.LogInformation("Stub profile created for invited user {UserId}", message.InvitedUserId);
+  }
+
+  private async Task<Guid> GetDefaultTenantIdAsync()
+  {
+    var tenant = await _db.Tenants.OrderBy(t => t.CreatedAt).FirstOrDefaultAsync();
+    return tenant?.TenantId ?? Guid.Empty;
   }
 }

@@ -120,6 +120,28 @@ using (var scope = app.Services.CreateScope())
   var db = scope.ServiceProvider.GetRequiredService<UserManagementDbContext>();
   db.Database.EnsureCreated();
 
+  // Seed default tenant (must happen before admin profile due to FK)
+  var tenantConfig = app.Configuration.GetSection("DefaultTenant");
+  var tenantIdStr = tenantConfig["TenantId"];
+  var tenantSlug = tenantConfig["Slug"] ?? "default";
+  var tenantDisplayName = tenantConfig["DisplayName"] ?? "Default Tenant";
+  Guid defaultTenantId = Guid.Empty;
+  if (!string.IsNullOrEmpty(tenantIdStr) && Guid.TryParse(tenantIdStr, out var parsedTenantId))
+  {
+    defaultTenantId = parsedTenantId;
+    if (!db.Tenants.Any(t => t.TenantId == defaultTenantId))
+    {
+      db.Tenants.Add(new UserManagementService.Models.Tenant
+      {
+        TenantId = defaultTenantId,
+        Slug = tenantSlug,
+        DisplayName = tenantDisplayName,
+        CreatedAt = DateTime.UtcNow
+      });
+      db.SaveChanges();
+    }
+  }
+
   // Ensure default admin profile exists and is always active with Admin role
   var adminConfig = app.Configuration.GetSection("DefaultAdmin");
   var adminIdStr = adminConfig["UserId"];
@@ -136,6 +158,7 @@ using (var scope = app.Services.CreateScope())
         UserId = adminId,
         Email = adminEmail,
         DisplayName = adminDisplayName,
+        TenantId = defaultTenantId,
         Role = SharedLibrary.Enums.UserRole.Admin,
         CreatedAt = DateTime.UtcNow,
         IsActive = true
@@ -145,6 +168,8 @@ using (var scope = app.Services.CreateScope())
     {
       adminProfile.Role = SharedLibrary.Enums.UserRole.Admin;
       adminProfile.IsActive = true;
+      if (adminProfile.TenantId == Guid.Empty)
+        adminProfile.TenantId = defaultTenantId;
     }
     db.SaveChanges();
   }

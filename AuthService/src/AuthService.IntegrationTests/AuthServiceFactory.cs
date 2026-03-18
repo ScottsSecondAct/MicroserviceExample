@@ -42,6 +42,10 @@ public class AuthServiceFactory : WebApplicationFactory<Program>, IAsyncLifetime
     builder.UseSetting("DefaultAdmin:UserId", "00000000-0000-0000-0000-000000000001");
     builder.UseSetting("DefaultAdmin:Email", "admin@example.com");
     builder.UseSetting("DefaultAdmin:Password", "Admin1234!");
+    builder.UseSetting("DefaultAdmin:Username", "admin");
+    builder.UseSetting("DefaultTenant:TenantId", "00000000-0000-0000-0000-000000000010");
+    builder.UseSetting("DefaultTenant:Slug", "default");
+    builder.UseSetting("DefaultTenant:DisplayName", "Default Tenant");
 
     builder.ConfigureServices(services =>
     {

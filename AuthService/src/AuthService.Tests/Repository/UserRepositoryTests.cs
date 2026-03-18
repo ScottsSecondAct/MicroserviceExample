@@ -120,4 +120,70 @@ public class UserRepositoryTests
 
     await act.Should().NotThrowAsync();
   }
+
+  [Fact]
+  public async Task GetUserByUsernameAsync_ReturnsUser_WhenExistsInTenant()
+  {
+    using var ctx = CreateContext();
+    var tenantId = Guid.NewGuid();
+    ctx.Users.Add(new User { UserId = Guid.NewGuid(), Email = "f@example.com", Username = "johndoe", TenantId = tenantId, PasswordHash = "hash" });
+    await ctx.SaveChangesAsync();
+    var repo = new UserRepository(ctx);
+
+    var result = await repo.GetUserByUsernameAsync(tenantId, "johndoe");
+
+    result.Should().NotBeNull();
+    result!.Username.Should().Be("johndoe");
+  }
+
+  [Fact]
+  public async Task GetUserByUsernameAsync_ReturnsNull_WhenUsernameNotInTenant()
+  {
+    using var ctx = CreateContext();
+    var tenantId = Guid.NewGuid();
+    var otherTenantId = Guid.NewGuid();
+    ctx.Users.Add(new User { UserId = Guid.NewGuid(), Email = "g@example.com", Username = "johndoe", TenantId = tenantId, PasswordHash = "hash" });
+    await ctx.SaveChangesAsync();
+    var repo = new UserRepository(ctx);
+
+    var result = await repo.GetUserByUsernameAsync(otherTenantId, "johndoe");
+
+    result.Should().BeNull();
+  }
+
+  [Fact]
+  public async Task GetUserByUsernameAsync_ReturnsNull_WhenUsernameDoesNotExist()
+  {
+    using var ctx = CreateContext();
+    var repo = new UserRepository(ctx);
+
+    var result = await repo.GetUserByUsernameAsync(Guid.NewGuid(), "nobody");
+
+    result.Should().BeNull();
+  }
+
+  [Fact]
+  public async Task GetDefaultTenantIdAsync_ReturnsTenantId_WhenTenantExists()
+  {
+    using var ctx = CreateContext();
+    var tenantId = Guid.NewGuid();
+    ctx.Tenants.Add(new AuthService.Models.Tenant { TenantId = tenantId, Slug = "default", DisplayName = "Default", CreatedAt = DateTime.UtcNow });
+    await ctx.SaveChangesAsync();
+    var repo = new UserRepository(ctx);
+
+    var result = await repo.GetDefaultTenantIdAsync();
+
+    result.Should().Be(tenantId);
+  }
+
+  [Fact]
+  public async Task GetDefaultTenantIdAsync_ReturnsGuidEmpty_WhenNoTenantsExist()
+  {
+    using var ctx = CreateContext();
+    var repo = new UserRepository(ctx);
+
+    var result = await repo.GetDefaultTenantIdAsync();
+
+    result.Should().Be(Guid.Empty);
+  }
 }

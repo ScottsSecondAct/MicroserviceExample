@@ -47,6 +47,7 @@ builder.Services.Configure<PasswordPolicy>(builder.Configuration.GetSection("Pas
 builder.Services.AddSingleton<IPasswordPolicyService, PasswordPolicyService>();
 
 // Register services
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -59,6 +60,9 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IInviteService, InviteService>();
 builder.Services.AddScoped<IForgotPasswordService, ForgotPasswordService>();
 builder.Services.AddScoped<IChangePasswordService, ChangePasswordService>();
+builder.Services.AddScoped<ITenantResolver, TenantResolver>();
+builder.Services.AddScoped<IUsernameService, UsernameService>();
+builder.Services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
 
 // Typed HttpClient for role fetch (sync call on login)
 builder.Services.AddHttpClient<IUserRoleClient, UserRoleClient>(client =>
@@ -131,11 +135,34 @@ using (var scope = app.Services.CreateScope())
   var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
   db.Database.EnsureCreated();
 
+  // Seed default tenant (must happen before admin user due to FK)
+  var tenantConfig = app.Configuration.GetSection("DefaultTenant");
+  var tenantIdStr = tenantConfig["TenantId"];
+  var tenantSlug = tenantConfig["Slug"] ?? "default";
+  var tenantDisplayName = tenantConfig["DisplayName"] ?? "Default Tenant";
+  Guid defaultTenantId = Guid.Empty;
+  if (!string.IsNullOrEmpty(tenantIdStr) && Guid.TryParse(tenantIdStr, out var parsedTenantId))
+  {
+    defaultTenantId = parsedTenantId;
+    if (!db.Tenants.Any(t => t.TenantId == defaultTenantId))
+    {
+      db.Tenants.Add(new AuthService.Models.Tenant
+      {
+        TenantId = defaultTenantId,
+        Slug = tenantSlug,
+        DisplayName = tenantDisplayName,
+        CreatedAt = DateTime.UtcNow
+      });
+      db.SaveChanges();
+    }
+  }
+
   // Seed default admin user if not present
   var adminConfig = app.Configuration.GetSection("DefaultAdmin");
   var adminIdStr = adminConfig["UserId"];
   var adminEmail = adminConfig["Email"];
   var adminPassword = adminConfig["Password"];
+  var adminUsername = adminConfig["Username"] ?? "admin";
   if (!string.IsNullOrEmpty(adminIdStr) && !string.IsNullOrEmpty(adminEmail) && !string.IsNullOrEmpty(adminPassword))
   {
     var adminId = Guid.Parse(adminIdStr);
@@ -146,6 +173,8 @@ using (var scope = app.Services.CreateScope())
       {
         UserId = adminId,
         Email = adminEmail,
+        Username = adminUsername,
+        TenantId = defaultTenantId,
         PasswordHash = passwordService.HashPassword(adminPassword)
       });
       db.SaveChanges();

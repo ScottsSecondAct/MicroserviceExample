@@ -30,6 +30,12 @@ public class UserManagementServiceFactory : WebApplicationFactory<Program>, IAsy
     builder.UseSetting("JwtSettings:SecretKey", TestJwtSecret);
     builder.UseSetting("JwtSettings:Issuer", TestJwtIssuer);
     builder.UseSetting("JwtSettings:Audience", TestJwtAudience);
+    builder.UseSetting("DefaultAdmin:UserId", "00000000-0000-0000-0000-000000000001");
+    builder.UseSetting("DefaultAdmin:Email", "admin@example.com");
+    builder.UseSetting("DefaultAdmin:DisplayName", "Default Admin");
+    builder.UseSetting("DefaultTenant:TenantId", "00000000-0000-0000-0000-000000000010");
+    builder.UseSetting("DefaultTenant:Slug", "default");
+    builder.UseSetting("DefaultTenant:DisplayName", "Default Tenant");
 
     builder.ConfigureServices(services =>
     {

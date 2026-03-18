@@ -15,4 +15,9 @@ public class User
   public string PasswordHash { get; set; } = string.Empty;
 
   public bool MustChangePassword { get; set; } = false;
+
+  public Guid TenantId { get; set; }
+  public Tenant? Tenant { get; set; }
+
+  public string Username { get; set; } = string.Empty;
 }

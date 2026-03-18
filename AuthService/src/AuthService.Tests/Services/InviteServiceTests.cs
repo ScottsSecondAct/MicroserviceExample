@@ -14,8 +14,11 @@ public class InviteServiceTests
   private readonly Mock<IEmailService> _mockEmailService;
   private readonly Mock<IPublishEndpoint> _mockPublishEndpoint;
   private readonly Mock<IPasswordPolicyService> _mockPasswordPolicyService;
+  private readonly Mock<IUsernameService> _mockUsernameService;
   private readonly IConfiguration _configuration;
   private readonly InviteService _service;
+
+  private static readonly Guid TestTenantId = new("00000000-0000-0000-0000-000000000010");
 
   public InviteServiceTests()
   {
@@ -25,11 +28,20 @@ public class InviteServiceTests
     _mockEmailService = new Mock<IEmailService>();
     _mockPublishEndpoint = new Mock<IPublishEndpoint>();
     _mockPasswordPolicyService = new Mock<IPasswordPolicyService>();
+    _mockUsernameService = new Mock<IUsernameService>();
 
     // Default: policy passes
     _mockPasswordPolicyService
         .Setup(p => p.Validate(It.IsAny<string>()))
         .Returns((true, (IReadOnlyList<string>)Array.Empty<string>()));
+
+    _mockUserRepository
+        .Setup(r => r.GetDefaultTenantIdAsync())
+        .ReturnsAsync(TestTenantId);
+
+    _mockUsernameService
+        .Setup(s => s.DeriveUniqueUsernameAsync(It.IsAny<string>(), It.IsAny<Guid>()))
+        .ReturnsAsync((string email, Guid _) => email.Split('@')[0].ToLowerInvariant());
 
     _configuration = new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?>
@@ -46,7 +58,8 @@ public class InviteServiceTests
         _mockEmailService.Object,
         _mockPublishEndpoint.Object,
         _configuration,
-        _mockPasswordPolicyService.Object);
+        _mockPasswordPolicyService.Object,
+        _mockUsernameService.Object);
   }
 
   [Fact]

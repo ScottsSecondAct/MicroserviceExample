@@ -1,10 +1,12 @@
 using FluentAssertions;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using SharedLibrary.Enums;
 using SharedLibrary.Messaging.Events;
 using UserManagementService.Consumers;
+using UserManagementService.Data;
 using UserManagementService.Models;
 using UserManagementService.Repository;
 
@@ -14,13 +16,25 @@ public class UserInvitedConsumerTests
 {
   private readonly Mock<IUserProfileRepository> _mockRepository;
   private readonly Mock<ILogger<UserInvitedConsumer>> _mockLogger;
+  private readonly UserManagementDbContext _db;
   private readonly UserInvitedConsumer _consumer;
+
+  private static readonly Guid TestTenantId = new("00000000-0000-0000-0000-000000000010");
 
   public UserInvitedConsumerTests()
   {
     _mockRepository = new Mock<IUserProfileRepository>();
     _mockLogger = new Mock<ILogger<UserInvitedConsumer>>();
-    _consumer = new UserInvitedConsumer(_mockRepository.Object, _mockLogger.Object);
+
+    _db = new UserManagementDbContext(
+      new DbContextOptionsBuilder<UserManagementDbContext>()
+        .UseInMemoryDatabase(Guid.NewGuid().ToString())
+        .Options);
+
+    _db.Tenants.Add(new Tenant { TenantId = TestTenantId, Slug = "default", DisplayName = "Default Tenant", CreatedAt = DateTime.UtcNow });
+    _db.SaveChanges();
+
+    _consumer = new UserInvitedConsumer(_mockRepository.Object, _db, _mockLogger.Object);
   }
 
   [Fact]

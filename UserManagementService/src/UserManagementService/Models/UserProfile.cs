@@ -24,4 +24,7 @@ public class UserProfile
   public string? InviteToken { get; set; }
 
   public DateTime? InvitePendingAt { get; set; }
+
+  public Guid TenantId { get; set; }
+  public Tenant? Tenant { get; set; }
 }

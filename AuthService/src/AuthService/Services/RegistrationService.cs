@@ -11,17 +11,26 @@ public class RegistationService : IRegistrationService
   private readonly IPasswordService _passwordService;
   private readonly IPublishEndpoint _publishEndpoint;
   private readonly IPasswordPolicyService _passwordPolicyService;
+  private readonly IUsernameService _usernameService;
+  private readonly ITenantResolver _tenantResolver;
+  private readonly IHttpContextAccessor _httpContextAccessor;
 
   public RegistationService(
       IUserRepository userRepository,
       IPasswordService passwordService,
       IPublishEndpoint publishEndpoint,
-      IPasswordPolicyService passwordPolicyService)
+      IPasswordPolicyService passwordPolicyService,
+      IUsernameService usernameService,
+      ITenantResolver tenantResolver,
+      IHttpContextAccessor httpContextAccessor)
   {
     _userRepository = userRepository;
     _passwordService = passwordService;
     _publishEndpoint = publishEndpoint;
     _passwordPolicyService = passwordPolicyService;
+    _usernameService = usernameService;
+    _tenantResolver = tenantResolver;
+    _httpContextAccessor = httpContextAccessor;
   }
 
   public async Task<bool> ValidateEmailAsync(string email)
@@ -41,10 +50,15 @@ public class RegistationService : IRegistrationService
       return ServiceResult.Failure("Email is already registered.", 409);
     }
 
+    var tenantId = _tenantResolver.Resolve(_httpContextAccessor.HttpContext);
+    var username = await _usernameService.DeriveUniqueUsernameAsync(email, tenantId);
+
     var user = new User
     {
       UserId = Guid.NewGuid(),
       Email = email,
+      Username = username,
+      TenantId = tenantId,
       PasswordHash = _passwordService.HashPassword(password)
     };
 
@@ -53,7 +67,9 @@ public class RegistationService : IRegistrationService
     await _publishEndpoint.Publish(new UserRegistered
     {
       UserId = user.UserId,
-      Email = user.Email
+      Email = user.Email,
+      Username = user.Username,
+      TenantId = user.TenantId
     });
 
     return ServiceResult.Success(user.UserId, "User registered successfully.");

@@ -15,6 +15,7 @@ public class InviteService : IInviteService
   private readonly IPublishEndpoint _publishEndpoint;
   private readonly IConfiguration _configuration;
   private readonly IPasswordPolicyService _passwordPolicyService;
+  private readonly IUsernameService _usernameService;
 
   public InviteService(
       IInviteTokenRepository inviteTokenRepository,
@@ -23,7 +24,8 @@ public class InviteService : IInviteService
       IEmailService emailService,
       IPublishEndpoint publishEndpoint,
       IConfiguration configuration,
-      IPasswordPolicyService passwordPolicyService)
+      IPasswordPolicyService passwordPolicyService,
+      IUsernameService usernameService)
   {
     _inviteTokenRepository = inviteTokenRepository;
     _userRepository = userRepository;
@@ -32,6 +34,7 @@ public class InviteService : IInviteService
     _publishEndpoint = publishEndpoint;
     _configuration = configuration;
     _passwordPolicyService = passwordPolicyService;
+    _usernameService = usernameService;
   }
 
   public async Task<ServiceResult> CreateInviteAsync(string email, Guid adminUserId)
@@ -65,11 +68,14 @@ public class InviteService : IInviteService
     await _inviteTokenRepository.AddAsync(inviteToken);
     await _emailService.SendInviteEmailAsync(email, token);
 
+    var defaultTenantId = await _userRepository.GetDefaultTenantIdAsync();
+
     await _publishEndpoint.Publish(new UserInvited
     {
       InvitedUserId = invitedUserId,
       Email = email,
-      InvitedByUserId = adminUserId
+      InvitedByUserId = adminUserId,
+      TenantId = defaultTenantId != Guid.Empty ? defaultTenantId : null
     });
 
     return ServiceResult.Success(null, "Invite sent successfully.");
@@ -104,10 +110,15 @@ public class InviteService : IInviteService
       return ServiceResult.Failure("A user with this email is already registered.", 409);
     }
 
+    var defaultTenantId = await _userRepository.GetDefaultTenantIdAsync();
+    var username = await _usernameService.DeriveUniqueUsernameAsync(inviteToken.Email, defaultTenantId);
+
     var user = new User
     {
       UserId = inviteToken.InvitedUserId,
       Email = inviteToken.Email,
+      Username = username,
+      TenantId = defaultTenantId,
       PasswordHash = _passwordService.HashPassword(password),
       MustChangePassword = true
     };
@@ -120,7 +131,9 @@ public class InviteService : IInviteService
     await _publishEndpoint.Publish(new UserRegistered
     {
       UserId = user.UserId,
-      Email = user.Email
+      Email = user.Email,
+      Username = user.Username,
+      TenantId = user.TenantId
     });
 
     return ServiceResult.Success(null, "Account created successfully.");

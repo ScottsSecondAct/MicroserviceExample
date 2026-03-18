@@ -15,6 +15,8 @@ public class LoginService : ILoginService
   private readonly IUserRoleClient _userRoleClient;
   private readonly IRefreshTokenRepository _refreshTokenRepository;
   private readonly ILogger<LoginService> _logger;
+  private readonly ITenantResolver _tenantResolver;
+  private readonly IHttpContextAccessor _httpContextAccessor;
 
   public LoginService(
       IUserRepository userRepository,
@@ -22,7 +24,9 @@ public class LoginService : ILoginService
       IJwtTokenService jwtTokenService,
       IUserRoleClient userRoleClient,
       IRefreshTokenRepository refreshTokenRepository,
-      ILogger<LoginService> logger)
+      ILogger<LoginService> logger,
+      ITenantResolver tenantResolver,
+      IHttpContextAccessor httpContextAccessor)
   {
     _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
     _passwordService = passwordService ?? throw new ArgumentNullException(nameof(passwordService));
@@ -30,6 +34,8 @@ public class LoginService : ILoginService
     _userRoleClient = userRoleClient ?? throw new ArgumentNullException(nameof(userRoleClient));
     _refreshTokenRepository = refreshTokenRepository ?? throw new ArgumentNullException(nameof(refreshTokenRepository));
     _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    _tenantResolver = tenantResolver ?? throw new ArgumentNullException(nameof(tenantResolver));
+    _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
   }
 
   public async Task<ServiceResult> LoginAsync(LoginRequest request)
@@ -40,30 +46,40 @@ public class LoginService : ILoginService
       return ServiceResult.Failure("Email and password are required.", 400);
     }
 
-    var user = await _userRepository.GetUserByEmailAsync(request.Email);
+    User? user;
+    if (request.Email.Contains('@'))
+    {
+      user = await _userRepository.GetUserByEmailAsync(request.Email);
+    }
+    else
+    {
+      var tenantId = _tenantResolver.Resolve(_httpContextAccessor.HttpContext);
+      user = await _userRepository.GetUserByUsernameAsync(tenantId, request.Email);
+    }
+
     if (user == null)
     {
-      _logger.LogWarning("Login failed: User with email {Email} not found.", request.Email);
+      _logger.LogWarning("Login failed: User {Identifier} not found.", request.Email);
       return ServiceResult.Failure("Invalid email or password.", 401);
     }
 
     if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
     {
-      _logger.LogWarning("Login failed: Invalid password for user with email {Email}.", request.Email);
+      _logger.LogWarning("Login failed: Invalid password for user {UserId}.", user.UserId);
       return ServiceResult.Failure("Invalid email or password.", 401);
     }
 
     var userStatus = await _userRoleClient.GetRoleAsync(user.UserId);
     if (!userStatus.IsActive)
     {
-      _logger.LogWarning("Login failed: User with email {Email} is deactivated.", request.Email);
+      _logger.LogWarning("Login failed: User {UserId} is deactivated.", user.UserId);
       return ServiceResult.Failure("Account is deactivated. Please contact an administrator.", 403);
     }
 
     var jwtToken = _jwtTokenService.GenerateJwtToken(user, userStatus.Role);
     var refreshToken = await CreateRefreshTokenAsync(user.UserId);
 
-    _logger.LogInformation("User with email {Email} logged in successfully.", request.Email);
+    _logger.LogInformation("User with email {Email} logged in successfully.", user.Email);
     return ServiceResult.Success(new LoginResponse { Token = jwtToken, RefreshToken = refreshToken }, "Login successful.");
   }
 

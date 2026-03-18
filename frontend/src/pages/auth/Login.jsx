@@ -12,7 +12,7 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [email, setEmail] = useState('')
+  const [emailOrUsername, setEmailOrUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -24,7 +24,7 @@ export default function Login() {
     setError(null)
     setLoading(true)
     try {
-      const data = await authApi.login(email, password)
+      const data = await authApi.login(emailOrUsername, password)
       login(data.token)
       navigate('/contacts')
     } catch (err) {
@@ -53,14 +53,14 @@ export default function Login() {
               </p>
             )}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="emailOrUsername">Email or username</Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="emailOrUsername"
+                type="text"
+                value={emailOrUsername}
+                onChange={(e) => setEmailOrUsername(e.target.value)}
                 required
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
             <div className="flex flex-col gap-1.5">

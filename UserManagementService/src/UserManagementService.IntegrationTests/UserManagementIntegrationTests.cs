@@ -70,7 +70,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
     var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
     doc.RootElement.GetProperty("userId").GetGuid().Should().Be(userId);
     doc.RootElement.GetProperty("email").GetString().Should().Be(email);
-    doc.RootElement.GetProperty("role").GetInt32().Should().BeGreaterThanOrEqualTo(0);
+    doc.RootElement.GetProperty("role").GetString().Should().NotBeNullOrEmpty();
   }
 
   [Fact]
@@ -93,7 +93,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
 
     response.StatusCode.Should().Be(HttpStatusCode.OK);
     var body = await response.Content.ReadAsStringAsync();
-    body.Should().Contain("\"role\":1"); // New profiles are created as Member
+    body.Should().Contain("\"role\":\"Member\""); // New profiles are created as Member
   }
 
   // ── GET /api/users/team ───────────────────────────────────────────────────
@@ -222,7 +222,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
 
     response.StatusCode.Should().Be(HttpStatusCode.OK);
     var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-    doc.RootElement.GetProperty("role").GetInt32().Should().Be(4);
+    doc.RootElement.GetProperty("role").GetString().Should().Be("Admin");
   }
 
   [Fact]

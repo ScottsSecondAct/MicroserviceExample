@@ -1,5 +1,6 @@
 using Moq;
 using MassTransit;
+using Microsoft.AspNetCore.Http;
 using AuthService.Models;
 using AuthService.Repository;
 using AuthService.Services;
@@ -11,7 +12,12 @@ public class RegistrationServiceTests
   private readonly Mock<IPasswordService> _mockPasswordService;
   private readonly Mock<IPublishEndpoint> _mockPublishEndpoint;
   private readonly Mock<IPasswordPolicyService> _mockPasswordPolicyService;
+  private readonly Mock<IUsernameService> _mockUsernameService;
+  private readonly Mock<ITenantResolver> _mockTenantResolver;
+  private readonly Mock<IHttpContextAccessor> _mockHttpContextAccessor;
   private readonly RegistationService _service;
+
+  private static readonly Guid TestTenantId = new("00000000-0000-0000-0000-000000000010");
 
   public RegistrationServiceTests()
   {
@@ -19,17 +25,29 @@ public class RegistrationServiceTests
     _mockPasswordService = new Mock<IPasswordService>();
     _mockPublishEndpoint = new Mock<IPublishEndpoint>();
     _mockPasswordPolicyService = new Mock<IPasswordPolicyService>();
+    _mockUsernameService = new Mock<IUsernameService>();
+    _mockTenantResolver = new Mock<ITenantResolver>();
+    _mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
 
     // Default: policy passes
     _mockPasswordPolicyService
         .Setup(p => p.Validate(It.IsAny<string>()))
         .Returns((true, (IReadOnlyList<string>)Array.Empty<string>()));
 
+    _mockTenantResolver.Setup(r => r.Resolve(It.IsAny<HttpContext?>())).Returns(TestTenantId);
+    _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns((HttpContext?)null);
+    _mockUsernameService
+        .Setup(s => s.DeriveUniqueUsernameAsync(It.IsAny<string>(), It.IsAny<Guid>()))
+        .ReturnsAsync((string email, Guid _) => email.Split('@')[0].ToLowerInvariant());
+
     _service = new RegistationService(
         _mockUserRepository.Object,
         _mockPasswordService.Object,
         _mockPublishEndpoint.Object,
-        _mockPasswordPolicyService.Object);
+        _mockPasswordPolicyService.Object,
+        _mockUsernameService.Object,
+        _mockTenantResolver.Object,
+        _mockHttpContextAccessor.Object);
   }
 
   [Fact]
@@ -63,7 +81,7 @@ public class RegistrationServiceTests
   {
     // Arrange
     var email = "existing@example.com";
-    var existing = new User { UserId = Guid.NewGuid(), Email = email, PasswordHash = "hash" };
+    var existing = new User { UserId = Guid.NewGuid(), Email = email, Username = "existing", TenantId = TestTenantId, PasswordHash = "hash" };
     _mockUserRepository.Setup(r => r.GetUserByEmailAsync(email)).ReturnsAsync(existing);
 
     // Act

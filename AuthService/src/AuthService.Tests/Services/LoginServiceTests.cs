@@ -1,4 +1,5 @@
 using Moq;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using AuthService.Services;
 using AuthService.Models;
@@ -14,7 +15,11 @@ public class LoginServiceTests
   private readonly Mock<IUserRoleClient> _mockUserRoleClient;
   private readonly Mock<IRefreshTokenRepository> _mockRefreshTokenRepository;
   private readonly Mock<ILogger<LoginService>> _mockLogger;
+  private readonly Mock<ITenantResolver> _mockTenantResolver;
+  private readonly Mock<IHttpContextAccessor> _mockHttpContextAccessor;
   private readonly LoginService _service;
+
+  private static readonly Guid TestTenantId = new("00000000-0000-0000-0000-000000000010");
 
   public LoginServiceTests()
   {
@@ -24,6 +29,11 @@ public class LoginServiceTests
     _mockUserRoleClient = new Mock<IUserRoleClient>();
     _mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
     _mockLogger = new Mock<ILogger<LoginService>>();
+    _mockTenantResolver = new Mock<ITenantResolver>();
+    _mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
+
+    _mockTenantResolver.Setup(r => r.Resolve(It.IsAny<HttpContext?>())).Returns(TestTenantId);
+    _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns((HttpContext?)null);
 
     _service = new LoginService(
         _mockUserRepository.Object,
@@ -31,14 +41,16 @@ public class LoginServiceTests
         _mockJwtTokenService.Object,
         _mockUserRoleClient.Object,
         _mockRefreshTokenRepository.Object,
-        _mockLogger.Object);
+        _mockLogger.Object,
+        _mockTenantResolver.Object,
+        _mockHttpContextAccessor.Object);
   }
 
   [Fact]
   public async Task LoginAsync_ShouldReturnSuccess_WithTokenAndRefreshToken_WhenCredentialsAreValid()
   {
     // Arrange
-    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com", PasswordHash = "hashed" };
+    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com", Username = "test", TenantId = TestTenantId, PasswordHash = "hashed" };
     var request = new LoginRequest { Email = "test@example.com", Password = "SecurePassword123" };
 
     _mockUserRepository.Setup(r => r.GetUserByEmailAsync(request.Email)).ReturnsAsync(user);
@@ -93,7 +105,7 @@ public class LoginServiceTests
   public async Task LoginAsync_ShouldReturnFailure_WhenPasswordIsIncorrect()
   {
     // Arrange
-    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com", PasswordHash = "hashed" };
+    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com", Username = "test", TenantId = TestTenantId, PasswordHash = "hashed" };
     var request = new LoginRequest { Email = "test@example.com", Password = "WrongPassword" };
 
     _mockUserRepository.Setup(r => r.GetUserByEmailAsync(request.Email)).ReturnsAsync(user);
@@ -225,7 +237,7 @@ public class LoginServiceTests
   public async Task LoginAsync_ShouldReturnFailure_WhenUserIsDeactivated()
   {
     // Arrange
-    var user = new User { UserId = Guid.NewGuid(), Email = "deactivated@example.com", PasswordHash = "hashed" };
+    var user = new User { UserId = Guid.NewGuid(), Email = "deactivated@example.com", Username = "deactivated", TenantId = TestTenantId, PasswordHash = "hashed" };
     var request = new LoginRequest { Email = "deactivated@example.com", Password = "SecurePassword123" };
 
     _mockUserRepository.Setup(r => r.GetUserByEmailAsync(request.Email)).ReturnsAsync(user);
@@ -240,6 +252,46 @@ public class LoginServiceTests
     Assert.False(result.IsSuccess);
     Assert.Equal(403, result.StatusCode);
     Assert.Contains("deactivated", result.Message, StringComparison.OrdinalIgnoreCase);
+  }
+
+  [Fact]
+  public async Task LoginAsync_ByUsername_ShouldReturnSuccess_WhenCredentialsAreValid()
+  {
+    // Arrange — input has no '@', so the username path is taken
+    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com", Username = "testuser", TenantId = TestTenantId, PasswordHash = "hashed" };
+    var request = new LoginRequest { Email = "testuser", Password = "SecurePassword123" };
+
+    _mockUserRepository.Setup(r => r.GetUserByUsernameAsync(TestTenantId, "testuser")).ReturnsAsync(user);
+    _mockPasswordService.Setup(p => p.VerifyPassword(request.Password, user.PasswordHash)).Returns(true);
+    _mockUserRoleClient.Setup(r => r.GetRoleAsync(user.UserId)).ReturnsAsync(new UserRoleResponse { UserId = user.UserId, Role = UserRole.Member, IsActive = true });
+    _mockJwtTokenService.Setup(j => j.GenerateJwtToken(user, UserRole.Member)).Returns("jwt-token-string");
+    _mockRefreshTokenRepository.Setup(r => r.AddAsync(It.IsAny<RefreshToken>())).Returns(Task.CompletedTask);
+
+    // Act
+    var result = await _service.LoginAsync(request);
+
+    // Assert
+    Assert.True(result.IsSuccess);
+    var loginResponse = Assert.IsType<LoginResponse>(result.Data);
+    Assert.Equal("jwt-token-string", loginResponse.Token);
+    _mockUserRepository.Verify(r => r.GetUserByUsernameAsync(TestTenantId, "testuser"), Times.Once);
+    _mockUserRepository.Verify(r => r.GetUserByEmailAsync(It.IsAny<string>()), Times.Never);
+  }
+
+  [Fact]
+  public async Task LoginAsync_ByUsername_ShouldReturnFailure_WhenUsernameNotFound()
+  {
+    // Arrange
+    var request = new LoginRequest { Email = "unknownuser", Password = "SecurePassword123" };
+    _mockUserRepository.Setup(r => r.GetUserByUsernameAsync(TestTenantId, "unknownuser")).ReturnsAsync((User?)null);
+
+    // Act
+    var result = await _service.LoginAsync(request);
+
+    // Assert
+    Assert.False(result.IsSuccess);
+    Assert.Equal(401, result.StatusCode);
+    Assert.Equal("Invalid email or password.", result.Message);
   }
 
   [Fact]

@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
 using SharedLibrary.DTOs;
 using SharedLibrary.Enums;
+using UserManagementService.Data;
 using UserManagementService.Models;
 using UserManagementService.Models.DTOs;
 using UserManagementService.Repository;
@@ -12,12 +14,20 @@ public class UserProfileService : IUserProfileService
   private readonly IUserProfileRepository _repository;
   private readonly IEmailService _emailService;
   private readonly IAuditLogService _auditLogService;
+  private readonly UserManagementDbContext _db;
 
-  public UserProfileService(IUserProfileRepository repository, IEmailService emailService, IAuditLogService auditLogService)
+  public UserProfileService(IUserProfileRepository repository, IEmailService emailService, IAuditLogService auditLogService, UserManagementDbContext db)
   {
     _repository = repository;
     _emailService = emailService;
     _auditLogService = auditLogService;
+    _db = db;
+  }
+
+  private async Task<Guid> GetDefaultTenantIdAsync()
+  {
+    var tenant = await _db.Tenants.OrderBy(t => t.CreatedAt).FirstOrDefaultAsync();
+    return tenant?.TenantId ?? Guid.Empty;
   }
 
   public async Task<ServiceResult> CreateUserProfileAsync(CreateUserProfileRequest request)
@@ -37,10 +47,13 @@ public class UserProfileService : IUserProfileService
       }, "User profile activated successfully.", 200);
     }
 
+    var tenantId = request.TenantId ?? await GetDefaultTenantIdAsync();
+
     var profile = new UserProfile
     {
       UserId = request.UserId,
       Email = request.Email,
+      TenantId = tenantId,
       Role = UserRole.Member,
       DisplayName = request.Email,
       CreatedAt = DateTime.UtcNow
