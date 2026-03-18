@@ -256,7 +256,7 @@ Populates the CRM with realistic demo data via the API Gateway — no direct dat
 
 ### Observability
 
-All eight services ship OpenTelemetry tracing and Serilog structured logging, both pointing at [Seq](https://datalust.co/seq) which runs as part of the Docker stack.
+All eight services ship OpenTelemetry tracing and Serilog structured logging, both pointing at [c](https://datalust.co/seq) which runs as part of the Docker stack.
 
 **Seq UI:** http://localhost:5341 (no login required in dev)
 
@@ -368,6 +368,31 @@ Profile creation happens asynchronously — UserManagementService processes the 
 { "message": "Invite sent to newuser@example.com." }
 ```
 Generates a crypto-secure token (48-hour expiry by default) and sends an invite email. Token is stored in the AuthService DB and is single-use.
+
+### Email delivery (invite & password reset)
+
+AuthService uses MailKit to send invite and password-reset emails. Whether email is actually sent depends on whether `Smtp:Host` is configured:
+
+**No SMTP configured (default dev behavior):** The email is not sent. Instead, the full accept/reset URL is written to the structured log at `Information` level:
+```
+INVITE EMAIL (dev stub — no SMTP configured) — To: user@example.com | Accept URL: http://localhost:3000/accept-invite?token=...
+PASSWORD RESET EMAIL (dev stub — no SMTP configured) — To: user@example.com | Reset URL: http://localhost:3000/reset-password?token=...
+```
+Open Seq at http://localhost:5341, filter by `Service = 'AuthService'`, and copy the URL from the log to test the flow locally.
+
+**With SMTP configured:** Set these variables in your `.env` (or `appsettings.json` for local dev):
+```
+SMTP__HOST=smtp.example.com
+SMTP__PORT=587
+SMTP__USERNAME=user@example.com
+SMTP__PASSWORD=...
+SMTP__FROMADDRESS=noreply@example.com
+SMTP__FROMNAME=CRM System
+SMTP__SECURESOCKETOPTIONS=StartTlsWhenAvailable   # or SslOnConnect
+```
+Once `Smtp:Host` is non-empty, MailKit sends a real email. The invite accept URL is constructed from `InviteSettings:FrontendUrl` (defaults to `http://localhost:3000`).
+
+> **Note:** `UserManagementService` also has an `EmailService` class, but it is a no-op stub — it only logs `"Invite email queued for..."` and never sends anything. The actual email sending for invites is owned entirely by **AuthService**.
 
 **Accept Invite** `POST /auth/api/registration/accept-invite`
 ```json
