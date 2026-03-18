@@ -721,6 +721,84 @@ These test cross-service event correctness that unit/integration tests cannot fu
 
 ---
 
+## Frontend API Coverage Audit (as of v2.2)
+
+Audit conducted March 2026 against all 7 services + gateway. 48 unique backend endpoints identified; frontend coverage assessed by reading all API client modules and page components in `frontend/src/`.
+
+### Coverage by service
+
+| Service | Endpoints | Called by Frontend | Coverage |
+|---------|-----------|-------------------|----------|
+| AuthService | 10 | 7 | 70% |
+| UserManagementService | 11 | 7 | 64% |
+| ContactService | 5 | 5 | **100%** |
+| AccountService | 5 | 5 | **100%** |
+| DealService | 8 | 8 | **100%** |
+| ActivityService | 5 | 4 | 80% |
+| ReportingService | 4 | 4 | **100%** |
+| **Total** | **48** | **40** | **83%** |
+
+### Endpoints NOT called by the frontend
+
+| Endpoint | Reason |
+|----------|--------|
+| `POST /auth/api/login/refresh` | Token refresh not implemented — frontend relies on 2-hour JWT expiry |
+| `POST /auth/api/tenants/provision` | Ops/SaaS-only endpoint; no tenant provisioning UI |
+| `GET /users/api/users/{id}/role` | Role is read from JWT claims; direct role lookup endpoint unused |
+| `POST /users/api/users` | Internal service-to-service endpoint (AuthService → UMS); not gateway-exposed |
+| `PATCH /users/api/users/{id}/status` | Frontend uses admin route (`PUT /admin/api/admin/users/{id}/active`) instead |
+| `PATCH /users/api/users/{id}/role` | Frontend uses admin route (`PUT /admin/api/admin/users/{id}/role`) instead |
+| `GET /users/api/users/audit` | Audit log endpoint has no frontend viewer |
+| `GET /activities/api/activities/{id}` | No activity detail page; list + inline update only |
+
+### Frontend pages and their API calls
+
+| Page | API Calls | Status |
+|------|-----------|--------|
+| Login.jsx | `authApi.login` | ✅ Complete |
+| Register.jsx | `authApi.register` | ✅ Complete |
+| ForgotPassword.jsx | `authApi.forgotPassword` | ✅ Complete |
+| ResetPassword.jsx | `authApi.resetPassword` | ✅ Complete |
+| ChangePassword.jsx | `authApi.changePassword` | ✅ Complete |
+| AcceptInvite.jsx | `authApi.acceptInvite` | ✅ Complete |
+| Profile.jsx | `authApi.me`, `usersApi.getProfile` | ✅ Complete |
+| AdminUserList.jsx | `adminApi.listUsers/updateRole/setActive`, `authApi.inviteUser`, `usersApi.resendInvite` | ✅ Complete |
+| AccountList.jsx | `accountsApi.list`, `delete` (single + bulk) | ✅ Complete |
+| AccountForm.jsx | `accountsApi.get/create/update` | ✅ Complete |
+| AccountDetail.jsx | `accountsApi.get/delete`, `contactsApi.list` (filtered by accountId) | ✅ Complete |
+| ContactList.jsx | `contactsApi.list` (with filters), `delete`, bulk status update, `usersApi.getTeam` | ✅ Complete |
+| ContactForm.jsx | `contactsApi.get/create/update`, `accountsApi.list`, `usersApi.getTeam` | ✅ Complete |
+| ContactDetail.jsx | `contactsApi.get/delete`, `accountsApi.get`, `usersApi.getTeam` | ✅ Complete |
+| Pipeline.jsx | `dealsApi.getPipeline`, update stage | ✅ Complete |
+| DealForm.jsx | `dealsApi.get/create/update`, `accountsApi.list`, `usersApi.getTeam` | ✅ Complete |
+| DealDetail.jsx | `dealsApi.get/update/delete/addContact/removeContact`, `contactsApi.list`, `accountsApi.get` | ✅ Complete |
+| TaskList.jsx | `activitiesApi.list` (Tasks only), `update`, `delete` | ⚠️ Tasks only |
+| Dashboard.jsx | `reportsApi.dashboard/pipeline/activities/contacts` | ✅ Complete |
+
+### Gaps
+
+**1. Activity types not exposed in UI (significant gap)**
+- Backend supports `POST /activities/api/activities` with types: Call, Email, Meeting, Task, Note
+- Frontend only surfaces **Tasks** (TaskList.jsx filters `type=Task`)
+- No UI exists to log calls, emails, meetings, or notes against contacts or deals
+- No activity creation form; no activity detail view; `GET /activities/api/activities/{id}` is never called
+- Contact and deal detail pages have no activity timeline
+
+**2. Token refresh not implemented**
+- `POST /auth/api/login/refresh` exists and has backend + integration test coverage
+- Frontend never calls it — sessions hard-expire after 2 hours with no auto-renewal
+- Users mid-session are silently kicked out
+
+**3. Audit log not surfaced**
+- `GET /users/api/users/audit` is admin-only and fully implemented in UMS
+- No audit log viewer in the admin section; the endpoint is dead from the frontend's perspective
+
+**4. Redundant direct PATCH routes on UMS**
+- `PATCH /users/{id}/status` and `PATCH /users/{id}/role` are shadowed by the admin routes
+- These can be considered internal; no action needed unless the PATCH routes are removed
+
+---
+
 ## Package Reference
 
 | Package | Layer | Purpose |
