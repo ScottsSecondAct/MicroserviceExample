@@ -46,32 +46,6 @@ public class ActivitiesControllerTests
   }
 
   [Fact]
-  public async Task GetById_WhenFound_ReturnsOk()
-  {
-    var response = MakeResponse();
-    _mockService.Setup(s => s.GetActivityAsync(response.ActivityId))
-      .ReturnsAsync(ServiceResult.Success(response));
-
-    var result = await _controller.GetById(response.ActivityId);
-
-    var objectResult = result as ObjectResult;
-    objectResult!.StatusCode.Should().Be(200);
-  }
-
-  [Fact]
-  public async Task GetById_WhenNotFound_Returns404()
-  {
-    var id = Guid.NewGuid();
-    _mockService.Setup(s => s.GetActivityAsync(id))
-      .ReturnsAsync(ServiceResult.Failure("Activity not found.", 404));
-
-    var result = await _controller.GetById(id);
-
-    var objectResult = result as ObjectResult;
-    objectResult!.StatusCode.Should().Be(404);
-  }
-
-  [Fact]
   public async Task Create_WithValidRequest_Returns201()
   {
     var response = MakeResponse();
@@ -184,18 +158,6 @@ public class ActivitiesControllerTests
       .ThrowsAsync(new Exception("boom"));
 
     var result = await _controller.GetAll(null, null, null, null, null);
-
-    var obj = result as ObjectResult;
-    obj!.StatusCode.Should().Be(500);
-  }
-
-  [Fact]
-  public async Task GetById_ServiceThrows_Returns500()
-  {
-    var id = Guid.NewGuid();
-    _mockService.Setup(s => s.GetActivityAsync(id)).ThrowsAsync(new Exception("boom"));
-
-    var result = await _controller.GetById(id);
 
     var obj = result as ObjectResult;
     obj!.StatusCode.Should().Be(500);

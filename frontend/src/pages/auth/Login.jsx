@@ -25,7 +25,7 @@ export default function Login() {
     setLoading(true)
     try {
       const data = await authApi.login(emailOrUsername, password)
-      login(data.token)
+      login(data.token, data.refreshToken)
       navigate('/contacts')
     } catch (err) {
       setError(err.message)

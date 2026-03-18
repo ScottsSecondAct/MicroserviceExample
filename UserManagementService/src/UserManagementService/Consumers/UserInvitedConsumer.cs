@@ -5,18 +5,21 @@ using SharedLibrary.Messaging.Events;
 using UserManagementService.Data;
 using UserManagementService.Models;
 using UserManagementService.Repository;
+using UserManagementService.Services;
 
 namespace UserManagementService.Consumers;
 
 public class UserInvitedConsumer : IConsumer<UserInvited>
 {
   private readonly IUserProfileRepository _repository;
+  private readonly IAuditLogService _auditLogService;
   private readonly UserManagementDbContext _db;
   private readonly ILogger<UserInvitedConsumer> _logger;
 
-  public UserInvitedConsumer(IUserProfileRepository repository, UserManagementDbContext db, ILogger<UserInvitedConsumer> logger)
+  public UserInvitedConsumer(IUserProfileRepository repository, IAuditLogService auditLogService, UserManagementDbContext db, ILogger<UserInvitedConsumer> logger)
   {
     _repository = repository;
+    _auditLogService = auditLogService;
     _db = db;
     _logger = logger;
   }
@@ -48,6 +51,7 @@ public class UserInvitedConsumer : IConsumer<UserInvited>
     };
 
     await _repository.AddAsync(profile);
+    await _auditLogService.LogActionAsync(AuditAction.InviteSent, message.InvitedByUserId, message.InvitedUserId);
     _logger.LogInformation("Stub profile created for invited user {UserId}", message.InvitedUserId);
   }
 

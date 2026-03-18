@@ -8,7 +8,6 @@ export const activitiesApi = {
     const qs = entries.length ? '?' + new URLSearchParams(entries).toString() : ''
     return apiFetch(`${BASE}${qs}`)
   },
-  get: (id) => apiFetch(`${BASE}/${id}`),
   create: (data) => apiFetch(BASE, { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => apiFetch(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id) => apiFetch(`${BASE}/${id}`, { method: 'DELETE' }),

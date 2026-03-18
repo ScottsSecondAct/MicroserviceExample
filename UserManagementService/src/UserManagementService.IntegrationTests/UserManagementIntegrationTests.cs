@@ -22,37 +22,10 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
     _harness = factory.Services.GetRequiredService<ITestHarness>();
   }
 
-  private static object CreateProfilePayload(Guid? userId = null, string? email = null) => new
+  private async Task SeedProfile(Guid userId, string email)
   {
-    userId = userId ?? Guid.NewGuid(),
-    email = email ?? $"user-{Guid.NewGuid()}@test.com",
-    displayName = "Test User"
-  };
-
-  // ── POST /api/users ───────────────────────────────────────────────────────
-
-  [Fact]
-  public async Task POST_users_Returns201_And_ProfileInDB()
-  {
-    var payload = CreateProfilePayload();
-    var response = await _client.PostAsJsonAsync("/api/users", payload);
-
-    response.StatusCode.Should().Be(HttpStatusCode.Created);
-    var body = await response.Content.ReadAsStringAsync();
-    var doc = JsonDocument.Parse(body);
-    doc.RootElement.GetProperty("userId").GetGuid().Should().NotBeEmpty();
-  }
-
-  [Fact]
-  public async Task POST_users_DuplicateUserId_ActivatesStubAndReturns200()
-  {
-    // Second POST with the same UserId activates an existing stub profile (e.g. created by UserInvitedConsumer)
-    var userId = Guid.NewGuid();
-    await _client.PostAsJsonAsync("/api/users", CreateProfilePayload(userId));
-
-    var response = await _client.PostAsJsonAsync("/api/users", CreateProfilePayload(userId));
-
-    response.StatusCode.Should().Be(HttpStatusCode.OK);
+    await _harness.Bus.Publish(new UserRegistered { UserId = userId, Email = email });
+    await Task.Delay(500);
   }
 
   // ── GET /api/users/{id} ───────────────────────────────────────────────────
@@ -62,7 +35,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
   {
     var userId = Guid.NewGuid();
     var email = $"getby-{Guid.NewGuid()}@test.com";
-    await _client.PostAsJsonAsync("/api/users", new { userId, email, displayName = "Get Me" });
+    await SeedProfile(userId, email);
 
     var response = await _client.GetAsync($"/api/users/{userId}");
 
@@ -87,7 +60,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
   public async Task GET_users_Role_Returns200_WithRoleString()
   {
     var userId = Guid.NewGuid();
-    await _client.PostAsJsonAsync("/api/users", new { userId, email = $"role-{Guid.NewGuid()}@test.com" });
+    await SeedProfile(userId, $"role-{Guid.NewGuid()}@test.com");
 
     var response = await _client.GetAsync($"/api/users/{userId}/role");
 
@@ -101,12 +74,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
   [Fact]
   public async Task GET_users_Team_Returns200_WithList()
   {
-    await _client.PostAsJsonAsync("/api/users", new
-    {
-      userId = Guid.NewGuid(),
-      email = $"team-{Guid.NewGuid()}@test.com",
-      displayName = "Team Member"
-    });
+    await SeedProfile(Guid.NewGuid(), $"team-{Guid.NewGuid()}@test.com");
 
     var response = await _client.GetAsync("/api/users/team");
 
@@ -158,6 +126,43 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
     matching.Should().Be(1);
   }
 
+  // ── Consumer: UserInvited ─────────────────────────────────────────────────
+
+  [Fact]
+  public async Task Consumer_UserInvited_CreatesStubProfileAndAuditEntry()
+  {
+    var invitedUserId = Guid.NewGuid();
+    var invitedByUserId = Guid.NewGuid();
+    var email = $"invited-{Guid.NewGuid()}@test.com";
+
+    // Seed the actor so audit FK resolves
+    await SeedProfile(invitedByUserId, $"actor-{Guid.NewGuid()}@test.com");
+
+    await _harness.Bus.Publish(new UserInvited
+    {
+      InvitedUserId = invitedUserId,
+      Email = email,
+      InvitedByUserId = invitedByUserId
+    });
+    await Task.Delay(500);
+
+    // Stub profile should exist as inactive / Unassigned
+    var profileResponse = await _client.GetAsync($"/api/users/{invitedUserId}");
+    profileResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    var doc = JsonDocument.Parse(await profileResponse.Content.ReadAsStringAsync());
+    doc.RootElement.GetProperty("email").GetString().Should().Be(email);
+    doc.RootElement.GetProperty("isActive").GetBoolean().Should().BeFalse();
+
+    // Audit log should contain an InviteSent entry
+    var adminClient = CreateAdminClient();
+    var auditResponse = await adminClient.GetAsync("/api/users/audit");
+    auditResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    var entries = JsonDocument.Parse(await auditResponse.Content.ReadAsStringAsync()).RootElement;
+    entries.EnumerateArray().Should().Contain(e =>
+      e.GetProperty("action").GetString() == "InviteSent" &&
+      e.GetProperty("targetUserId").GetGuid() == invitedUserId);
+  }
+
   // ── GET /api/admin/users ──────────────────────────────────────────────────
 
   [Fact]
@@ -185,7 +190,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
   {
     var userId = Guid.NewGuid();
     var email = $"admin-list-{Guid.NewGuid()}@test.com";
-    await _client.PostAsJsonAsync("/api/users", new { userId, email, displayName = "List Me" });
+    await SeedProfile(userId, email);
 
     var adminClient = CreateAdminClient();
     var response = await adminClient.GetAsync("/api/admin/users");
@@ -215,7 +220,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
   public async Task PUT_admin_users_role_Returns200_WhenRoleUpdated()
   {
     var userId = Guid.NewGuid();
-    await _client.PostAsJsonAsync("/api/users", new { userId, email = $"role-update-{Guid.NewGuid()}@test.com" });
+    await SeedProfile(userId, $"role-update-{Guid.NewGuid()}@test.com");
 
     var adminClient = CreateAdminClient();
     var response = await adminClient.PutAsJsonAsync($"/api/admin/users/{userId}/role", new { role = 4 }); // Admin
@@ -229,7 +234,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
   public async Task PUT_admin_users_role_Returns400_WhenRoleIsUnassigned()
   {
     var userId = Guid.NewGuid();
-    await _client.PostAsJsonAsync("/api/users", new { userId, email = $"role-unassigned-{Guid.NewGuid()}@test.com" });
+    await SeedProfile(userId, $"role-unassigned-{Guid.NewGuid()}@test.com");
 
     var adminClient = CreateAdminClient();
     var response = await adminClient.PutAsJsonAsync($"/api/admin/users/{userId}/role", new { role = 0 }); // Unassigned
@@ -252,7 +257,7 @@ public class UserManagementIntegrationTests : IClassFixture<UserManagementServic
   public async Task PUT_admin_users_active_Returns200_WhenStatusUpdated()
   {
     var userId = Guid.NewGuid();
-    await _client.PostAsJsonAsync("/api/users", new { userId, email = $"deactivate-{Guid.NewGuid()}@test.com" });
+    await SeedProfile(userId, $"deactivate-{Guid.NewGuid()}@test.com");
 
     var adminClient = CreateAdminClient();
     var response = await adminClient.PutAsJsonAsync($"/api/admin/users/{userId}/active", new { isActive = false });

@@ -44,11 +44,12 @@ public class ActivityFlowTests : IDisposable
             new { completedAt = DateTime.UtcNow });
         completeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Verify completedAt is set
-        var getResponse = await _client.GetAsync($"/activities/api/activities/{activityId}");
-        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var completed = JsonDocument.Parse(await getResponse.Content.ReadAsStringAsync());
-        completed.RootElement.GetProperty("completedAt").ValueKind.Should().NotBe(JsonValueKind.Null);
+        // Verify completedAt is set via list filter
+        var verifyResponse = await _client.GetAsync($"/activities/api/activities?contactId={contactId}&type=Task");
+        verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var verifyArr = JsonDocument.Parse(await verifyResponse.Content.ReadAsStringAsync()).RootElement;
+        var completed = verifyArr.EnumerateArray().First(a => a.GetProperty("activityId").GetGuid() == activityId);
+        completed.GetProperty("completedAt").ValueKind.Should().NotBe(JsonValueKind.Null);
     }
 
     [Fact]
@@ -97,8 +98,11 @@ public class ActivityFlowTests : IDisposable
         var deleteResponse = await _client.DeleteAsync($"/activities/api/activities/{activityId}");
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        var getResponse = await _client.GetAsync($"/activities/api/activities/{activityId}");
-        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        // Verify gone via list filter
+        var listResponse = await _client.GetAsync($"/activities/api/activities?contactId={contactId}");
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var remaining = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync()).RootElement;
+        remaining.EnumerateArray().Should().NotContain(a => a.GetProperty("activityId").GetGuid() == activityId);
     }
 
     [Fact]
@@ -117,8 +121,9 @@ public class ActivityFlowTests : IDisposable
             new { completedAt = DateTime.UtcNow });
         firstComplete.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var afterFirst = JsonDocument.Parse(await (await _client.GetAsync($"/activities/api/activities/{activityId}")).Content.ReadAsStringAsync());
-        afterFirst.RootElement.GetProperty("completedAt").ValueKind.Should().NotBe(JsonValueKind.Null);
+        var afterFirstList = JsonDocument.Parse(await (await _client.GetAsync($"/activities/api/activities?contactId={contactId}&type=Task")).Content.ReadAsStringAsync()).RootElement;
+        afterFirstList.EnumerateArray().First(a => a.GetProperty("activityId").GetGuid() == activityId)
+            .GetProperty("completedAt").ValueKind.Should().NotBe(JsonValueKind.Null);
 
         // Second completion — does NOT fire TaskCompleted again (idempotent)
         var secondComplete = await _client.PutAsync($"/activities/api/activities/{activityId}",
@@ -126,8 +131,9 @@ public class ActivityFlowTests : IDisposable
         secondComplete.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Activity should still show completedAt set, no error
-        var afterSecond = JsonDocument.Parse(await (await _client.GetAsync($"/activities/api/activities/{activityId}")).Content.ReadAsStringAsync());
-        afterSecond.RootElement.GetProperty("completedAt").ValueKind.Should().NotBe(JsonValueKind.Null);
+        var afterSecondList = JsonDocument.Parse(await (await _client.GetAsync($"/activities/api/activities?contactId={contactId}&type=Task")).Content.ReadAsStringAsync()).RootElement;
+        afterSecondList.EnumerateArray().First(a => a.GetProperty("activityId").GetGuid() == activityId)
+            .GetProperty("completedAt").ValueKind.Should().NotBe(JsonValueKind.Null);
     }
 
     [Fact]

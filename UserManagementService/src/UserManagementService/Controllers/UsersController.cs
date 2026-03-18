@@ -1,8 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SharedLibrary.DTOs;
-using SharedLibrary.Enums;
 using UserManagementService.Models.DTOs;
 using UserManagementService.Services;
 
@@ -25,24 +23,6 @@ public class UsersController : ControllerBase
 
   private Guid GetActorUserId() =>
     Guid.TryParse(User.FindFirstValue("UserId"), out var id) ? id : Guid.Empty;
-
-  [HttpPost]
-  public async Task<IActionResult> CreateUserProfile([FromBody] CreateUserProfileRequest request)
-  {
-    if (string.IsNullOrEmpty(request.Email))
-      return BadRequest("Email is required.");
-
-    try
-    {
-      var result = await _userProfileService.CreateUserProfileAsync(request);
-      return StatusCode(result.StatusCode, result.Data ?? result.Message);
-    }
-    catch (Exception ex)
-    {
-      _logger.LogError(ex, "Error creating user profile");
-      return StatusCode(500, "An error occurred while creating the user profile.");
-    }
-  }
 
   [HttpGet("{userId:guid}")]
   public async Task<IActionResult> GetUserProfile(Guid userId)
@@ -86,41 +66,6 @@ public class UsersController : ControllerBase
     {
       _logger.LogError(ex, "Error retrieving role for user {UserId}", userId);
       return StatusCode(500, "An error occurred while retrieving the user role.");
-    }
-  }
-
-  [HttpPatch("{userId:guid}/status")]
-  [Authorize(Policy = "admin")]
-  public async Task<IActionResult> PatchUserStatus(Guid userId, [FromBody] SetUserActiveRequest request)
-  {
-    try
-    {
-      var result = await _userProfileService.SetUserActiveAsync(userId, request.IsActive, GetActorUserId());
-      return StatusCode(result.StatusCode, result.Data ?? result.Message);
-    }
-    catch (Exception ex)
-    {
-      _logger.LogError(ex, "Error updating status for user {UserId}", userId);
-      return StatusCode(500, "An error occurred while updating the user status.");
-    }
-  }
-
-  [HttpPatch("{userId:guid}/role")]
-  [Authorize(Policy = "admin")]
-  public async Task<IActionResult> PatchUserRole(Guid userId, [FromBody] UpdateUserRoleRequest request)
-  {
-    if (!Enum.IsDefined(typeof(UserRole), request.Role))
-      return BadRequest("Invalid role value.");
-
-    try
-    {
-      var result = await _userProfileService.UpdateUserRoleAsync(userId, request.Role, GetActorUserId());
-      return StatusCode(result.StatusCode, result.Data ?? result.Message);
-    }
-    catch (Exception ex)
-    {
-      _logger.LogError(ex, "Error updating role for user {UserId}", userId);
-      return StatusCode(500, "An error occurred while updating the user role.");
     }
   }
 

@@ -78,5 +78,41 @@ public class UserManagementFlowTests : IDisposable
         teamArr.EnumerateArray().Should().Contain(m => m.GetProperty("userId").GetGuid() == newUserId);
     }
 
+    [Fact]
+    public async Task GetAuditLog_ReturnsEntries_AfterAdminAction()
+    {
+        await _client.LoginAsAdminAsync();
+
+        // Perform an action that generates an audit entry: register a user then change their role
+        var email = $"e2e-audit-{Guid.NewGuid()}@example.com";
+        await _client.PostAsync("/auth/api/registration/register", new { email, password = "Password123!" });
+
+        // Poll until UMS has processed UserRegistered and the user appears
+        var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password = "Password123!" });
+        var userId = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("userId").GetString()!;
+        await RetryHelper.WaitUntilAsync(async () =>
+        {
+            var r = await _client.GetAsync($"/users/api/users/{userId}");
+            return r.StatusCode == System.Net.HttpStatusCode.OK;
+        }, timeout: TimeSpan.FromSeconds(15));
+
+        // Change the user's role — this logs an audit entry
+        await _client.LoginAsAdminAsync();
+        await _client.PutAsync($"/admin/api/admin/users/{userId}/role", new { role = 4 }); // Admin
+
+        // Audit log should contain the RoleChanged entry
+        var auditResponse = await _client.GetAsync("/users/api/users/audit");
+        auditResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var entries = JsonDocument.Parse(await auditResponse.Content.ReadAsStringAsync()).RootElement;
+        entries.ValueKind.Should().Be(JsonValueKind.Array);
+        entries.GetArrayLength().Should().BeGreaterThan(0);
+        var entry = entries.EnumerateArray().First();
+        entry.TryGetProperty("action", out _).Should().BeTrue();
+        entry.TryGetProperty("actorUserId", out _).Should().BeTrue();
+        entry.TryGetProperty("targetUserId", out _).Should().BeTrue();
+        entry.TryGetProperty("timestamp", out _).Should().BeTrue();
+    }
+
     public void Dispose() => _client.Dispose();
 }

@@ -34,4 +34,9 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ token, password }),
     }),
+  refresh: (refreshToken) =>
+    apiFetch(`${BASE}/login/refresh`, {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    }),
 }

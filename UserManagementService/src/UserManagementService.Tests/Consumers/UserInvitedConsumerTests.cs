@@ -9,12 +9,14 @@ using UserManagementService.Consumers;
 using UserManagementService.Data;
 using UserManagementService.Models;
 using UserManagementService.Repository;
+using UserManagementService.Services;
 
 namespace UserManagementService.Tests.Consumers;
 
 public class UserInvitedConsumerTests
 {
   private readonly Mock<IUserProfileRepository> _mockRepository;
+  private readonly Mock<IAuditLogService> _mockAuditLogService;
   private readonly Mock<ILogger<UserInvitedConsumer>> _mockLogger;
   private readonly UserManagementDbContext _db;
   private readonly UserInvitedConsumer _consumer;
@@ -24,6 +26,7 @@ public class UserInvitedConsumerTests
   public UserInvitedConsumerTests()
   {
     _mockRepository = new Mock<IUserProfileRepository>();
+    _mockAuditLogService = new Mock<IAuditLogService>();
     _mockLogger = new Mock<ILogger<UserInvitedConsumer>>();
 
     _db = new UserManagementDbContext(
@@ -34,7 +37,7 @@ public class UserInvitedConsumerTests
     _db.Tenants.Add(new Tenant { TenantId = TestTenantId, Slug = "default", DisplayName = "Default Tenant", CreatedAt = DateTime.UtcNow });
     _db.SaveChanges();
 
-    _consumer = new UserInvitedConsumer(_mockRepository.Object, _db, _mockLogger.Object);
+    _consumer = new UserInvitedConsumer(_mockRepository.Object, _mockAuditLogService.Object, _db, _mockLogger.Object);
   }
 
   [Fact]
@@ -42,8 +45,9 @@ public class UserInvitedConsumerTests
   {
     // Arrange
     var invitedUserId = Guid.NewGuid();
+    var invitedByUserId = Guid.NewGuid();
     var email = "invited@example.com";
-    var message = new UserInvited { InvitedUserId = invitedUserId, Email = email, InvitedByUserId = Guid.NewGuid() };
+    var message = new UserInvited { InvitedUserId = invitedUserId, Email = email, InvitedByUserId = invitedByUserId };
 
     var mockContext = new Mock<ConsumeContext<UserInvited>>();
     mockContext.Setup(c => c.Message).Returns(message);
@@ -65,6 +69,32 @@ public class UserInvitedConsumerTests
   }
 
   [Fact]
+  public async Task Consume_ShouldLogInviteSent_ToAuditLog()
+  {
+    // Arrange
+    var invitedUserId = Guid.NewGuid();
+    var invitedByUserId = Guid.NewGuid();
+    var message = new UserInvited { InvitedUserId = invitedUserId, Email = "invited@example.com", InvitedByUserId = invitedByUserId };
+
+    var mockContext = new Mock<ConsumeContext<UserInvited>>();
+    mockContext.Setup(c => c.Message).Returns(message);
+
+    _mockRepository.Setup(r => r.GetByIdAsync(invitedUserId)).ReturnsAsync((UserProfile?)null);
+    _mockRepository.Setup(r => r.AddAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    // Act
+    await _consumer.Consume(mockContext.Object);
+
+    // Assert
+    _mockAuditLogService.Verify(a => a.LogActionAsync(
+        AuditAction.InviteSent,
+        invitedByUserId,
+        invitedUserId,
+        null),
+      Times.Once);
+  }
+
+  [Fact]
   public async Task Consume_ShouldBeIdempotent_WhenStubAlreadyExists()
   {
     // Arrange
@@ -80,8 +110,9 @@ public class UserInvitedConsumerTests
     // Act
     var act = () => _consumer.Consume(mockContext.Object);
 
-    // Assert — idempotent: no duplicate add
+    // Assert — idempotent: no duplicate add, no audit log entry
     await act.Should().NotThrowAsync();
     _mockRepository.Verify(r => r.AddAsync(It.IsAny<UserProfile>()), Times.Never);
+    _mockAuditLogService.Verify(a => a.LogActionAsync(It.IsAny<AuditAction>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
   }
 }

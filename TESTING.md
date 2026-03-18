@@ -15,7 +15,7 @@ This document describes the three-layer testing strategy for this project: unit,
 
 ## Current State
 
-Fifteen test projects, 603 tests (unit + integration) + 20 E2E tests. All layers complete.
+Fifteen test projects, 505 tests (429 unit + 76 integration) + 32 E2E tests. All layers complete.
 
 | Component | Unit | Integration | E2E |
 |-----------|------|-------------|-----|
@@ -46,7 +46,7 @@ Fifteen test projects, 603 tests (unit + integration) + 20 E2E tests. All layers
 | ReportingService — consumers | ✅ | ✅ | ✅ |
 | ReportingService — controller | ✅ | ✅ | ✅ |
 
-**623 tests total. 479 unit + 124 integration + 20 E2E. All passing.**
+**537 tests total. 429 unit + 76 integration + 32 E2E. Unit and integration all passing.**
 **E2E tests in EndToEnd.Tests require Docker Compose stack (`docker compose up --build -d`).**
 
 ### Coverage (last measured: March 2026, pre-v2.1 completion)
@@ -63,27 +63,27 @@ Generated with `dotnet test --collect:"XPlat Code Coverage"` and `reportgenerato
 
 | Project | Tests |
 |---------|-------|
-| AuthService.Tests | 132 |
-| UserManagementService.Tests | 86 |
-| ContactService.Tests | 48 |
-| AccountService.Tests | 41 |
-| DealService.Tests | 79 |
-| ActivityService.Tests | 50 |
-| ReportingService.Tests | 43 |
-| **Total** | **479** |
+| AuthService.Tests | 133 |
+| UserManagementService.Tests | 71 |
+| ContactService.Tests | 42 |
+| AccountService.Tests | 35 |
+| DealService.Tests | 72 |
+| ActivityService.Tests | 41 |
+| ReportingService.Tests | 35 |
+| **Total** | **429** |
 
 ### Integration test count by project
 
 | Project | Tests |
 |---------|-------|
-| AuthService.IntegrationTests | 17 |
-| UserManagementService.IntegrationTests | 23 |
-| AccountService.IntegrationTests | 15 |
-| ContactService.IntegrationTests | 15 |
-| DealService.IntegrationTests | 19 |
-| ActivityService.IntegrationTests | 17 |
-| ReportingService.IntegrationTests | 18 |
-| **Total** | **124** |
+| AuthService.IntegrationTests | 11 |
+| UserManagementService.IntegrationTests | 16 |
+| AccountService.IntegrationTests | 9 |
+| ContactService.IntegrationTests | 9 |
+| DealService.IntegrationTests | 12 |
+| ActivityService.IntegrationTests | 9 |
+| ReportingService.IntegrationTests | 10 |
+| **Total** | **76** |
 
 ---
 
@@ -574,11 +574,11 @@ The `EndToEnd.Tests` project and Docker Compose test orchestration. Scenarios sp
 
 AuthService and UserManagementService test suites grew substantially with v2.1 features:
 
-- **AuthService.Tests** grew from 55 → 132: invite flow, accept-invite, forgot/reset password, force-change-on-first-login, password policy enforcement, MailKit email service, PasswordResetTokenRepository, InviteTokenRepository
-- **UserManagementService.Tests** grew from 48 → 86: admin user list, role assignment, deactivate/reactivate, resend invite, identity audit log (service + repository + controller)
-- **AuthService.IntegrationTests** grew from 11 → 17: forgot password, reset password, force-change redirect, invite acceptance, admin endpoints
-- **UserManagementService.IntegrationTests** grew from 9 → 23: role assignment, status change, audit log retrieval, resend invite, team endpoint
-- **E2E tests** grew from 17 → 20: full invite flow, deactivation enforcement, password reset flow
+- **AuthService.Tests** grew from 55 → 133: invite flow, accept-invite, forgot/reset password, force-change-on-first-login, password policy enforcement, MailKit email service, PasswordResetTokenRepository, InviteTokenRepository
+- **UserManagementService.Tests** grew from 48 → 83: admin user list, role assignment, deactivate/reactivate, resend invite, identity audit log (service + repository + controller)
+- **AuthService.IntegrationTests**: 11 tests (register, login, duplicate, me, refresh, health)
+- **UserManagementService.IntegrationTests** grew from 9 → 17: role assignment, status change, audit log retrieval, resend invite, team endpoint
+- **E2E tests** grew to 32: full invite flow, deactivation enforcement, password reset flow, username login (v2.2)
 
 ### ✅ Done during v1.6 (branch coverage push to ≥80%)
 
@@ -718,84 +718,6 @@ These test cross-service event correctness that unit/integration tests cannot fu
 - Admin user management: list users, change role, activate/deactivate (`GET|PUT /api/admin/users/...`)
 - Invite workflow: `POST /users/api/users/invite` → `POST /auth/api/registration/accept-invite`
 - Password management: forgot-password, reset-password, change-password
-
----
-
-## Frontend API Coverage Audit (as of v2.2)
-
-Audit conducted March 2026 against all 7 services + gateway. 48 unique backend endpoints identified; frontend coverage assessed by reading all API client modules and page components in `frontend/src/`.
-
-### Coverage by service
-
-| Service | Endpoints | Called by Frontend | Coverage |
-|---------|-----------|-------------------|----------|
-| AuthService | 10 | 7 | 70% |
-| UserManagementService | 11 | 7 | 64% |
-| ContactService | 5 | 5 | **100%** |
-| AccountService | 5 | 5 | **100%** |
-| DealService | 8 | 8 | **100%** |
-| ActivityService | 5 | 4 | 80% |
-| ReportingService | 4 | 4 | **100%** |
-| **Total** | **48** | **40** | **83%** |
-
-### Endpoints NOT called by the frontend
-
-| Endpoint | Reason |
-|----------|--------|
-| `POST /auth/api/login/refresh` | Token refresh not implemented — frontend relies on 2-hour JWT expiry |
-| `POST /auth/api/tenants/provision` | Ops/SaaS-only endpoint; no tenant provisioning UI |
-| `GET /users/api/users/{id}/role` | Role is read from JWT claims; direct role lookup endpoint unused |
-| `POST /users/api/users` | Internal service-to-service endpoint (AuthService → UMS); not gateway-exposed |
-| `PATCH /users/api/users/{id}/status` | Frontend uses admin route (`PUT /admin/api/admin/users/{id}/active`) instead |
-| `PATCH /users/api/users/{id}/role` | Frontend uses admin route (`PUT /admin/api/admin/users/{id}/role`) instead |
-| `GET /users/api/users/audit` | Audit log endpoint has no frontend viewer |
-| `GET /activities/api/activities/{id}` | No activity detail page; list + inline update only |
-
-### Frontend pages and their API calls
-
-| Page | API Calls | Status |
-|------|-----------|--------|
-| Login.jsx | `authApi.login` | ✅ Complete |
-| Register.jsx | `authApi.register` | ✅ Complete |
-| ForgotPassword.jsx | `authApi.forgotPassword` | ✅ Complete |
-| ResetPassword.jsx | `authApi.resetPassword` | ✅ Complete |
-| ChangePassword.jsx | `authApi.changePassword` | ✅ Complete |
-| AcceptInvite.jsx | `authApi.acceptInvite` | ✅ Complete |
-| Profile.jsx | `authApi.me`, `usersApi.getProfile` | ✅ Complete |
-| AdminUserList.jsx | `adminApi.listUsers/updateRole/setActive`, `authApi.inviteUser`, `usersApi.resendInvite` | ✅ Complete |
-| AccountList.jsx | `accountsApi.list`, `delete` (single + bulk) | ✅ Complete |
-| AccountForm.jsx | `accountsApi.get/create/update` | ✅ Complete |
-| AccountDetail.jsx | `accountsApi.get/delete`, `contactsApi.list` (filtered by accountId) | ✅ Complete |
-| ContactList.jsx | `contactsApi.list` (with filters), `delete`, bulk status update, `usersApi.getTeam` | ✅ Complete |
-| ContactForm.jsx | `contactsApi.get/create/update`, `accountsApi.list`, `usersApi.getTeam` | ✅ Complete |
-| ContactDetail.jsx | `contactsApi.get/delete`, `accountsApi.get`, `usersApi.getTeam` | ✅ Complete |
-| Pipeline.jsx | `dealsApi.getPipeline`, update stage | ✅ Complete |
-| DealForm.jsx | `dealsApi.get/create/update`, `accountsApi.list`, `usersApi.getTeam` | ✅ Complete |
-| DealDetail.jsx | `dealsApi.get/update/delete/addContact/removeContact`, `contactsApi.list`, `accountsApi.get` | ✅ Complete |
-| TaskList.jsx | `activitiesApi.list` (Tasks only), `update`, `delete` | ⚠️ Tasks only |
-| Dashboard.jsx | `reportsApi.dashboard/pipeline/activities/contacts` | ✅ Complete |
-
-### Gaps
-
-**1. Activity types not exposed in UI (significant gap)**
-- Backend supports `POST /activities/api/activities` with types: Call, Email, Meeting, Task, Note
-- Frontend only surfaces **Tasks** (TaskList.jsx filters `type=Task`)
-- No UI exists to log calls, emails, meetings, or notes against contacts or deals
-- No activity creation form; no activity detail view; `GET /activities/api/activities/{id}` is never called
-- Contact and deal detail pages have no activity timeline
-
-**2. Token refresh not implemented**
-- `POST /auth/api/login/refresh` exists and has backend + integration test coverage
-- Frontend never calls it — sessions hard-expire after 2 hours with no auto-renewal
-- Users mid-session are silently kicked out
-
-**3. Audit log not surfaced**
-- `GET /users/api/users/audit` is admin-only and fully implemented in UMS
-- No audit log viewer in the admin section; the endpoint is dead from the frontend's perspective
-
-**4. Redundant direct PATCH routes on UMS**
-- `PATCH /users/{id}/status` and `PATCH /users/{id}/role` are shadowed by the admin routes
-- These can be considered internal; no action needed unless the PATCH routes are removed
 
 ---
 

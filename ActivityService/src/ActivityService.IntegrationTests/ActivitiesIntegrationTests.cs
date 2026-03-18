@@ -55,30 +55,6 @@ public class ActivitiesIntegrationTests : IClassFixture<ActivityServiceFactory>
   }
 
   [Fact]
-  public async Task GET_activities_ById_Returns200_WithAllFields()
-  {
-    var created = await _client.PostAsJsonAsync("/api/activities",
-      new { type = "Meeting", subject = "Kickoff meeting", notes = "Important" });
-    var activityId = JsonDocument.Parse(await created.Content.ReadAsStringAsync())
-      .RootElement.GetProperty("activityId").GetGuid();
-
-    var response = await _client.GetAsync($"/api/activities/{activityId}");
-
-    response.StatusCode.Should().Be(HttpStatusCode.OK);
-    var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-    doc.RootElement.GetProperty("activityId").GetGuid().Should().Be(activityId);
-    doc.RootElement.GetProperty("subject").GetString().Should().Be("Kickoff meeting");
-  }
-
-  [Fact]
-  public async Task GET_activities_ById_Returns404_WhenMissing()
-  {
-    var response = await _client.GetAsync($"/api/activities/{Guid.NewGuid()}");
-
-    response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-  }
-
-  [Fact]
   public async Task GET_activities_FilterByType_ReturnsOnlyMatching()
   {
     await _client.PostAsJsonAsync("/api/activities", new { type = "Task", subject = "Task activity" });

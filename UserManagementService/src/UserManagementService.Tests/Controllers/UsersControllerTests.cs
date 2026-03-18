@@ -4,8 +4,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
-using SharedLibrary.DTOs;
-using SharedLibrary.Enums;
 using UserManagementService.Controllers;
 using UserManagementService.Models.DTOs;
 using UserManagementService.Services;
@@ -32,54 +30,6 @@ public class UsersControllerTests
         })),
       },
     };
-  }
-
-  // ── CreateUserProfile ─────────────────────────────────────────────────────
-
-  [Fact]
-  public async Task CreateUserProfile_ReturnsBadRequest_WhenEmailMissing()
-  {
-    var result = await _sut.CreateUserProfile(new CreateUserProfileRequest { UserId = Guid.NewGuid(), Email = "" });
-
-    result.Should().BeOfType<BadRequestObjectResult>();
-  }
-
-  [Fact]
-  public async Task CreateUserProfile_Returns201_OnSuccess()
-  {
-    var request = new CreateUserProfileRequest { UserId = Guid.NewGuid(), Email = "user@example.com" };
-    _serviceMock.Setup(s => s.CreateUserProfileAsync(request))
-      .ReturnsAsync(ServiceResult.Success(new CreateUserProfileResponse { UserId = request.UserId }, "Created", 201));
-
-    var result = await _sut.CreateUserProfile(request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(201);
-  }
-
-  [Fact]
-  public async Task CreateUserProfile_Returns400_WhenAlreadyExists()
-  {
-    var request = new CreateUserProfileRequest { UserId = Guid.NewGuid(), Email = "user@example.com" };
-    _serviceMock.Setup(s => s.CreateUserProfileAsync(request))
-      .ReturnsAsync(ServiceResult.Failure("User profile already exists."));
-
-    var result = await _sut.CreateUserProfile(request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(400);
-  }
-
-  [Fact]
-  public async Task CreateUserProfile_Returns500_OnException()
-  {
-    var request = new CreateUserProfileRequest { UserId = Guid.NewGuid(), Email = "user@example.com" };
-    _serviceMock.Setup(s => s.CreateUserProfileAsync(request)).ThrowsAsync(new Exception());
-
-    var result = await _sut.CreateUserProfile(request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(500);
   }
 
   // ── GetUserProfile ────────────────────────────────────────────────────────
@@ -173,131 +123,6 @@ public class UsersControllerTests
 
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(404);
-  }
-
-  // ── PatchUserStatus ───────────────────────────────────────────────────────
-
-  [Fact]
-  public async Task PatchUserStatus_ReturnsOk_WhenDeactivatingUser()
-  {
-    var userId = Guid.NewGuid();
-    var request = new SetUserActiveRequest { IsActive = false };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false, It.IsAny<Guid>()))
-      .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, IsActive = false }));
-
-    var result = await _sut.PatchUserStatus(userId, request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(200);
-  }
-
-  [Fact]
-  public async Task PatchUserStatus_ReturnsOk_WhenReactivatingUser()
-  {
-    var userId = Guid.NewGuid();
-    var request = new SetUserActiveRequest { IsActive = true };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, true, It.IsAny<Guid>()))
-      .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, IsActive = true }));
-
-    var result = await _sut.PatchUserStatus(userId, request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(200);
-  }
-
-  [Fact]
-  public async Task PatchUserStatus_Returns404_WhenUserNotFound()
-  {
-    var userId = Guid.NewGuid();
-    var request = new SetUserActiveRequest { IsActive = false };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false, It.IsAny<Guid>()))
-      .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
-
-    var result = await _sut.PatchUserStatus(userId, request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(404);
-  }
-
-  [Fact]
-  public async Task PatchUserStatus_Returns500_OnException()
-  {
-    var userId = Guid.NewGuid();
-    var request = new SetUserActiveRequest { IsActive = false };
-    _serviceMock.Setup(s => s.SetUserActiveAsync(userId, false, It.IsAny<Guid>())).ThrowsAsync(new Exception());
-
-    var result = await _sut.PatchUserStatus(userId, request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(500);
-  }
-
-  // ── PatchUserRole ─────────────────────────────────────────────────────────
-
-  [Fact]
-  public async Task PatchUserRole_ReturnsOk_WhenSuccessful()
-  {
-    var userId = Guid.NewGuid();
-    var request = new UpdateUserRoleRequest { Role = UserRole.Admin };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Admin, It.IsAny<Guid>()))
-      .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId, Role = UserRole.Admin }));
-
-    var result = await _sut.PatchUserRole(userId, request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(200);
-  }
-
-  [Fact]
-  public async Task PatchUserRole_Returns400_WhenRoleIsInvalidEnumValue()
-  {
-    var userId = Guid.NewGuid();
-    var request = new UpdateUserRoleRequest { Role = (UserRole)999 };
-
-    var result = await _sut.PatchUserRole(userId, request);
-
-    result.Should().BeOfType<BadRequestObjectResult>();
-  }
-
-  [Fact]
-  public async Task PatchUserRole_Returns400_WhenRoleIsUnassigned()
-  {
-    var userId = Guid.NewGuid();
-    var request = new UpdateUserRoleRequest { Role = UserRole.Unassigned };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Unassigned, It.IsAny<Guid>()))
-      .ReturnsAsync(ServiceResult.Failure("Cannot set role to Unassigned. Use Member, SalesRep, Manager, or Admin."));
-
-    var result = await _sut.PatchUserRole(userId, request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(400);
-  }
-
-  [Fact]
-  public async Task PatchUserRole_Returns404_WhenUserNotFound()
-  {
-    var userId = Guid.NewGuid();
-    var request = new UpdateUserRoleRequest { Role = UserRole.Member };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Member, It.IsAny<Guid>()))
-      .ReturnsAsync(ServiceResult.Failure("User profile not found.", 404));
-
-    var result = await _sut.PatchUserRole(userId, request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(404);
-  }
-
-  [Fact]
-  public async Task PatchUserRole_Returns500_OnException()
-  {
-    var userId = Guid.NewGuid();
-    var request = new UpdateUserRoleRequest { Role = UserRole.Member };
-    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Member, It.IsAny<Guid>())).ThrowsAsync(new Exception());
-
-    var result = await _sut.PatchUserRole(userId, request);
-
-    var obj = result.Should().BeOfType<ObjectResult>().Subject;
-    obj.StatusCode.Should().Be(500);
   }
 
   // ── ResendInvite ──────────────────────────────────────────────────────────

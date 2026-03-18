@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Users, Building2, BarChart3, CheckSquare, LayoutDashboard, ChevronLeft, ChevronRight, ShieldCheck, X } from 'lucide-react'
+import { Users, Building2, BarChart3, CheckSquare, LayoutDashboard, ChevronLeft, ChevronRight, ShieldCheck, ClipboardList, X } from 'lucide-react'
 import TopBar from './TopBar.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { cn } from '../lib/utils'
@@ -32,6 +32,7 @@ const adminNavGroup = {
   label: 'Admin',
   items: [
     { to: '/admin/users', label: 'Users', Icon: ShieldCheck },
+    { to: '/admin/audit', label: 'Audit Log', Icon: ClipboardList },
   ],
 }
 

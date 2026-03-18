@@ -27,7 +27,7 @@ export default function ChangePassword() {
     setLoading(true)
     try {
       const data = await authApi.changePassword(newPassword)
-      login(data.token)
+      login(data.token, data.refreshToken)
       navigate('/contacts', { replace: true })
     } catch (err) {
       setError(err.message)

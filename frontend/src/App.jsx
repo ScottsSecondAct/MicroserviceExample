@@ -22,6 +22,7 @@ import DealForm from './pages/deals/DealForm.jsx'
 import TaskList from './pages/activities/TaskList.jsx'
 import Dashboard from './pages/dashboard/Dashboard.jsx'
 import AdminUserList from './pages/admin/AdminUserList.jsx'
+import AuditLog from './pages/admin/AuditLog.jsx'
 
 export default function App() {
   return (
@@ -55,6 +56,7 @@ export default function App() {
               <Route path="/profile" element={<Profile />} />
               <Route element={<AdminRoute />}>
                 <Route path="/admin/users" element={<AdminUserList />} />
+                <Route path="/admin/audit" element={<AuditLog />} />
                 <Route path="/register" element={<Register />} />
               </Route>
             </Route>

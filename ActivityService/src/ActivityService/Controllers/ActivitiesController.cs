@@ -38,21 +38,6 @@ public class ActivitiesController : ControllerBase
     }
   }
 
-  [HttpGet("{id:guid}")]
-  public async Task<IActionResult> GetById(Guid id)
-  {
-    try
-    {
-      var result = await _activityService.GetActivityAsync(id);
-      return StatusCode(result.StatusCode, result.Data ?? result.Message);
-    }
-    catch (Exception ex)
-    {
-      _logger.LogError(ex, "Error retrieving activity {ActivityId}", id);
-      return StatusCode(500, "An error occurred while retrieving the activity.");
-    }
-  }
-
   [HttpPost]
   public async Task<IActionResult> Create([FromBody] CreateActivityRequest request)
   {

@@ -6,6 +6,7 @@ const ADMIN_BASE = '/admin/api/admin'
 export const usersApi = {
   getProfile: (userId) => apiFetch(`${BASE}/${userId}`),
   getTeam: () => apiFetch(`${BASE}/team`),
+  getAuditLog: () => apiFetch(`${BASE}/audit`),
 }
 
 export const adminApi = {
