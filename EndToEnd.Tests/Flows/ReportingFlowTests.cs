@@ -109,6 +109,18 @@ public class ReportingFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task GetActivities_ReturnsActivityProjections()
+    {
+        await LoginAsync();
+
+        var response = await _client.GetAsync("/reports/api/reports/activities");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var arr = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        arr.ValueKind.Should().Be(JsonValueKind.Array);
+    }
+
+    [Fact]
     public async Task ReportsRoute_WithoutToken_Returns401()
     {
         var response = await _client.GetAsync("/reports/api/reports/dashboard");

@@ -608,9 +608,7 @@ A targeted coverage pass raised branch coverage from 70.9% → **80.7%**. Key fi
 
 ---
 
-### v2.2 — Username Login & Tenancy Foundation (planned)
-
-New test scenarios to add alongside v2.2 implementation:
+### ✅ Done during v2.2 (Username Login & Tenancy Foundation)
 
 **Unit tests (AuthService.Tests)**
 - `LoginService`: email login (contains `@`), username login (no `@`), unknown username → 401, username wrong tenant → 401
@@ -632,6 +630,94 @@ New test scenarios to add alongside v2.2 implementation:
 **E2E tests (EndToEnd.Tests)**
 - Login as admin using `admin` (username) instead of `admin@example.com`
 - Register user → verify username derived from email; login with that username succeeds
+
+---
+
+## E2E Coverage Audit (as of v2.2)
+
+Audit conducted March 2026 against all 7 services + gateway. 49 unique API endpoints identified; 16 E2E test methods in 6 test files.
+
+### Coverage by service
+
+| Service | Endpoints | Covered | % |
+|---------|-----------|---------|---|
+| AuthService | 10 | 3 | 30% |
+| UserManagementService | 11 | 1 | 9% |
+| AccountService | 5 | 2 | 40% |
+| ContactService | 5 | 5 | 100% |
+| DealService | 8 | 6 | 75% |
+| ActivityService | 5 | 4 | 80% |
+| ReportingService | 4 | 4 | 100% |
+| Gateway | 1 | 1 | 100% |
+| **Total** | **49** | **26** | **53%** |
+
+### What is covered
+
+| Endpoint | Test |
+|----------|------|
+| POST /auth/api/login/login | AuthFlowTests, GatewayAuthTests |
+| GET /auth/api/login/me | AuthFlowTests |
+| POST /auth/api/registration/register | AuthFlowTests (200 + 409) |
+| GET /users/api/users/{id} | AuthFlowTests (event-driven poll) |
+| POST /accounts/api/accounts | AccountContactFlowTests |
+| DELETE /accounts/api/accounts/{id} | AccountContactFlowTests |
+| GET /contacts/api/contacts | AccountContactFlowTests, GatewayAuthTests |
+| GET /contacts/api/contacts/{id} | AccountContactFlowTests |
+| POST /contacts/api/contacts | AccountContactFlowTests, DealFlowTests, ActivityFlowTests, ReportingFlowTests |
+| PUT /contacts/api/contacts/{id} | AccountContactFlowTests, ReportingFlowTests |
+| GET /deals/api/deals/{id} | DealFlowTests |
+| POST /deals/api/deals | DealFlowTests, ReportingFlowTests, ActivityFlowTests |
+| PUT /deals/api/deals/{id} | DealFlowTests |
+| POST /deals/api/deals/{id}/contacts | DealFlowTests |
+| GET /pipeline/api/pipeline | DealFlowTests |
+| GET /activities/api/activities | ActivityFlowTests (contactId + dealId filters), GatewayAuthTests |
+| GET /activities/api/activities/{id} | ActivityFlowTests |
+| POST /activities/api/activities | ActivityFlowTests |
+| PUT /activities/api/activities/{id} | ActivityFlowTests |
+| GET /reports/api/reports/pipeline | ReportingFlowTests, DealFlowTests |
+| GET /reports/api/reports/contacts | ReportingFlowTests |
+| GET /reports/api/reports/dashboard | ReportingFlowTests |
+| GET /health | GatewayAuthTests |
+
+### Async event flows covered
+
+| Event | Test |
+|-------|------|
+| UserRegistered → UserManagementService creates profile | AuthFlowTests.Register_CreatesUserProfile_ViaEventAsync |
+| ContactStatusChanged → ReportingService updates funnel | ReportingFlowTests.ContactStatusChanged_EventuallyAppearsInContactFunnel |
+| DealCreated → ReportingService updates pipeline | ReportingFlowTests.DealCreated_EventuallyAppearsInPipelineProjection |
+
+### Gaps — High Priority
+
+These test cross-service event correctness that unit/integration tests cannot fully validate:
+
+1. **ContactDeleted → DealService cleanup** — `DELETE /contacts/api/contacts/{id}` is untested end-to-end; the `ContactDeletedConsumer` in DealService removes deal-contact associations, but no E2E test verifies the cascade.
+2. **ActivityLogged → ReportingService** — `GET /reports/api/reports/activities` is never called directly; the activity projection is only seen indirectly through the dashboard.
+3. **TaskCompleted fires exactly once** — only fires when Type==Task and completedAt is first set; no E2E validates this business rule end-to-end.
+4. **DealStageChanged → ReportingService pipeline counts** — a deal moving between stages should shift the pipeline projection; no E2E test verifies this specific event flow.
+
+### Gaps — Medium Priority (CRUD)
+
+| Missing scenario | Endpoint |
+|-----------------|----------|
+| Update account | PUT /accounts/api/accounts/{id} |
+| Get account by ID | GET /accounts/api/accounts/{id} |
+| List accounts | GET /accounts/api/accounts |
+| List deals | GET /deals/api/deals |
+| Delete deal | DELETE /deals/api/deals/{id} |
+| Remove contact from deal | DELETE /deals/api/deals/{id}/contacts/{contactId} |
+| Delete activity | DELETE /activities/api/activities/{id} |
+| Delete contact | DELETE /contacts/api/contacts/{id} |
+| Get team list | GET /users/api/users/team |
+| Get user role | GET /users/api/users/{id}/role |
+| Activities report | GET /reports/api/reports/activities |
+
+### Gaps — Lower Priority (auth/admin flows)
+
+- `POST /auth/api/login/refresh` — refresh token endpoint has zero E2E coverage
+- Admin user management: list users, change role, activate/deactivate (`GET|PUT /api/admin/users/...`)
+- Invite workflow: `POST /users/api/users/invite` → `POST /auth/api/registration/accept-invite`
+- Password management: forgot-password, reset-password, change-password
 
 ---
 

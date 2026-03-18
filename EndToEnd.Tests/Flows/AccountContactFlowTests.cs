@@ -71,5 +71,102 @@ public class AccountContactFlowTests : IDisposable
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task GetAccount_ById_ReturnsAccount()
+    {
+        await LoginAsync();
+
+        var createResponse = await _client.PostAsync("/accounts/api/accounts",
+            new { name = "Lookup Corp", industry = "Healthcare", size = "Small" });
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var accountId = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("accountId").GetGuid();
+
+        var getResponse = await _client.GetAsync($"/accounts/api/accounts/{accountId}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var account = JsonDocument.Parse(await getResponse.Content.ReadAsStringAsync());
+        account.RootElement.GetProperty("accountId").GetGuid().Should().Be(accountId);
+        account.RootElement.GetProperty("name").GetString().Should().Be("Lookup Corp");
+    }
+
+    [Fact]
+    public async Task ListAccounts_IncludesCreatedAccount()
+    {
+        await LoginAsync();
+
+        var createResponse = await _client.PostAsync("/accounts/api/accounts",
+            new { name = $"List Corp {Guid.NewGuid()}", industry = "Retail", size = "Medium" });
+        var accountId = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("accountId").GetGuid();
+
+        var listResponse = await _client.GetAsync("/accounts/api/accounts");
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var accounts = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync()).RootElement;
+        accounts.ValueKind.Should().Be(JsonValueKind.Array);
+        accounts.EnumerateArray().Should().Contain(a => a.GetProperty("accountId").GetGuid() == accountId);
+    }
+
+    [Fact]
+    public async Task UpdateAccount_ChangesNameAndIndustry()
+    {
+        await LoginAsync();
+
+        var createResponse = await _client.PostAsync("/accounts/api/accounts",
+            new { name = "Old Name", industry = "Finance", size = "Large" });
+        var accountId = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("accountId").GetGuid();
+
+        var updateResponse = await _client.PutAsync($"/accounts/api/accounts/{accountId}",
+            new { name = "New Name", industry = "Technology", size = "Small" });
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResponse = await _client.GetAsync($"/accounts/api/accounts/{accountId}");
+        var account = JsonDocument.Parse(await getResponse.Content.ReadAsStringAsync());
+        account.RootElement.GetProperty("name").GetString().Should().Be("New Name");
+        account.RootElement.GetProperty("industry").GetString().Should().Be("Technology");
+    }
+
+    [Fact]
+    public async Task DeleteContact_RemovesDealContactAssociation()
+    {
+        await LoginAsync();
+
+        // Create a contact
+        var contactResponse = await _client.PostAsync("/contacts/api/contacts",
+            new { firstName = "Del", lastName = "Contact", email = $"del-{Guid.NewGuid()}@example.com" });
+        var contactId = JsonDocument.Parse(await contactResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("contactId").GetGuid();
+
+        // Create a deal and associate the contact
+        var dealResponse = await _client.PostAsync("/deals/api/deals",
+            new { title = "Deal For Contact Deletion", value = 5000 });
+        var dealId = JsonDocument.Parse(await dealResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("dealId").GetGuid();
+
+        await _client.PostAsync($"/deals/api/deals/{dealId}/contacts",
+            new { contactId, role = "Champion" });
+
+        // Verify contact is on the deal
+        var dealBefore = JsonDocument.Parse(
+            await (await _client.GetAsync($"/deals/api/deals/{dealId}")).Content.ReadAsStringAsync());
+        dealBefore.RootElement.GetProperty("contacts").GetArrayLength().Should().Be(1);
+
+        // Delete the contact — fires ContactDeleted event
+        var deleteResponse = await _client.DeleteAsync($"/contacts/api/contacts/{contactId}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Poll until DealService processes the ContactDeleted event and removes the association
+        await RetryHelper.WaitUntilAsync(async () =>
+        {
+            var r = await _client.GetAsync($"/deals/api/deals/{dealId}");
+            var deal = JsonDocument.Parse(await r.Content.ReadAsStringAsync());
+            return deal.RootElement.GetProperty("contacts").GetArrayLength() == 0;
+        }, timeout: TimeSpan.FromSeconds(15));
+
+        var dealAfter = JsonDocument.Parse(
+            await (await _client.GetAsync($"/deals/api/deals/{dealId}")).Content.ReadAsStringAsync());
+        dealAfter.RootElement.GetProperty("contacts").GetArrayLength().Should().Be(0);
+    }
+
     public void Dispose() => _client.Dispose();
 }

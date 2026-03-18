@@ -286,6 +286,8 @@ services:
       JwtSettings__Audience: "YourAppUsers"
       AllowedOrigins: "http://localhost:5173"
       Seq__Url: "http://seq:80"
+      RateLimiting__PerIpPermitLimit: "1000"
+      RateLimiting__PerUserPermitLimit: "2000"
       ReverseProxy__Clusters__auth-cluster__Destinations__auth-service__Address: "http://auth-service:8080"
       ReverseProxy__Clusters__users-cluster__Destinations__user-management-service__Address: "http://user-management-service:8080"
       ReverseProxy__Clusters__contacts-cluster__Destinations__contact-service__Address: "http://contact-service:8080"

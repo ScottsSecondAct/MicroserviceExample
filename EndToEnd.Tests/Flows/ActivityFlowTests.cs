@@ -84,5 +84,83 @@ public class ActivityFlowTests : IDisposable
         dates.Should().BeInDescendingOrder();
     }
 
+    [Fact]
+    public async Task DeleteActivity_Returns204_AndActivityIsGone()
+    {
+        var contactId = await LoginAndCreateContactAsync();
+
+        var createResponse = await _client.PostAsync("/activities/api/activities",
+            new { type = "Note", subject = "Activity to delete", contactId });
+        var activityId = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("activityId").GetGuid();
+
+        var deleteResponse = await _client.DeleteAsync($"/activities/api/activities/{activityId}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var getResponse = await _client.GetAsync($"/activities/api/activities/{activityId}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task TaskCompleted_FiresOnlyOnFirstCompletion()
+    {
+        var contactId = await LoginAndCreateContactAsync();
+
+        // Create a Task activity
+        var createResponse = await _client.PostAsync("/activities/api/activities",
+            new { type = "Task", subject = "Idempotent task", contactId });
+        var activityId = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("activityId").GetGuid();
+
+        // First completion — fires TaskCompleted event
+        var firstComplete = await _client.PutAsync($"/activities/api/activities/{activityId}",
+            new { completedAt = DateTime.UtcNow });
+        firstComplete.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var afterFirst = JsonDocument.Parse(await (await _client.GetAsync($"/activities/api/activities/{activityId}")).Content.ReadAsStringAsync());
+        afterFirst.RootElement.GetProperty("completedAt").ValueKind.Should().NotBe(JsonValueKind.Null);
+
+        // Second completion — does NOT fire TaskCompleted again (idempotent)
+        var secondComplete = await _client.PutAsync($"/activities/api/activities/{activityId}",
+            new { completedAt = DateTime.UtcNow });
+        secondComplete.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Activity should still show completedAt set, no error
+        var afterSecond = JsonDocument.Parse(await (await _client.GetAsync($"/activities/api/activities/{activityId}")).Content.ReadAsStringAsync());
+        afterSecond.RootElement.GetProperty("completedAt").ValueKind.Should().NotBe(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task ActivityLogged_AppearsInReportingActivitiesProjection()
+    {
+        await _client.LoginAsAdminAsync();
+
+        // Get the admin's userId so we can set it as ownerId on the activity
+        var me = JsonDocument.Parse(
+            await (await _client.GetAsync("/auth/api/login/me")).Content.ReadAsStringAsync());
+        var adminUserId = me.RootElement.GetProperty("userId").GetGuid();
+
+        // Create an activity owned by the admin — fires ActivityLogged with OwnerId = adminUserId
+        var createResponse = await _client.PostAsync("/activities/api/activities",
+            new { type = "Call", subject = "Reporting test call", ownerId = adminUserId });
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // Poll until ReportingService processes ActivityLogged and creates/updates the projection
+        await RetryHelper.WaitUntilAsync(async () =>
+        {
+            var r = await _client.GetAsync("/reports/api/reports/activities");
+            var arr = JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement;
+            return arr.EnumerateArray()
+                .Any(p => p.GetProperty("ownerId").GetGuid() == adminUserId &&
+                          p.GetProperty("totalCount").GetInt32() >= 1);
+        }, timeout: TimeSpan.FromSeconds(15));
+
+        var activitiesResponse = await _client.GetAsync("/reports/api/reports/activities");
+        var projections = JsonDocument.Parse(await activitiesResponse.Content.ReadAsStringAsync()).RootElement;
+        var adminProjection = projections.EnumerateArray()
+            .First(p => p.GetProperty("ownerId").GetGuid() == adminUserId);
+        adminProjection.GetProperty("totalCount").GetInt32().Should().BeGreaterThan(0);
+    }
+
     public void Dispose() => _client.Dispose();
 }
