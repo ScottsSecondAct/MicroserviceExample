@@ -118,7 +118,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
   var db = scope.ServiceProvider.GetRequiredService<UserManagementDbContext>();
-  db.Database.EnsureCreated();
+  db.Database.Migrate();
 
   // Seed default tenant (must happen before admin profile due to FK)
   var tenantConfig = app.Configuration.GetSection("DefaultTenant");
