@@ -279,14 +279,33 @@ Serilog enriches every log event with the active `TraceId` and `SpanId`. This me
 - Click a `TraceId` value to filter all log events from that request across every service that handled it
 - Or switch to the **Traces** tab and click into a span to see the correlated log lines inline
 
+#### Filtering by service
+
+Every log event carries a `serviceId` property. To filter to a single service, type the expression into the filter bar at the top of the Seq **Events** tab and press Enter:
+
+| Service | Filter expression |
+|---|---|
+| API Gateway | `serviceId = 'api-gateway'` |
+| AuthService | `serviceId = 'auth-service'` |
+| UserManagementService | `serviceId = 'user-management-service'` |
+| ContactService | `serviceId = 'contact-service'` |
+| AccountService | `serviceId = 'account-service'` |
+| DealService | `serviceId = 'deal-service'` |
+| ActivityService | `serviceId = 'activity-service'` |
+| ReportingService | `serviceId = 'reporting-service'` |
+
+> **Note:** Values are kebab-case (hyphens, not underscores). `serviceId = 'auth_service'` will return no results.
+
+Filters can be combined with `and`:
+```
+serviceId = 'auth-service' and @Level = 'Error'
+```
+
 #### Useful Seq filter expressions
 
 ```
 # All errors across all services
 @Level = 'Error'
-
-# Logs from one service
-Service = 'AuthService'
 
 # Everything from a specific request (copy TraceId from any log line)
 TraceId = 'abc123def456...'
