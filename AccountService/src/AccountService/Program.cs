@@ -72,7 +72,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
   var db = scope.ServiceProvider.GetRequiredService<AccountDbContext>();
-  db.Database.EnsureCreated();
+  db.Database.Migrate();
 }
 
 app.UseSwagger();

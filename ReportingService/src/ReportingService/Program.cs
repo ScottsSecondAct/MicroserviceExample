@@ -77,7 +77,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ReportingDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 
     // Seed pipeline stages so all 5 always appear in the projection even before any deals arrive
     var stages = new[] { "Prospecting", "Proposal", "Negotiation", "ClosedWon", "ClosedLost" };
