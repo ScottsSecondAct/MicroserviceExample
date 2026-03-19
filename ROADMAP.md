@@ -1,6 +1,25 @@
 
 # Roadmap
 
+## Explicitly Deferred
+
+The following are real enterprise CRM features that have been deliberately excluded from the roadmap. They do not add credibility proportional to their implementation cost at this stage, or they depend on business decisions (pricing model, target market, distribution channel) that have not yet been made.
+
+| Feature | Why deferred |
+|---------|-------------|
+| **Marketing automation** | Campaigns, lead nurturing, email sequences, and drip workflows are a separate product surface. They require a dedicated campaign engine, list segmentation, unsubscribe compliance (CAN-SPAM/GDPR), and send-time optimization. Better addressed by integrating a dedicated tool (Mailchimp, Brevo) via webhook/API than building in-house. |
+| **Customer service / ticketing** | Helpdesk and support ticket management (case routing, SLA tracking, agent queues) is a distinct product line. Depth required to be credible here is comparable to building a second CRM. Integrate with Zendesk or Intercom instead. |
+| **Territory management** | Assigning and enforcing geographic or account-based sales territories requires a rules engine, territory hierarchy, and conflict-resolution logic. High complexity, low frequency of need outside large enterprise sales orgs. |
+| **Advanced forecasting** | Statistical pipeline forecasting, quota management, rep attainment tracking, and commit/best-case/pipeline categories require substantial data history and a forecasting model. The reporting foundation (v3.5) is a prerequisite; this builds on top of it. |
+| **CPQ (Configure-Price-Quote)** | Product catalog, pricing rules, discount approvals, and quote document generation are a full application in their own right. Requires a separate ProductService and document templating engine. |
+| **Mobile app** | Native iOS/Android apps require a separate build pipeline, app store distribution, push notification infrastructure, and offline sync. Responsive web (already in scope) is sufficient for MVP. |
+| **Marketplace / app ecosystem** | Third-party integrations via an app store, OAuth app registration, and a published extension API require developer relations, documentation infrastructure, and ongoing partner support. Post-GA consideration. |
+| **Multi-currency** | Storing, converting, and displaying deal values in multiple currencies requires exchange-rate feeds, a currency normalization layer in reporting, and locale-aware formatting throughout the UI. Required only when targeting global sales orgs. |
+| **Multi-language (i18n)** | Full UI localization requires extracting all strings into resource files, RTL layout support, and ongoing translation maintenance. Addressable via community contribution post-launch. |
+| **Autonomous AI agents** | Agents that take CRM actions on behalf of users (auto-log calls, auto-update deal stages, auto-draft emails) require a higher trust model, approval workflows, and explainability features before enterprise buyers will accept them. The AI foundation (v4.3) is a prerequisite. |
+
+---
+
 ## v1.0 — Current State ✅
 
 Working two-service authentication system with a React frontend.
