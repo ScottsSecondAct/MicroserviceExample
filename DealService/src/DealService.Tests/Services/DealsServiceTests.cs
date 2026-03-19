@@ -346,6 +346,109 @@ public class DealsServiceTests
     _mockRepository.Verify(r => r.AddAsync(It.IsAny<Deal>()), Times.Never);
   }
 
+  // ── AddContactToDealAsync ──────────────────────────────────────────────────
+
+  [Fact]
+  public async Task AddContactToDealAsync_WhenDealNotFound_ReturnsFailure404()
+  {
+    var dealId = Guid.NewGuid();
+    _mockRepository.Setup(r => r.GetByIdAsync(dealId)).ReturnsAsync((Deal?)null);
+
+    var result = await _service.AddContactToDealAsync(dealId, new AddDealContactRequest { ContactId = Guid.NewGuid() });
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(404);
+    _mockContactClient.Verify(c => c.ContactExistsAsync(It.IsAny<Guid>()), Times.Never);
+  }
+
+  [Fact]
+  public async Task AddContactToDealAsync_WhenContactNotFound_ReturnsFailure400()
+  {
+    var deal = MakeDeal();
+    var contactId = Guid.NewGuid();
+    _mockRepository.Setup(r => r.GetByIdAsync(deal.DealId)).ReturnsAsync(deal);
+    _mockContactClient.Setup(c => c.ContactExistsAsync(contactId)).ReturnsAsync(false);
+
+    var result = await _service.AddContactToDealAsync(deal.DealId, new AddDealContactRequest { ContactId = contactId });
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(400);
+    _mockRepository.Verify(r => r.AddDealContactAsync(It.IsAny<DealContact>()), Times.Never);
+  }
+
+  [Fact]
+  public async Task AddContactToDealAsync_WhenAlreadyAssociated_ReturnsConflict409()
+  {
+    var deal = MakeDeal();
+    var contactId = Guid.NewGuid();
+    var existing = new DealContact { DealContactId = Guid.NewGuid(), DealId = deal.DealId, ContactId = contactId };
+    _mockRepository.Setup(r => r.GetByIdAsync(deal.DealId)).ReturnsAsync(deal);
+    _mockContactClient.Setup(c => c.ContactExistsAsync(contactId)).ReturnsAsync(true);
+    _mockRepository.Setup(r => r.GetDealContactAsync(deal.DealId, contactId)).ReturnsAsync(existing);
+
+    var result = await _service.AddContactToDealAsync(deal.DealId, new AddDealContactRequest { ContactId = contactId });
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(409);
+    _mockRepository.Verify(r => r.AddDealContactAsync(It.IsAny<DealContact>()), Times.Never);
+  }
+
+  [Fact]
+  public async Task AddContactToDealAsync_Success_ReturnsCreated201()
+  {
+    var deal = MakeDeal();
+    var contactId = Guid.NewGuid();
+    _mockRepository.Setup(r => r.GetByIdAsync(deal.DealId)).ReturnsAsync(deal);
+    _mockContactClient.Setup(c => c.ContactExistsAsync(contactId)).ReturnsAsync(true);
+    _mockRepository.Setup(r => r.GetDealContactAsync(deal.DealId, contactId)).ReturnsAsync((DealContact?)null);
+    _mockRepository.Setup(r => r.AddDealContactAsync(It.IsAny<DealContact>())).Returns(Task.CompletedTask);
+
+    var result = await _service.AddContactToDealAsync(deal.DealId, new AddDealContactRequest
+    {
+      ContactId = contactId,
+      Role = DealContactRole.DecisionMaker
+    });
+
+    result.IsSuccess.Should().BeTrue();
+    result.StatusCode.Should().Be(201);
+    var response = result.Data as DealContactResponse;
+    response!.ContactId.Should().Be(contactId);
+    response.Role.Should().Be(DealContactRole.DecisionMaker);
+    _mockRepository.Verify(r => r.AddDealContactAsync(It.IsAny<DealContact>()), Times.Once);
+  }
+
+  // ── RemoveContactFromDealAsync ─────────────────────────────────────────────
+
+  [Fact]
+  public async Task RemoveContactFromDealAsync_WhenNotAssociated_ReturnsFailure404()
+  {
+    var dealId = Guid.NewGuid();
+    var contactId = Guid.NewGuid();
+    _mockRepository.Setup(r => r.GetDealContactAsync(dealId, contactId)).ReturnsAsync((DealContact?)null);
+
+    var result = await _service.RemoveContactFromDealAsync(dealId, contactId);
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(404);
+    _mockRepository.Verify(r => r.RemoveDealContactAsync(It.IsAny<Guid>()), Times.Never);
+  }
+
+  [Fact]
+  public async Task RemoveContactFromDealAsync_Success_Returns204()
+  {
+    var dealId = Guid.NewGuid();
+    var contactId = Guid.NewGuid();
+    var existing = new DealContact { DealContactId = Guid.NewGuid(), DealId = dealId, ContactId = contactId };
+    _mockRepository.Setup(r => r.GetDealContactAsync(dealId, contactId)).ReturnsAsync(existing);
+    _mockRepository.Setup(r => r.RemoveDealContactAsync(existing.DealContactId)).Returns(Task.CompletedTask);
+
+    var result = await _service.RemoveContactFromDealAsync(dealId, contactId);
+
+    result.IsSuccess.Should().BeTrue();
+    result.StatusCode.Should().Be(204);
+    _mockRepository.Verify(r => r.RemoveDealContactAsync(existing.DealContactId), Times.Once);
+  }
+
   [Fact]
   public async Task DeleteDealAsync_WhenFound_ReturnsSuccess()
   {

@@ -264,4 +264,82 @@ public class UserProfileServiceTests
     profile.InvitePendingAt.Should().NotBeNull();
     profile.InvitePendingAt!.Value.Should().BeOnOrAfter(before);
   }
+
+  // ── TenantId branch coverage ──────────────────────────────────────────────
+
+  [Fact]
+  public async Task CreateUserProfileAsync_WhenTenantIdProvided_UsesThatTenantId()
+  {
+    // Covers non-null branch of request.TenantId ?? await GetDefaultTenantIdAsync()
+    var explicitTenantId = Guid.NewGuid();
+    var request = new CreateUserProfileRequest
+    {
+      UserId = Guid.NewGuid(),
+      Email = "test@example.com",
+      TenantId = explicitTenantId
+    };
+
+    _mockRepository.Setup(r => r.GetByIdAsync(request.UserId)).ReturnsAsync((UserProfile?)null);
+    _mockRepository.Setup(r => r.AddAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    var result = await _service.CreateUserProfileAsync(request);
+
+    result.IsSuccess.Should().BeTrue();
+    _mockRepository.Verify(r => r.AddAsync(It.Is<UserProfile>(p => p.TenantId == explicitTenantId)), Times.Once);
+  }
+
+  [Fact]
+  public async Task GetUserRoleAsync_WhenNotFound_ReturnsFailure()
+  {
+    var userId = Guid.NewGuid();
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync((UserProfile?)null);
+
+    var result = await _service.GetUserRoleAsync(userId);
+
+    result.IsSuccess.Should().BeFalse();
+    result.StatusCode.Should().Be(404);
+  }
+
+  [Fact]
+  public async Task SetUserActiveAsync_WhenActivating_LogsAccountActivatedAction()
+  {
+    // Covers the isActive=true branch of the ternary in SetUserActiveAsync
+    var userId = Guid.NewGuid();
+    var profile = new UserProfile { UserId = userId, Email = "user@test.com", Role = UserRole.Member, IsActive = false };
+    _mockRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(profile);
+    _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    var result = await _service.SetUserActiveAsync(userId, true, _actorUserId);
+
+    result.IsSuccess.Should().BeTrue();
+    _mockAuditLogService.Verify(a => a.LogActionAsync(
+        AuditAction.AccountActivated, _actorUserId, userId, null), Times.Once);
+  }
+
+  [Fact]
+  public async Task CreateUserProfileAsync_WhenNoTenantInDb_UsesTenantIdGuidEmpty()
+  {
+    // Covers tenant?.TenantId ?? Guid.Empty null branch in GetDefaultTenantIdAsync
+    var emptyDb = new UserManagementDbContext(
+      new DbContextOptionsBuilder<UserManagementDbContext>()
+        .UseInMemoryDatabase(Guid.NewGuid().ToString())
+        .Options);
+
+    var service = new UserProfileService(_mockRepository.Object, _mockEmailService.Object, _mockAuditLogService.Object, emptyDb);
+
+    var request = new CreateUserProfileRequest
+    {
+      UserId = Guid.NewGuid(),
+      Email = "test@example.com",
+      TenantId = null   // force GetDefaultTenantIdAsync()
+    };
+
+    _mockRepository.Setup(r => r.GetByIdAsync(request.UserId)).ReturnsAsync((UserProfile?)null);
+    _mockRepository.Setup(r => r.AddAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    var result = await service.CreateUserProfileAsync(request);
+
+    result.IsSuccess.Should().BeTrue();
+    _mockRepository.Verify(r => r.AddAsync(It.Is<UserProfile>(p => p.TenantId == Guid.Empty)), Times.Once);
+  }
 }

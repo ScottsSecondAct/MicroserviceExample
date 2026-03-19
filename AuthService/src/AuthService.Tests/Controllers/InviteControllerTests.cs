@@ -112,6 +112,39 @@ public class InviteControllerTests
     Assert.Equal("admin", authorizeAttr.Policy);
   }
 
+  [Fact]
+  public async Task Invite_ShouldReturnBadRequest_WhenRequestIsNull()
+  {
+    // Covers the `request == null` short-circuit branch of the || guard
+    var result = await _controller.Invite(null!);
+
+    var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+    Assert.Contains("Email is required.", badRequest.Value!.ToString());
+  }
+
+  [Fact]
+  public async Task Invite_ShouldReturnUnauthorized_WhenAdminUserIdClaimIsInvalid()
+  {
+    // Covers the !Guid.TryParse(adminUserIdClaim) true branch → Unauthorized
+    var controller = new InviteController(_mockInviteService.Object, _mockLogger.Object);
+    controller.ControllerContext = new ControllerContext
+    {
+      HttpContext = new DefaultHttpContext
+      {
+        User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+          new Claim("UserId", "not-a-guid"),
+          new Claim(ClaimTypes.Role, "Admin")
+        }, "TestAuth"))
+      }
+    };
+
+    var result = await controller.Invite(new InviteRequest { Email = "user@example.com" });
+
+    var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
+    Assert.Contains("Invalid token claims.", unauthorized.Value!.ToString());
+  }
+
   // ── AcceptInvite endpoint ────────────────────────────────────────────────────
 
   [Fact]

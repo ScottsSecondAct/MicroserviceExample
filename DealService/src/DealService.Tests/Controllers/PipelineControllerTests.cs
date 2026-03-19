@@ -57,4 +57,27 @@ public class PipelineControllerTests
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(500);
   }
+
+  [Fact]
+  public async Task GetBoard_DealsWithContacts_MapsContactsIntoResponse()
+  {
+    var contactId = Guid.NewGuid();
+    var deals = new List<Deal>
+    {
+      new()
+      {
+        DealId = Guid.NewGuid(), Title = "Deal With Contacts",
+        Stage = DealStage.Proposal, Value = 3000,
+        DealContacts =
+        [
+          new DealContact { DealContactId = Guid.NewGuid(), ContactId = contactId, Role = DealContactRole.DecisionMaker }
+        ]
+      }
+    };
+    _repoMock.Setup(r => r.GetAllAsync(null, null, null)).ReturnsAsync(deals);
+
+    var result = await _sut.GetBoard();
+
+    result.Should().BeOfType<OkObjectResult>();
+  }
 }

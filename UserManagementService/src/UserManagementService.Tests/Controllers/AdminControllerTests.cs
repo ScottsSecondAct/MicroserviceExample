@@ -156,4 +156,43 @@ public class AdminControllerTests
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(500);
   }
+
+  // ── GetActorUserId fallback ───────────────────────────────────────────────
+
+  [Fact]
+  public async Task GetAllUsers_ReturnsError_WhenServiceFails()
+  {
+    // Covers the null Data ?? result.Message branch in GetAllUsers
+    _serviceMock.Setup(s => s.GetAllUsersAsync())
+      .ReturnsAsync(ServiceResult.Failure("Service error.", 503));
+
+    var result = await _sut.GetAllUsers();
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(503);
+  }
+
+  [Fact]
+  public async Task UpdateUserRole_WithInvalidUserIdClaim_PassesGuidEmptyToService()
+  {
+    var controller = new AdminController(_serviceMock.Object, _loggerMock.Object);
+    controller.ControllerContext = new ControllerContext
+    {
+      HttpContext = new DefaultHttpContext
+      {
+        User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+          new Claim("UserId", "not-a-guid"),
+        })),
+      },
+    };
+    var userId = Guid.NewGuid();
+    var request = new UpdateUserRoleRequest { Role = UserRole.Member };
+    _serviceMock.Setup(s => s.UpdateUserRoleAsync(userId, UserRole.Member, Guid.Empty))
+      .ReturnsAsync(ServiceResult.Success(new AdminUserResponse { UserId = userId }));
+
+    await controller.UpdateUserRole(userId, request);
+
+    _serviceMock.Verify(s => s.UpdateUserRoleAsync(userId, UserRole.Member, Guid.Empty), Times.Once);
+  }
 }

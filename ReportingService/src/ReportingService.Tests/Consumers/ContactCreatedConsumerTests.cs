@@ -1,5 +1,7 @@
 using FluentAssertions;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using ReportingService.Consumers;
 using ReportingService.Data;
 using ReportingService.Models;
@@ -75,5 +77,26 @@ public class ContactCreatedConsumerTests
 
         var prospect = await db.ContactFunnelProjections.FindAsync("Prospect");
         prospect!.Count.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task Consume_DelegatesToHandleAsync()
+    {
+        using var db = CreateDb();
+        var consumer = new ContactCreatedConsumer(db);
+        var message = new ContactCreated
+        {
+            ContactId = Guid.NewGuid(),
+            FirstName = "Bob",
+            LastName = "Brown",
+            Email = "bob@example.com"
+        };
+        var contextMock = new Mock<ConsumeContext<ContactCreated>>();
+        contextMock.Setup(c => c.Message).Returns(message);
+
+        await consumer.Consume(contextMock.Object);
+
+        var lead = await db.ContactFunnelProjections.FindAsync("Lead");
+        lead!.Count.Should().Be(1);
     }
 }

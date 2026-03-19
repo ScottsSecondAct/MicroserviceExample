@@ -125,6 +125,18 @@ public class UsersControllerTests
     obj.StatusCode.Should().Be(404);
   }
 
+  [Fact]
+  public async Task GetUserRole_Returns500_OnException()
+  {
+    var userId = Guid.NewGuid();
+    _serviceMock.Setup(s => s.GetUserRoleAsync(userId)).ThrowsAsync(new Exception("db error"));
+
+    var result = await _sut.GetUserRole(userId);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
+  }
+
   // ── ResendInvite ──────────────────────────────────────────────────────────
 
   [Fact]
@@ -200,5 +212,43 @@ public class UsersControllerTests
 
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(500);
+  }
+
+  [Fact]
+  public async Task GetTeam_ReturnsError_WhenServiceFails()
+  {
+    // Covers the null Data ?? result.Message branch in GetTeam
+    _serviceMock.Setup(s => s.GetTeamAsync())
+      .ReturnsAsync(ServiceResult.Failure("Service error.", 503));
+
+    var result = await _sut.GetTeam();
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(503);
+  }
+
+  // ── GetActorUserId fallback ───────────────────────────────────────────────
+
+  [Fact]
+  public async Task ResendInvite_WithInvalidUserIdClaim_PassesGuidEmptyToService()
+  {
+    var controller = new UsersController(_serviceMock.Object, _auditLogServiceMock.Object, _loggerMock.Object);
+    controller.ControllerContext = new ControllerContext
+    {
+      HttpContext = new DefaultHttpContext
+      {
+        User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+          new Claim("UserId", "not-a-guid"),
+        })),
+      },
+    };
+    var userId = Guid.NewGuid();
+    _serviceMock.Setup(s => s.ResendInviteAsync(userId, Guid.Empty))
+      .ReturnsAsync(ServiceResult.Success(new { }));
+
+    await controller.ResendInvite(userId);
+
+    _serviceMock.Verify(s => s.ResendInviteAsync(userId, Guid.Empty), Times.Once);
   }
 }

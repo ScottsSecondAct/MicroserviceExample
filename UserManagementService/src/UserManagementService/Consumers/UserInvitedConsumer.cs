@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using SharedLibrary.Enums;
@@ -46,6 +47,7 @@ public class UserInvitedConsumer : IConsumer<UserInvited>
       Role = UserRole.Unassigned,
       DisplayName = message.Email,
       IsActive = false,
+      InviteToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant(),
       InvitePendingAt = message.OccurredAt,
       CreatedAt = message.OccurredAt
     };

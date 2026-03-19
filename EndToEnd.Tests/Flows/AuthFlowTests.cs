@@ -99,5 +99,212 @@ public class AuthFlowTests : IDisposable
         second.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
+    // ── Refresh token ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Refresh_WithValidToken_Returns200_WithNewJwt()
+    {
+        var email = $"e2e-refresh-{Guid.NewGuid()}@example.com";
+        await LoginAsAdminAsync();
+        await _client.PostAsync("/auth/api/registration/register", new { email, password = "Password123!" });
+
+        var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password = "Password123!" });
+        var loginDoc = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync());
+        var refreshToken = loginDoc.RootElement.GetProperty("refreshToken").GetString();
+
+        _client.ClearToken();
+        var refreshResponse = await _client.PostAsync("/auth/api/login/refresh", new { refreshToken });
+
+        refreshResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var refreshDoc = JsonDocument.Parse(await refreshResponse.Content.ReadAsStringAsync());
+        refreshDoc.RootElement.GetProperty("token").GetString().Should().NotBeNullOrEmpty();
+        refreshDoc.RootElement.GetProperty("refreshToken").GetString().Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task Refresh_WithInvalidToken_Returns401()
+    {
+        var response = await _client.PostAsync("/auth/api/login/refresh",
+            new { refreshToken = "not-a-real-token" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // ── Change password ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ChangePassword_AllowsLoginWithNewPassword_BlocksOld()
+    {
+        var email = $"e2e-chpw-{Guid.NewGuid()}@example.com";
+        const string oldPassword = "Password123!";
+        const string newPassword = "NewPassword456!";
+
+        await LoginAsAdminAsync();
+        await _client.PostAsync("/auth/api/registration/register", new { email, password = oldPassword });
+
+        var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password = oldPassword });
+        var token = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("token").GetString()!;
+        _client.SetToken(token);
+
+        var changeResponse = await _client.PostAsync("/auth/api/auth/change-password",
+            new { newPassword });
+        changeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // New password works
+        _client.ClearToken();
+        var newLoginResponse = await _client.PostAsync("/auth/api/login/login",
+            new { email, password = newPassword });
+        newLoginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Old password no longer works
+        var oldLoginResponse = await _client.PostAsync("/auth/api/login/login",
+            new { email, password = oldPassword });
+        oldLoginResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // ── Forgot / reset password ───────────────────────────────────────────────
+
+    [Fact]
+    public async Task ForgotPassword_Returns200_ForRegisteredEmail()
+    {
+        var email = $"e2e-forgot-{Guid.NewGuid()}@example.com";
+        await LoginAsAdminAsync();
+        await _client.PostAsync("/auth/api/registration/register", new { email, password = "Password123!" });
+        _client.ClearToken();
+
+        var response = await _client.PostAsync("/auth/api/auth/forgot-password", new { email });
+
+        // Always 200 — prevents email enumeration
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_Returns200_ForUnknownEmail()
+    {
+        var response = await _client.PostAsync("/auth/api/auth/forgot-password",
+            new { email = $"nobody-{Guid.NewGuid()}@example.com" });
+
+        // Always 200 — prevents email enumeration
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_Returns400_WithEmptyEmail()
+    {
+        var response = await _client.PostAsync("/auth/api/auth/forgot-password", new { email = "" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ResetPassword_WithInvalidToken_Returns400()
+    {
+        var response = await _client.PostAsync("/auth/api/auth/reset-password",
+            new { token = "invalid-token", newPassword = "NewPassword123!" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ── Invite ────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SendInvite_Admin_Returns200()
+    {
+        await LoginAsAdminAsync();
+
+        var response = await _client.PostAsync("/auth/api/users/invite",
+            new { email = $"e2e-invite-{Guid.NewGuid()}@example.com" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task SendInvite_DuplicateEmail_Returns409()
+    {
+        var email = $"e2e-invite-dup-{Guid.NewGuid()}@example.com";
+        await LoginAsAdminAsync();
+        await _client.PostAsync("/auth/api/registration/register", new { email, password = "Password123!" });
+
+        var response = await _client.PostAsync("/auth/api/users/invite", new { email });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task AcceptInvite_WithInvalidToken_Returns400()
+    {
+        var response = await _client.PostAsync("/auth/api/registration/accept-invite",
+            new { token = "not-a-real-token", password = "NewPassword123!" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task FullInviteRoundTrip_InviteAcceptLogin()
+    {
+        var email = $"e2e-invite-rt-{Guid.NewGuid()}@example.com";
+        const string password = "InvitePass1!";
+        await LoginAsAdminAsync();
+
+        // Send invite
+        var inviteResponse = await _client.PostAsync("/auth/api/users/invite", new { email });
+        inviteResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Retrieve token via test endpoint
+        var tokenResponse = await _client.GetAsync($"/auth/api/test/tokens/invite?email={Uri.EscapeDataString(email)}");
+        tokenResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var token = JsonDocument.Parse(await tokenResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("token").GetString()!;
+
+        // Accept invite
+        _client.ClearToken();
+        var acceptResponse = await _client.PostAsync("/auth/api/registration/accept-invite",
+            new { token, password });
+        acceptResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Login with the new password
+        var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password });
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("token").GetString().Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task FullPasswordResetRoundTrip_ForgotResetLogin()
+    {
+        var email = $"e2e-reset-rt-{Guid.NewGuid()}@example.com";
+        const string oldPassword = "Password123!";
+        const string newPassword = "ResetPass99!";
+        await LoginAsAdminAsync();
+        await _client.PostAsync("/auth/api/registration/register", new { email, password = oldPassword });
+        _client.ClearToken();
+
+        // Request reset
+        var forgotResponse = await _client.PostAsync("/auth/api/auth/forgot-password", new { email });
+        forgotResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Retrieve token via test endpoint
+        await LoginAsAdminAsync();
+        var tokenResponse = await _client.GetAsync($"/auth/api/test/tokens/password-reset?email={Uri.EscapeDataString(email)}");
+        tokenResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var token = JsonDocument.Parse(await tokenResponse.Content.ReadAsStringAsync())
+            .RootElement.GetProperty("token").GetString()!;
+
+        // Reset password
+        _client.ClearToken();
+        var resetResponse = await _client.PostAsync("/auth/api/auth/reset-password",
+            new { token, newPassword });
+        resetResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Login with new password works
+        var loginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password = newPassword });
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Old password no longer works
+        var oldLoginResponse = await _client.PostAsync("/auth/api/login/login", new { email, password = oldPassword });
+        oldLoginResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
     public void Dispose() => _client.Dispose();
 }

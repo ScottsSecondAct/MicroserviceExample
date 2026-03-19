@@ -86,4 +86,25 @@ public class JwtTokenServiceTests
     Assert.NotNull(claim);
     Assert.Equal("false", claim.Value);
   }
+
+  [Theory]
+  [InlineData("")]
+  [InlineData(null)]
+  public void GenerateJwtToken_WithNullOrEmptySecretKey_ThrowsArgumentNullException(string? secretKey)
+  {
+    var config = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+          { "JwtSettings:SecretKey", secretKey },
+          { "JwtSettings:Issuer", "https://localhost" },
+          { "JwtSettings:Audience", "YourAppUsers" }
+        })
+        .Build();
+    var service = new JwtTokenService(config);
+    var user = new User { UserId = Guid.NewGuid(), Email = "test@example.com" };
+
+    var act = () => service.GenerateJwtToken(user, UserRole.Member);
+
+    Assert.Throws<ArgumentNullException>(act);
+  }
 }

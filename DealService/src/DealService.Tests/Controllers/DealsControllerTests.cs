@@ -310,4 +310,34 @@ public class DealsControllerTests
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(500);
   }
+
+  // ── Null-coalescing branch coverage ───────────────────────────────────────
+
+  [Fact]
+  public async Task GetAll_WithServiceFailure_ReturnsErrorMessage()
+  {
+    // Covers the null Data ?? result.Message branch in GetAll
+    _serviceMock.Setup(s => s.GetAllDealsAsync(null, null, null))
+      .ReturnsAsync(ServiceResult.Failure("Service unavailable.", 503));
+
+    var result = await _sut.GetAll(null, null, null);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(503);
+  }
+
+  [Fact]
+  public async Task AddContact_WithServiceFailure_ReturnsErrorCode()
+  {
+    // Covers the null Data ?? result.Message branch in AddContact
+    var dealId = Guid.NewGuid();
+    var request = new AddDealContactRequest { ContactId = Guid.NewGuid(), Role = DealContactRole.DecisionMaker };
+    _serviceMock.Setup(s => s.AddContactToDealAsync(dealId, request))
+      .ReturnsAsync(ServiceResult.Failure("Deal not found.", 404));
+
+    var result = await _sut.AddContact(dealId, request);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(404);
+  }
 }

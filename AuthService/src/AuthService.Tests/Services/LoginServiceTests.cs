@@ -324,4 +324,70 @@ public class LoginServiceTests
     Assert.Equal(403, result.StatusCode);
     Assert.Contains("deactivated", result.Message, StringComparison.OrdinalIgnoreCase);
   }
+
+  // ── Constructor null guards ───────────────────────────────────────────────
+
+  [Fact]
+  public void Constructor_WithNullUserRepository_ThrowsArgumentNullException()
+  {
+    Assert.Throws<ArgumentNullException>(() => new LoginService(
+      null!, _mockPasswordService.Object, _mockJwtTokenService.Object, _mockUserRoleClient.Object,
+      _mockRefreshTokenRepository.Object, _mockLogger.Object, _mockTenantResolver.Object, _mockHttpContextAccessor.Object));
+  }
+
+  [Fact]
+  public void Constructor_WithNullPasswordService_ThrowsArgumentNullException()
+  {
+    Assert.Throws<ArgumentNullException>(() => new LoginService(
+      _mockUserRepository.Object, null!, _mockJwtTokenService.Object, _mockUserRoleClient.Object,
+      _mockRefreshTokenRepository.Object, _mockLogger.Object, _mockTenantResolver.Object, _mockHttpContextAccessor.Object));
+  }
+
+  [Fact]
+  public void Constructor_WithNullJwtTokenService_ThrowsArgumentNullException()
+  {
+    Assert.Throws<ArgumentNullException>(() => new LoginService(
+      _mockUserRepository.Object, _mockPasswordService.Object, null!, _mockUserRoleClient.Object,
+      _mockRefreshTokenRepository.Object, _mockLogger.Object, _mockTenantResolver.Object, _mockHttpContextAccessor.Object));
+  }
+
+  [Fact]
+  public void Constructor_WithNullUserRoleClient_ThrowsArgumentNullException()
+  {
+    Assert.Throws<ArgumentNullException>(() => new LoginService(
+      _mockUserRepository.Object, _mockPasswordService.Object, _mockJwtTokenService.Object, null!,
+      _mockRefreshTokenRepository.Object, _mockLogger.Object, _mockTenantResolver.Object, _mockHttpContextAccessor.Object));
+  }
+
+  [Fact]
+  public void Constructor_WithNullRefreshTokenRepository_ThrowsArgumentNullException()
+  {
+    Assert.Throws<ArgumentNullException>(() => new LoginService(
+      _mockUserRepository.Object, _mockPasswordService.Object, _mockJwtTokenService.Object, _mockUserRoleClient.Object,
+      null!, _mockLogger.Object, _mockTenantResolver.Object, _mockHttpContextAccessor.Object));
+  }
+
+  [Fact]
+  public void Constructor_WithNullLogger_ThrowsArgumentNullException()
+  {
+    Assert.Throws<ArgumentNullException>(() => new LoginService(
+      _mockUserRepository.Object, _mockPasswordService.Object, _mockJwtTokenService.Object, _mockUserRoleClient.Object,
+      _mockRefreshTokenRepository.Object, null!, _mockTenantResolver.Object, _mockHttpContextAccessor.Object));
+  }
+
+  [Fact]
+  public void Constructor_WithNullTenantResolver_ThrowsArgumentNullException()
+  {
+    Assert.Throws<ArgumentNullException>(() => new LoginService(
+      _mockUserRepository.Object, _mockPasswordService.Object, _mockJwtTokenService.Object, _mockUserRoleClient.Object,
+      _mockRefreshTokenRepository.Object, _mockLogger.Object, null!, _mockHttpContextAccessor.Object));
+  }
+
+  [Fact]
+  public void Constructor_WithNullHttpContextAccessor_ThrowsArgumentNullException()
+  {
+    Assert.Throws<ArgumentNullException>(() => new LoginService(
+      _mockUserRepository.Object, _mockPasswordService.Object, _mockJwtTokenService.Object, _mockUserRoleClient.Object,
+      _mockRefreshTokenRepository.Object, _mockLogger.Object, _mockTenantResolver.Object, null!));
+  }
 }

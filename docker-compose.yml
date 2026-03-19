@@ -95,6 +95,7 @@ services:
       RabbitMQ__Username: "${RABBITMQ_USERNAME}"
       RabbitMQ__Password: "${RABBITMQ_PASSWORD}"
       Seq__Url: "http://seq:80"
+      EnableTestEndpoints: "true"
     depends_on:
       auth-db:
         condition: service_healthy

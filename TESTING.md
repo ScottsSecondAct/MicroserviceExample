@@ -1,31 +1,31 @@
 # Testing Strategy
 
-This document describes the three-layer testing strategy for this project: unit, integration, and end-to-end. It covers what exists, what's missing, and the recommended order of implementation.
+This document describes the three-layer testing strategy for this project: unit, integration, and end-to-end.
 
 ---
 
 ## Guiding Principles
 
 - **Test at the right layer.** Unit tests verify logic in isolation. Integration tests verify a service's HTTP pipeline and database behavior end-to-end. E2E tests verify cross-service flows through the gateway.
-- **Lower layers catch regressions cheaply.** A bug caught by a unit test costs seconds to diagnose. The same bug caught by an E2E test costs minutes. Build the lower layers first.
-- **Integration tests pay off most when written alongside new services**, not retrofitted later. Establish the pattern once; adapt it per service.
-- **E2E tests are most valuable when the feature set tells a complete story.** Defer the E2E infrastructure until the domain is rich enough to make the scenarios meaningful.
+- **Lower layers catch regressions cheaply.** A bug caught by a unit test costs seconds to diagnose. The same bug caught by an E2E test costs minutes.
+- **Integration tests are most valuable when written alongside new services.** Establish the pattern once; adapt it per service.
+- **E2E tests are most valuable when the feature set tells a complete story.** Scenarios should span multiple services and cover async event flows.
 
 ---
 
 ## Current State
 
-Fifteen test projects, 505 tests (429 unit + 76 integration) + 32 E2E tests. All layers complete.
+733 tests total: 563 unit + 121 integration + 49 E2E. Unit and integration all passing. E2E requires the Docker Compose stack.
 
 | Component | Unit | Integration | E2E |
 |-----------|------|-------------|-----|
 | AuthService — services | ✅ | ✅ | ✅ |
-| AuthService — controllers | ✅ RegistrationController, LoginController | ✅ | ✅ |
+| AuthService — controllers | ✅ | ✅ | ✅ |
 | AuthService — repository | ✅ | ✅ | ✅ |
 | AuthService — UserRoleClient | ✅ | ✅ | ✅ |
 | UserManagementService — services | ✅ | ✅ | ✅ |
-| UserManagementService — consumer | ✅ | ✅ | ✅ |
-| UserManagementService — controller | ✅ | ✅ | ✅ |
+| UserManagementService — consumers | ✅ | ✅ | ✅ |
+| UserManagementService — controllers | ✅ | ✅ | ✅ |
 | UserManagementService — repository | ✅ | ✅ | ✅ |
 | ContactService — services | ✅ | ✅ | ✅ |
 | ContactService — controller | ✅ | ✅ | ✅ |
@@ -46,218 +46,104 @@ Fifteen test projects, 505 tests (429 unit + 76 integration) + 32 E2E tests. All
 | ReportingService — consumers | ✅ | ✅ | ✅ |
 | ReportingService — controller | ✅ | ✅ | ✅ |
 
-**537 tests total. 429 unit + 76 integration + 32 E2E. Unit and integration all passing.**
-**E2E tests in EndToEnd.Tests require Docker Compose stack (`docker compose up --build -d`).**
-
-### Coverage (last measured: March 2026, pre-v2.1 completion)
+### Coverage
 
 | Metric | Coverage |
 |--------|----------|
-| Line | 96.2% |
-| Branch | 80.7% |
-| Method | 98.6% |
+| Line | 97.2% |
+| Branch | 82.7% |
+| Method | 99.1% |
 
-Generated with `dotnet test --collect:"XPlat Code Coverage"` and `reportgenerator`. Excludes `*.Tests`, `*.IntegrationTests`, and `EndToEnd.Tests` assemblies. Coverage figures are from before the v2.1 feature additions; a fresh coverage run is recommended.
+Generated with `dotnet test --collect:"XPlat Code Coverage"` + `reportgenerator`. Excludes `*.Tests`, `*.IntegrationTests`, and `EndToEnd.Tests` assemblies, and filters out `*Migrations*` and `*DbContextFactory*`.
 
 ### Unit test count by project
 
 | Project | Tests |
 |---------|-------|
-| AuthService.Tests | 133 |
-| UserManagementService.Tests | 71 |
-| ContactService.Tests | 42 |
-| AccountService.Tests | 35 |
-| DealService.Tests | 72 |
-| ActivityService.Tests | 41 |
-| ReportingService.Tests | 35 |
-| **Total** | **429** |
+| AuthService.Tests | 184 |
+| UserManagementService.Tests | 93 |
+| DealService.Tests | 92 |
+| ContactService.Tests | 54 |
+| ActivityService.Tests | 51 |
+| AccountService.Tests | 45 |
+| ReportingService.Tests | 44 |
+| **Total** | **563** |
 
 ### Integration test count by project
 
 | Project | Tests |
 |---------|-------|
-| AuthService.IntegrationTests | 11 |
-| UserManagementService.IntegrationTests | 16 |
-| AccountService.IntegrationTests | 9 |
-| ContactService.IntegrationTests | 9 |
-| DealService.IntegrationTests | 12 |
-| ActivityService.IntegrationTests | 9 |
-| ReportingService.IntegrationTests | 10 |
-| **Total** | **76** |
+| UserManagementService.IntegrationTests | 22 |
+| DealService.IntegrationTests | 19 |
+| ReportingService.IntegrationTests | 18 |
+| AuthService.IntegrationTests | 17 |
+| AccountService.IntegrationTests | 15 |
+| ActivityService.IntegrationTests | 15 |
+| ContactService.IntegrationTests | 15 |
+| **Total** | **121** |
 
 ---
 
-## Layer 1 — Unit Tests ✅ Complete
+## Layer 1 — Unit Tests
 
 **Stack:** xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`
 
 Unit tests verify a single class in isolation. All dependencies are mocked. No database, no network, no message broker.
 
-### What was added
+### Controllers
 
-**Controllers** — mock the service interface, assert the correct `IActionResult` type and status code for success, not-found, validation failure, service failure (null-data `??` branch), and exception paths (service throws → 500).
+Mock the service interface; assert the correct `IActionResult` type and status code for success, not-found, validation failure, service failure (null-data `??` branch), and exception paths (service throws → 500).
 
-```
-AccountService.Tests/Controllers/
-  AccountsControllerTests.cs     — 15 tests: GetAll, GetById, Create (name validation),
-                                   Update, Delete; success + service-failure + 404 + 500 paths
+### Repositories
 
-ContactService.Tests/Controllers/
-  ContactsControllerTests.cs     — 14 tests: GetAll (filter pass-through verified),
-                                   GetById, Create (firstName/lastName/email validation),
-                                   Update, Delete
+Fresh in-memory database per test via `Guid.NewGuid().ToString()` database name. Tests cover Add, GetById (found + not-found), GetAll with each supported filter, Update, and Delete (found + no-throw on missing).
 
-UserManagementService.Tests/Controllers/
-  UsersControllerTests.cs        — 10 tests: CreateUserProfile (email validation),
-                                   GetUserProfile, GetTeam, GetUserRole
+### Services
 
-ActivityService.Tests/Controllers/
-  ActivitiesControllerTests.cs   — 16 tests: GetAll, GetById (found + 404), Create
-                                   (valid + empty subject), Update, Delete (found + 404);
-                                   service-failure paths (null-data ?? message branch);
-                                   exception paths (service throws → 500)
+Mock all dependencies; verify event publishing, validation, and state transitions. All optional-field update paths (`HasValue` true and false branches) are explicitly exercised.
 
-DealService.Tests/Controllers/
-  DealsControllerTests.cs        — exception-path tests (service throws → 500) for
-                                   GetAll, GetById, Create, Update, Delete, AddContact,
-                                   RemoveContact
+### Infrastructure — DlqHealthCheck
 
-DealService.Tests/Controllers/
-  PipelineControllerTests.cs     — 3 tests: GetBoard returns 200, empty repository,
-                                   repository throws → 500
+Each of the three services that include `DlqHealthCheck` (DealService, UserManagementService, ReportingService) has 8 dedicated tests covering:
 
-ReportingService.Tests/Controllers/
-  ReportsControllerTests.cs      — disposed-context exception tests for GetPipeline,
-                                   GetActivities, GetContacts, GetDashboard (→ 500)
-```
+- Healthy: no error queues
+- Degraded: error queue with messages (name + count in data)
+- Healthy: error queue with 0 messages (ignored)
+- Degraded: management API returns non-2xx
+- Degraded: `HttpRequestException` (network unreachable)
+- Healthy: config keys absent (covers `??` default branches)
+- Healthy: API returns JSON `"null"` (covers `queues == null` branch)
+- Degraded: `TaskCanceledException` (covers `when` catch-filter branch)
 
-**Repositories** — fresh in-memory database per test via `Guid.NewGuid().ToString()` database name.
+### HTTP clients
 
-```
-AuthService.Tests/Repository/
-  UserRepositoryTests.cs              — 8 tests: Add, GetByEmail ×2, GetById ×2,
-                                        Update, Delete, Delete-no-throw
-  RefreshTokenRepositoryTests.cs      — 4 tests: AddAsync, GetByTokenAsync found +
-                                        not-found, RevokeAsync sets IsRevoked
+`RichardSzalay.MockHttp` mocks the `HttpMessageHandler` to test failure-handling logic without a real network.
 
-UserManagementService.Tests/Repository/
-  UserProfileRepositoryTests.cs       — 9 tests: Add, GetById ×2, GetByEmail ×2,
-                                        GetAll, Update, Delete, Delete-no-throw
+- **UserRoleClient** — 200 Member, 200 Admin, 404 → Unassigned, network exception → Unassigned
+- **AccountClient** (ContactService) — 200 → true, 404 → false, network exception → true (fail-open)
 
-ContactService.Tests/Repository/
-  ContactRepositoryTests.cs           — 11 tests: GetAll with no filter / status filter /
-                                        ownerId filter / accountId filter; GetById ×2;
-                                        Add; Update; Delete; Delete-no-throw
+### Branch coverage notes
 
-AccountService.Tests/Repository/
-  AccountRepositoryTests.cs           — 9 tests: GetAll ×2, GetById ×2, Add,
-                                        Update, Delete, Delete-no-throw
+Coverlet counts the following as branches (not try/catch):
 
-ActivityService.Tests/Repository/
-  ActivityRepositoryTests.cs          — 12 tests: Add + GetById, GetById not-found,
-                                        GetAll no filter, GetAll by contactId/dealId/
-                                        accountId/ownerId/type, Update, Delete,
-                                        Delete-no-throw, GetAll ordered by createdAt desc
-
-DealService.Tests/Repository/
-  DealRepositoryTests.cs              — DealContact operations: AddDealContactAsync,
-                                        RemoveDealContactAsync (found + not-found),
-                                        RemoveDealContactsByContactIdAsync (with matches +
-                                        no matches)
-```
-
-**Services** — mock all dependencies; verify event publishing, validation, and state transitions. All optional-field update paths (HasValue true branches) explicitly exercised.
-
-```
-ActivityService.Tests/Services/
-  ActivitiesServiceTests.cs      — 14 tests: Create valid (publishes ActivityLogged),
-                                   Create empty subject (no publish), Create verifies
-                                   event fields, GetById found + not-found, GetAll,
-                                   Update not-found, Update fields, Update all optional
-                                   fields (Type/ContactId/DealId/AccountId/OwnerId/
-                                   ScheduledAt), Update Task first completion (publishes
-                                   TaskCompleted), Update already-completed Task (no
-                                   re-publish), Update non-Task type completed (no
-                                   publish), Delete found, Delete not-found
-
-AccountService.Tests/Services/
-  AccountsServiceTests.cs        — UpdateAsync all optional fields test covers Industry,
-                                   Size, Website, Street, City, State, PostalCode, Country
-
-ContactService.Tests/Services/
-  ContactsServiceTests.cs        — UpdateAsync all optional fields test covers FirstName,
-                                   LastName, Email, Phone, AccountId, OwnerId
-
-DealService.Tests/Services/
-  DealsServiceTests.cs           — additional tests: UpdateAsync all optional fields
-                                   (AccountId/Value/Probability/ExpectedCloseDate/OwnerId),
-                                   UpdateAsync with no Stage provided (no event),
-                                   CreateAsync with empty title (400)
-```
-
-**Infrastructure** — DlqHealthCheck branch coverage across all three services that use it.
-
-```
-DealService.Tests/Infrastructure/DlqHealthCheckTests.cs
-UserManagementService.Tests/Infrastructure/DlqHealthCheckTests.cs
-ReportingService.Tests/Infrastructure/DlqHealthCheckTests.cs
-
-  Each contains 8 tests covering:
-  - Healthy: no error queues
-  - Degraded: error queue with messages (includes queue name + count in data)
-  - Healthy: error queue with 0 messages (ignored)
-  - Degraded: management API returns non-2xx
-  - Degraded: HttpRequestException (network unreachable)
-  - Healthy: config keys absent (covers ?? default branches)
-  - Healthy: API returns JSON "null" (covers queues == null branch)
-  - Degraded: TaskCanceledException (covers catch-filter branch)
-```
-
-**Models / utilities**
-
-```
-AuthService.Tests/Services/
-  ServiceResultTests.cs          — 6 tests: Success (defaults), Success (all args),
-                                   Failure (defaults), Failure (custom code),
-                                   Error (defaults → 500), Error (custom code)
-
-AuthService.Tests/Models/
-  RegisterResponseTests.cs       — 2 tests: property roundtrip, default values
-
-ReportingService.Tests/Consumers/
-  DealClosedConsumerTests.cs     — 1 test: Consume completes without side effects
-```
-
-**HTTP clients** — `RichardSzalay.MockHttp` mocks the `HttpMessageHandler` to test failure-handling logic without a real network.
-
-```
-AuthService.Tests/Services/
-  UserRoleClientTests.cs        — 4 tests: 200 Member, 200 Admin,
-                                   404→Unassigned, network exception→Unassigned
-
-ContactService.Tests/Services/
-  AccountClientTests.cs         — 3 tests: 200→true, 404→false,
-                                   network exception→true (fail-open explicitly asserted)
-```
+- `??` null-coalescing (2 branches per operator)
+- `?.` null-conditional (2 branches)
+- `HasValue` checks on nullable types (2 branches)
+- `&&` / `||` short-circuit operators
+- `when` filters on `catch` clauses (2 branches)
 
 ---
 
-## Layer 2 — Integration Tests ✅ Complete
+## Layer 2 — Integration Tests
 
-**New packages:**
+**Stack:** `Microsoft.AspNetCore.Mvc.Testing` + `Testcontainers.PostgreSql` + `MassTransit` (test harness) + `WireMock.Net`
 
-| Package | Purpose |
-|---------|---------|
-| `Microsoft.AspNetCore.Mvc.Testing` | `WebApplicationFactory<Program>` — boots the real ASP.NET Core pipeline in-process |
-| `Testcontainers.PostgreSql` | Spins up a real PostgreSQL container per test class |
-| `MassTransit.Testing` | In-memory bus harness — assert events published without needing RabbitMQ |
-| `WireMock.Net` | Mocks downstream HTTP services (e.g., mock AccountService when testing ContactService) |
-
-Integration tests verify that the full HTTP pipeline of a single service works correctly against a real database. A `WebApplicationFactory<Program>` boots the service with a Testcontainers PostgreSQL instance substituted for the real database, and `MassTransit.Testing` substitutes for RabbitMQ. Downstream HTTP calls (e.g., ContactService → AccountService) are stubbed with WireMock.
+Integration tests verify the full HTTP pipeline of a single service against a real database. A `WebApplicationFactory<Program>` boots the service with a Testcontainers PostgreSQL instance substituted for the real database, and the MassTransit test harness substitutes for RabbitMQ. Downstream HTTP calls (e.g., ContactService → AccountService) are stubbed with WireMock.
 
 ### Factory pattern
 
 Each project has one factory class used as an `IClassFixture`. The factory:
+
 1. Starts a PostgreSQL Testcontainer
 2. Overrides the DbContext connection string via `builder.UseSetting()` before `ConfigureServices` (required so the health check's Npgsql registration sees the correct string)
 3. Replaces MassTransit with the in-memory test harness
@@ -299,27 +185,28 @@ GET  /api/login/me (valid token)               → 200, claims match registratio
 GET  /api/login/me (no token)                  → 401
 POST /api/login/refresh (valid token)          → 200, new JWT + rotated refresh token
 POST /api/login/refresh (invalid token)        → 401
-POST /api/login/refresh (empty token)          → 4xx
 GET  /health                                   → 200 Healthy
 ```
 Factory note: `AuthServiceFactory` seeds the default admin via `DefaultAdmin` config settings so integration tests can obtain an Admin JWT to call the register endpoint.
 
 **UserManagementService.IntegrationTests**
 ```
-POST /api/users                        → 201, profile in DB
-POST /api/users (duplicate userId)     → 400
-GET  /api/users/{id}                   → 200 with all profile fields
-GET  /api/users/{id} (missing)         → 404
-GET  /api/users/{id}/role              → 200 with role string
-GET  /api/users/team                   → 200, list of {userId, displayName, role}
-Consumer: publish UserRegistered       → profile row appears in DB
-Consumer: publish UserRegistered twice → idempotent, still one row
-GET  /health                           → 200 Healthy
+POST /api/users                           → 201, profile in DB
+POST /api/users (duplicate userId)        → 400
+GET  /api/users/{id}                      → 200 with all profile fields
+GET  /api/users/{id} (missing)            → 404
+GET  /api/users/{id}/role                 → 200 with role string
+GET  /api/users/team                      → 200, list of {userId, displayName, role}
+Consumer: publish UserRegistered          → profile row appears in DB
+Consumer: publish UserRegistered twice    → idempotent, still one row
+Username derived from email on creation
+Username collision → numeric suffix appended
+GET  /health                              → 200 Healthy
 ```
 
 **AccountService.IntegrationTests**
 ```
-POST /api/accounts                     → 201, AccountCreated published with correct AccountId/Name
+POST /api/accounts                     → 201, AccountCreated published
 GET  /api/accounts                     → 200, list
 GET  /api/accounts/{id}                → 200 with all fields
 GET  /api/accounts/{id} (missing)      → 404
@@ -340,7 +227,6 @@ POST /api/contacts (valid accountId)                → 201, ContactCreated publ
 POST /api/contacts (invalid accountId)              → 400, no DB write, no event
 POST /api/contacts (no accountId)                   → 201
 PUT  /api/contacts/{id} status Lead→Prospect        → 200, ContactStatusChanged published
-                                                       (oldStatus=Lead, newStatus=Prospect)
 PUT  /api/contacts/{id} (no status change)          → 200, no ContactStatusChanged published
 DELETE /api/contacts/{id}                           → 204, ContactDeleted published
 GET  /api/contacts                                  → 200, full list
@@ -371,38 +257,49 @@ GET  /health                           → 200 Healthy
 
 **ActivityService.IntegrationTests**
 ```
-POST /api/activities                          → 201, ActivityLogged published
-POST /api/activities (empty subject)          → 400
-GET  /api/activities                          → 200, array
-GET  /api/activities/{id}                     → 200 with all fields
-GET  /api/activities/{id} (missing)           → 404
-GET  /api/activities?type=Task                → filtered list, only Task type returned
-PUT  /api/activities/{id}                     → 200, fields updated
-PUT  /api/activities/{id} (Task + completedAt) → 200, TaskCompleted published, completedAt set
-DELETE /api/activities/{id}                   → 204
-DELETE /api/activities/{id} (missing)         → 404
-GET  /health                                  → 200 Healthy
+POST /api/activities                           → 201, ActivityLogged published
+POST /api/activities (empty subject)           → 400
+GET  /api/activities                           → 200, array
+GET  /api/activities/{id}                      → 200 with all fields
+GET  /api/activities/{id} (missing)            → 404
+GET  /api/activities?type=Task                 → filtered list
+PUT  /api/activities/{id}                      → 200, fields updated
+PUT  /api/activities/{id} (Task + completedAt) → 200, TaskCompleted published
+DELETE /api/activities/{id}                    → 204
+DELETE /api/activities/{id} (missing)          → 404
+GET  /health                                   → 200 Healthy
+```
+
+**ReportingService.IntegrationTests**
+```
+GET  /api/reports/pipeline     → 200
+GET  /api/reports/activities   → 200
+GET  /api/reports/contacts     → 200
+GET  /api/reports/dashboard    → 200
+Consumer: DealCreated          → pipeline projection updated
+Consumer: DealStageChanged     → projection moves deal between stages
+Consumer: DealClosed           → no side effects (read-only snapshot)
+Consumer: ActivityLogged       → activity rep projection updated
+Consumer: ContactStatusChanged → contact funnel projection updated
+GET  /health                   → 200 Healthy
 ```
 
 ### Test isolation
 
 - Each test class receives its own `PostgreSqlContainer` via `IClassFixture<ServiceFactory>`.
-- Tests that write to the database should clean up after themselves, or — simpler — seed only what each test needs and rely on the per-class container being a fresh database.
+- Seed only what each test needs; rely on the per-class container being a fresh database.
 - The MassTransit test harness publishes to an in-memory bus; assert published messages with `ITestHarness.Published.Select<EventType>()`.
 
 ---
 
 ## Layer 3 — End-to-End Tests
 
-**New project:** `EndToEnd.Tests/`
+**Project:** `EndToEnd.Tests/`
+**Packages:** `Polly`
 
-**Packages:** `Polly` (retry/polling for async assertions)
+A `TestTokenController` in AuthService exposes invite and password-reset tokens so E2E tests can complete full round-trips without a real SMTP server. It is guarded by the `EnableTestEndpoints=true` configuration key, which is set in `docker-compose.yml` for the auth-service and absent in any production configuration.
 
 E2E tests run against the full Docker Compose stack via the YARP gateway on `http://localhost:5000`. No `WebApplicationFactory` — these are plain HTTP calls. All services, databases, and RabbitMQ are real.
-
-### When to implement
-
-v1.4 is complete. The richest E2E scenario is the full sales flow: *register → create account → create contact → create deal → transition stage → log activity*. Implement as a standalone effort once the team is ready to invest in Docker Compose test orchestration, or alongside v1.5 (Reporting).
 
 ### Project structure
 
@@ -416,6 +313,7 @@ EndToEnd.Tests/
     RetryHelper.cs            — polls a condition until true or timeout
   Flows/
     AuthFlowTests.cs
+    UserManagementFlowTests.cs
     AccountContactFlowTests.cs
     DealFlowTests.cs
     ActivityFlowTests.cs
@@ -423,7 +321,7 @@ EndToEnd.Tests/
     GatewayAuthTests.cs
 ```
 
-### RetryHelper (for async assertions)
+### RetryHelper
 
 The registration→profile flow is event-driven: AuthService publishes `UserRegistered`, UserManagementService consumes it asynchronously. Polling avoids brittle `Task.Delay` waits:
 
@@ -448,27 +346,46 @@ public static async Task WaitUntilAsync(
 **AuthFlowTests**
 ```
 Register new user (admin-provisioned)
-  → Login as seeded admin → GET admin JWT
   → POST /auth/api/registration/register (admin JWT) → 200
   → Poll GET /users/api/users/{userId} until 200 (async consumer lag)
-  → Profile exists and role is "Member"
+  → Profile exists, role is "Member"
 
-Login
-  → Admin registers a user, user logs in
+Login with email
   → POST /auth/api/login/login → 200, token returned
-  → GET /auth/api/login/me → claims match registration email and role
+  → GET /auth/api/login/me → claims match registration
 
-Duplicate registration
-  → Admin registers same email twice → second returns 409
+Duplicate registration → second returns 409
+
+Full invite round-trip
+  → POST /auth/api/users/invite (admin JWT) → 200
+  → GET /auth/api/test/tokens/invite?email={email} → token
+  → POST /auth/api/registration/accept-invite { token, password } → 200
+  → POST /auth/api/login/login with new password → 200
+
+Full password-reset round-trip
+  → POST /auth/api/auth/forgot-password → 200
+  → GET /auth/api/test/tokens/password-reset?email={email} → token
+  → POST /auth/api/auth/reset-password { token, newPassword } → 200
+  → Login with new password → 200; login with old password → 401
+```
+
+**UserManagementFlowTests**
+```
+GET /users/api/users/team (admin)               → 200, array with userId/displayName/role
+GET /users/api/users/{id}/role                  → 200, userId + role + isActive
+Register new user → poll UMS → appears in team  (async consumer flow)
+GET /admin/api/admin/users                      → 200, array with email/role/isActive
+Deactivate user → login blocked (403) → reactivate → login succeeds (200)
+Resend invite (self-registered user)            → 400 (no InviteToken)
+Resend invite (invited user, stub profile)      → 200, returns userId + inviteSentAt
+GET /users/api/users/audit → array with action/actorUserId/targetUserId/timestamp
 ```
 
 **AccountContactFlowTests**
 ```
 Full lifecycle
-  → Login as admin (seeded admin credentials)
   → POST /accounts/api/accounts → 201, capture accountId
   → POST /contacts/api/contacts (with accountId) → 201, capture contactId
-  → GET /accounts/api/accounts/{accountId} → contacts section includes contactId
   → PUT /contacts/api/contacts/{contactId} { status: "Prospect" } → 200
   → GET /contacts/api/contacts/{contactId} → status is "Prospect"
   → DELETE /accounts/api/accounts/{accountId} → 204
@@ -480,17 +397,17 @@ Invalid account reference
 **DealFlowTests**
 ```
 Pipeline lifecycle
-  → Login as admin, create account + contact
+  → Create account + contact
   → POST /deals/api/deals → 201, capture dealId
   → POST /deals/api/deals/{dealId}/contacts → 201
   → PUT /deals/api/deals/{dealId} { stage: "ClosedWon" } → 200
   → GET /pipeline/api/pipeline → ClosedWon column includes deal
+  → GET /reports/api/reports/pipeline → pipeline projection updated
 ```
 
 **ActivityFlowTests**
 ```
 Log and complete a task
-  → Login as admin, create contact
   → POST /activities/api/activities { type: "Task", subject: "Follow up", contactId } → 201
   → GET /activities/api/activities?contactId={id}&type=Task → task appears, completedAt null
   → PUT /activities/api/activities/{id} { completedAt: <now> } → 200
@@ -508,25 +425,15 @@ Unauthenticated access to protected routes
   → GET /accounts/api/accounts (no token)        → 401
   → GET /activities/api/activities (no token)    → 401
 
-Auth-gated and public routes
+Auth-gated vs public routes
   → POST /auth/api/registration/register (no token) → 401 (Admin-only)
   → POST /auth/api/login/login                      → 200 or 400 (not 401, public)
 
 Gateway health
-  → GET /health → 200, all downstream services report Healthy
+  → GET /health → 200, all downstream services Healthy
 ```
 
 ### Running E2E tests
-
-The `scripts/run-e2e.sh` script handles the full lifecycle: start the stack, wait for the gateway health check, run the suite, tear down.
-
-```sh
-# Requires Docker and the .NET 9 SDK.
-# Copy .env.example → .env and fill in secrets, or let the script use safe test defaults.
-./scripts/run-e2e.sh
-```
-
-To run steps manually:
 
 ```sh
 # Start the full stack
@@ -542,182 +449,34 @@ dotnet test EndToEnd.Tests/EndToEnd.Tests.csproj
 docker compose down -v
 ```
 
-In CI, call `scripts/run-e2e.sh` after a build step. All required environment variables have safe defaults so no secrets are needed for a local smoke run.
+The `scripts/run-e2e.sh` script handles the full lifecycle. All required environment variables have safe defaults for local runs.
 
----
+### E2E coverage
 
-## Recommended Implementation Order
-
-### ✅ Done before v1.3 (unit gap-fill)
-
-1. Controller tests — AccountsController, ContactsController, UsersController
-2. Repository tests — all four repositories using EF Core InMemory
-3. HTTP client tests — UserRoleClient, AccountClient using MockHttp
-
-### ✅ Done alongside v1.3 (integration tests, all services through DealService)
-
-All five integration test projects complete: AccountService, ContactService, DealService, AuthService, and UserManagementService. Each uses the `WebApplicationFactory` + Testcontainers + MassTransit harness pattern. WireMock stubs downstream HTTP calls where needed.
-
-### ✅ Done alongside v1.5 (ReportingService unit + integration tests)
-
-ReportingService.Tests (12 unit tests: DealCreatedConsumer, DealStageChangedConsumer, ActivityLoggedConsumer, ContactStatusChangedConsumer) and ReportingService.IntegrationTests (9 integration tests: all 4 GET endpoints, 4 consumer event flows, health check). Controller unit tests omitted — the controller has no logic beyond querying the DB, which is fully covered by integration tests.
-
-### ✅ Done alongside v1.4 (ActivityService unit + integration tests)
-
-ActivityService.Tests (30 unit tests: services, controller, repository) and ActivityService.IntegrationTests (11 integration tests: full CRUD, type filtering, task completion event, health check).
-
-### ✅ Done alongside v1.4 (E2E infrastructure)
-
-The `EndToEnd.Tests` project and Docker Compose test orchestration. Scenarios span six services via the YARP gateway. Run with `docker compose up --build -d` then `dotnet test EndToEnd.Tests/EndToEnd.Tests.csproj`.
-
-### ✅ Done during v2.1 (Enterprise User Management tests)
-
-AuthService and UserManagementService test suites grew substantially with v2.1 features:
-
-- **AuthService.Tests** grew from 55 → 133: invite flow, accept-invite, forgot/reset password, force-change-on-first-login, password policy enforcement, MailKit email service, PasswordResetTokenRepository, InviteTokenRepository
-- **UserManagementService.Tests** grew from 48 → 83: admin user list, role assignment, deactivate/reactivate, resend invite, identity audit log (service + repository + controller)
-- **AuthService.IntegrationTests**: 11 tests (register, login, duplicate, me, refresh, health)
-- **UserManagementService.IntegrationTests** grew from 9 → 17: role assignment, status change, audit log retrieval, resend invite, team endpoint
-- **E2E tests** grew to 32: full invite flow, deactivation enforcement, password reset flow, username login (v2.2)
-
-### ✅ Done during v1.6 (branch coverage push to ≥80%)
-
-A targeted coverage pass raised branch coverage from 70.9% → **80.7%**. Key findings and additions:
-
-**What Coverlet counts as branches (not try/catch):**
-- `??` null-coalescing (2 branches per operator: left non-null / left null)
-- `?.` null-conditional (2 branches: null / non-null)
-- `HasValue` checks on nullable types (2 branches: true / false)
-- `&&` / `||` short-circuit operators
-- `when` filters on `catch` clauses (2 branches: filter true / false)
-
-**Tests added:**
-
-| Area | What was missing | Tests added |
-|------|-----------------|-------------|
-| Controller service-failure paths | `result.Data ?? result.Message` null-data branch uncovered in GetAll/Create actions that had no failure test | AccountsController (2), ActivitiesController (3) |
-| Controller exception paths | No tests for service throwing → StatusCode 500 | ActivitiesController (5), DealsController (7), ReportsController (4) |
-| PipelineController | No tests at all | PipelineControllerTests (3) |
-| ActivityRepository filters | `dealId`, `accountId`, `ownerId` HasValue branches uncovered | 3 filter tests |
-| DealRepository DealContact ops | `RemoveDealContactAsync` and `RemoveDealContactsByContactIdAsync` not-found/empty branches | 3 tests |
-| DlqHealthCheck (3 services) | `??` null-config defaults, `queues == null` path, `TaskCanceledException` catch filter | 3 tests × 3 services = 9 tests |
-| Service optional-field updates | `HasValue` true branches for each optional field in UpdateAsync methods | 1 test each for ActivityService, AccountService, ContactService, DealService |
-| Zero-coverage classes | `ServiceResult.Error()`, `RegisterResponse`, `DealClosedConsumer`, `RefreshTokenRepository` | 13 tests across 4 new files |
-| AuthService refresh integration | No integration test for `/api/login/refresh` endpoint | 3 tests |
-| ReportingService DealClosed integration | No test verifying DealClosed consumer is a no-op | 1 test |
-
----
-
-### ✅ Done during v2.2 (Username Login & Tenancy Foundation)
-
-**Unit tests (AuthService.Tests)**
-- `LoginService`: email login (contains `@`), username login (no `@`), unknown username → 401, username wrong tenant → 401
-- `UserRepository`: `GetByUsernameAsync` found / not-found
-- Tenant seed: default tenant created on startup, existing tenant not duplicated
-
-**Unit tests (UserManagementService.Tests)**
-- `UserProfileRepository`: composite `(TenantId, Username)` uniqueness enforced; duplicate username in same tenant → conflict; same username in different tenant → allowed
-
-**Integration tests (AuthService.IntegrationTests)**
-- `POST /api/login/login` with username → 200, correct claims
-- `POST /api/login/login` with email → still works (backward compatible)
-- `POST /api/login/login` with unknown username → 401
-
-**Integration tests (UserManagementService.IntegrationTests)**
-- User created with auto-derived username from email prefix
-- Username collision within tenant → numeric suffix appended
-
-**E2E tests (EndToEnd.Tests)**
-- Login as admin using `admin` (username) instead of `admin@example.com`
-- Register user → verify username derived from email; login with that username succeeds
-
----
-
-## E2E Coverage Audit (as of v2.2)
-
-Audit conducted March 2026 against all 7 services + gateway. 49 unique API endpoints identified; 16 E2E test methods in 6 test files.
-
-### Coverage by service
+51 unique API endpoints across 7 services + gateway (includes 2 test-only endpoints). 51 covered (100%).
 
 | Service | Endpoints | Covered | % |
 |---------|-----------|---------|---|
-| AuthService | 10 | 3 | 30% |
-| UserManagementService | 11 | 1 | 9% |
-| AccountService | 5 | 2 | 40% |
+| AuthService | 12 | 12 | 100% |
+| UserManagementService | 11 | 11 | 100% |
+| AccountService | 5 | 5 | 100% |
 | ContactService | 5 | 5 | 100% |
-| DealService | 8 | 6 | 75% |
-| ActivityService | 5 | 4 | 80% |
+| DealService | 8 | 8 | 100% |
+| ActivityService | 5 | 5 | 100% |
 | ReportingService | 4 | 4 | 100% |
 | Gateway | 1 | 1 | 100% |
-| **Total** | **49** | **26** | **53%** |
-
-### What is covered
-
-| Endpoint | Test |
-|----------|------|
-| POST /auth/api/login/login | AuthFlowTests, GatewayAuthTests |
-| GET /auth/api/login/me | AuthFlowTests |
-| POST /auth/api/registration/register | AuthFlowTests (200 + 409) |
-| GET /users/api/users/{id} | AuthFlowTests (event-driven poll) |
-| POST /accounts/api/accounts | AccountContactFlowTests |
-| DELETE /accounts/api/accounts/{id} | AccountContactFlowTests |
-| GET /contacts/api/contacts | AccountContactFlowTests, GatewayAuthTests |
-| GET /contacts/api/contacts/{id} | AccountContactFlowTests |
-| POST /contacts/api/contacts | AccountContactFlowTests, DealFlowTests, ActivityFlowTests, ReportingFlowTests |
-| PUT /contacts/api/contacts/{id} | AccountContactFlowTests, ReportingFlowTests |
-| GET /deals/api/deals/{id} | DealFlowTests |
-| POST /deals/api/deals | DealFlowTests, ReportingFlowTests, ActivityFlowTests |
-| PUT /deals/api/deals/{id} | DealFlowTests |
-| POST /deals/api/deals/{id}/contacts | DealFlowTests |
-| GET /pipeline/api/pipeline | DealFlowTests |
-| GET /activities/api/activities | ActivityFlowTests (contactId + dealId filters), GatewayAuthTests |
-| GET /activities/api/activities/{id} | ActivityFlowTests |
-| POST /activities/api/activities | ActivityFlowTests |
-| PUT /activities/api/activities/{id} | ActivityFlowTests |
-| GET /reports/api/reports/pipeline | ReportingFlowTests, DealFlowTests |
-| GET /reports/api/reports/contacts | ReportingFlowTests |
-| GET /reports/api/reports/dashboard | ReportingFlowTests |
-| GET /health | GatewayAuthTests |
+| **Total** | **51** | **51** | **100%** |
 
 ### Async event flows covered
 
 | Event | Test |
 |-------|------|
-| UserRegistered → UserManagementService creates profile | AuthFlowTests.Register_CreatesUserProfile_ViaEventAsync |
-| ContactStatusChanged → ReportingService updates funnel | ReportingFlowTests.ContactStatusChanged_EventuallyAppearsInContactFunnel |
-| DealCreated → ReportingService updates pipeline | ReportingFlowTests.DealCreated_EventuallyAppearsInPipelineProjection |
-
-### Gaps — High Priority
-
-These test cross-service event correctness that unit/integration tests cannot fully validate:
-
-1. **ContactDeleted → DealService cleanup** — `DELETE /contacts/api/contacts/{id}` is untested end-to-end; the `ContactDeletedConsumer` in DealService removes deal-contact associations, but no E2E test verifies the cascade.
-2. **ActivityLogged → ReportingService** — `GET /reports/api/reports/activities` is never called directly; the activity projection is only seen indirectly through the dashboard.
-3. **TaskCompleted fires exactly once** — only fires when Type==Task and completedAt is first set; no E2E validates this business rule end-to-end.
-4. **DealStageChanged → ReportingService pipeline counts** — a deal moving between stages should shift the pipeline projection; no E2E test verifies this specific event flow.
-
-### Gaps — Medium Priority (CRUD)
-
-| Missing scenario | Endpoint |
-|-----------------|----------|
-| Update account | PUT /accounts/api/accounts/{id} |
-| Get account by ID | GET /accounts/api/accounts/{id} |
-| List accounts | GET /accounts/api/accounts |
-| List deals | GET /deals/api/deals |
-| Delete deal | DELETE /deals/api/deals/{id} |
-| Remove contact from deal | DELETE /deals/api/deals/{id}/contacts/{contactId} |
-| Delete activity | DELETE /activities/api/activities/{id} |
-| Delete contact | DELETE /contacts/api/contacts/{id} |
-| Get team list | GET /users/api/users/team |
-| Get user role | GET /users/api/users/{id}/role |
-| Activities report | GET /reports/api/reports/activities |
-
-### Gaps — Lower Priority (auth/admin flows)
-
-- `POST /auth/api/login/refresh` — refresh token endpoint has zero E2E coverage
-- Admin user management: list users, change role, activate/deactivate (`GET|PUT /api/admin/users/...`)
-- Invite workflow: `POST /users/api/users/invite` → `POST /auth/api/registration/accept-invite`
-- Password management: forgot-password, reset-password, change-password
+| UserRegistered → UserManagementService creates profile | AuthFlowTests, UserManagementFlowTests |
+| ContactDeleted → DealService removes deal-contact associations | AccountContactFlowTests |
+| ContactStatusChanged → ReportingService updates funnel | ReportingFlowTests |
+| DealCreated → ReportingService updates pipeline | ReportingFlowTests |
+| DealStageChanged → ReportingService updates pipeline counts | DealFlowTests |
+| ActivityLogged → ReportingService updates activity projection | ActivityFlowTests |
 
 ---
 
@@ -729,9 +488,9 @@ These test cross-service event correctness that unit/integration tests cannot fu
 | `Moq` | Unit | Interface mocking |
 | `FluentAssertions` | Unit, Integration | Readable assertions |
 | `Microsoft.EntityFrameworkCore.InMemory` | Unit | In-memory DB for repository tests |
-| `RichardSzalay.MockHttp` | Unit | Mock HttpMessageHandler for typed HTTP clients |
-| `Microsoft.AspNetCore.Mvc.Testing` | Integration | WebApplicationFactory — real ASP.NET Core pipeline in-process |
+| `RichardSzalay.MockHttp` | Unit | Mock `HttpMessageHandler` for typed HTTP clients |
+| `Microsoft.AspNetCore.Mvc.Testing` | Integration | `WebApplicationFactory` — real ASP.NET Core pipeline in-process |
 | `Testcontainers.PostgreSql` | Integration | Real PostgreSQL container per test class |
-| `MassTransit.Testing` | Integration | In-memory bus harness for event assertions |
+| `MassTransit` | Integration | In-memory bus harness for event assertions |
 | `WireMock.Net` | Integration | Stub downstream HTTP services |
 | `Polly` | E2E | Retry/polling for async event assertions |

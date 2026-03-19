@@ -64,6 +64,7 @@ public class UserInvitedConsumerTests
         p.Email == email &&
         p.Role == UserRole.Unassigned &&
         p.IsActive == false &&
+        p.InviteToken != null &&
         p.InvitePendingAt != null)),
       Times.Once);
   }
@@ -114,5 +115,61 @@ public class UserInvitedConsumerTests
     await act.Should().NotThrowAsync();
     _mockRepository.Verify(r => r.AddAsync(It.IsAny<UserProfile>()), Times.Never);
     _mockAuditLogService.Verify(a => a.LogActionAsync(It.IsAny<AuditAction>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>()), Times.Never);
+  }
+
+  [Fact]
+  public async Task Consume_WhenMessageHasTenantId_UsesTenantIdFromMessage()
+  {
+    // Arrange: TenantId provided in message — covers non-null branch of message.TenantId ?? GetDefaultTenantIdAsync()
+    var invitedUserId = Guid.NewGuid();
+    var explicitTenantId = Guid.NewGuid();
+    var message = new UserInvited
+    {
+      InvitedUserId = invitedUserId,
+      Email = "invited@example.com",
+      InvitedByUserId = Guid.NewGuid(),
+      TenantId = explicitTenantId
+    };
+
+    var mockContext = new Mock<ConsumeContext<UserInvited>>();
+    mockContext.Setup(c => c.Message).Returns(message);
+
+    _mockRepository.Setup(r => r.GetByIdAsync(invitedUserId)).ReturnsAsync((UserProfile?)null);
+    _mockRepository.Setup(r => r.AddAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    await _consumer.Consume(mockContext.Object);
+
+    _mockRepository.Verify(r => r.AddAsync(It.Is<UserProfile>(p => p.TenantId == explicitTenantId)), Times.Once);
+  }
+
+  [Fact]
+  public async Task Consume_WhenNoTenantInDb_UsesTenantIdGuidEmpty()
+  {
+    // Arrange: empty DB — covers tenant?.TenantId ?? Guid.Empty null branch
+    var emptyDb = new UserManagementDbContext(
+      new DbContextOptionsBuilder<UserManagementDbContext>()
+        .UseInMemoryDatabase(Guid.NewGuid().ToString())
+        .Options);
+
+    var consumer = new UserInvitedConsumer(_mockRepository.Object, _mockAuditLogService.Object, emptyDb, _mockLogger.Object);
+
+    var invitedUserId = Guid.NewGuid();
+    var message = new UserInvited
+    {
+      InvitedUserId = invitedUserId,
+      Email = "invited@example.com",
+      InvitedByUserId = Guid.NewGuid(),
+      TenantId = null   // force GetDefaultTenantIdAsync()
+    };
+
+    var mockContext = new Mock<ConsumeContext<UserInvited>>();
+    mockContext.Setup(c => c.Message).Returns(message);
+
+    _mockRepository.Setup(r => r.GetByIdAsync(invitedUserId)).ReturnsAsync((UserProfile?)null);
+    _mockRepository.Setup(r => r.AddAsync(It.IsAny<UserProfile>())).Returns(Task.CompletedTask);
+
+    await consumer.Consume(mockContext.Object);
+
+    _mockRepository.Verify(r => r.AddAsync(It.Is<UserProfile>(p => p.TenantId == Guid.Empty)), Times.Once);
   }
 }

@@ -53,6 +53,19 @@ public class ContactsControllerTests
   }
 
   [Fact]
+  public async Task GetAll_ReturnsError_WhenServiceFails()
+  {
+    // Covers the null Data ?? result.Message branch in GetAll
+    _serviceMock.Setup(s => s.GetAllContactsAsync(null, null, null))
+      .ReturnsAsync(ServiceResult.Failure("Service error.", 503));
+
+    var result = await _sut.GetAll(null, null, null);
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(503);
+  }
+
+  [Fact]
   public async Task GetAll_Returns500_OnException()
   {
     _serviceMock.Setup(s => s.GetAllContactsAsync(null, null, null))
@@ -202,6 +215,19 @@ public class ContactsControllerTests
 
     var obj = result.Should().BeOfType<ObjectResult>().Subject;
     obj.StatusCode.Should().Be(404);
+  }
+
+  [Fact]
+  public async Task Update_Returns500_OnException()
+  {
+    var id = Guid.NewGuid();
+    _serviceMock.Setup(s => s.UpdateContactAsync(id, It.IsAny<UpdateContactRequest>()))
+        .ThrowsAsync(new Exception("db error"));
+
+    var result = await _sut.Update(id, new UpdateContactRequest());
+
+    var obj = result.Should().BeOfType<ObjectResult>().Subject;
+    obj.StatusCode.Should().Be(500);
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────
