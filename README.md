@@ -19,9 +19,9 @@ The interesting problems are in the seams. When a user registers, AuthService an
 
 This project was developed with AI assistance (Anthropic's Claude) as a design and implementation collaborator. Architecture decisions, service boundaries, and every tradeoff were made and understood by hand. The AI accelerated the work; it didn't replace the thinking.
 
-## Current State — v2.1 Complete
+## Current State — v2.2 Complete
 
-The full CRM is operational end-to-end with a professional, enterprise-grade frontend. All v2.0 hardening and v2.1 Enterprise User Management items are complete. v2.2 (Username Login & Tenancy Foundation) is the active milestone.
+The full CRM is operational end-to-end with a professional, enterprise-grade frontend. All items through v2.2 are complete. v3.0 (Multi-Tenancy) is the next planned milestone.
 
 **v1.6 (Enterprise UI Redesign):**
 - **Tailwind CSS + shadcn/ui** — full component library (Dialog, Sheet, Toast, Skeleton, Select, Combobox, Pagination, DropdownMenu) replaces hand-written CSS
@@ -52,6 +52,14 @@ The full CRM is operational end-to-end with a professional, enterprise-grade fro
 - **Identity audit log** — admin actions (invite, role change, deactivation) logged with actor and timestamp; `GET /api/users/audit` (Admin only)
 - **Auth UI** — invite accept, forgot/reset password, forced change-password pages; password strength indicator
 
+**v2.2 Username Login & Tenancy Foundation (complete):**
+- **Username login** — login accepts email or username; `LoginRequest.EmailOrUsername` replaces the `Email` field
+- **Username derivation** — on registration, username auto-derived from email prefix with numeric suffix on collision within tenant
+- **Tenant entity** — `Tenant` table added to `AuthDbContext` and `UserManagementDbContext`; single-tenant deployments seed one default tenant on startup
+- **`TenantId` on users and profiles** — `AuthService.User` and `UserManagementService.UserProfile` both carry a `TenantId` FK; composite `(TenantId, Username)` unique constraint
+- **Provisioning endpoint** — `POST /api/tenants/provision` (bootstrap-secret auth) for shared-cloud tenant creation; creates tenant + first admin atomically
+- **Gateway subdomain extraction** — YARP middleware resolves subdomain from `Host` header and forwards `X-Tenant-Id` to downstream services; falls back to default tenant for single-tenant deployments
+
 v1.5 (Reporting & Dashboards):
 - ReportingService subscribes to domain events; read-model projections for pipeline value by stage, activity counts by rep, contact funnel by status; Dashboard in the frontend.
 
@@ -69,7 +77,7 @@ v1.2 (Contacts & Accounts):
 v1.1 (Infrastructure Foundation):
 - YARP gateway, Docker Compose, async registration via RabbitMQ/MassTransit, role duplication fix, health checks, OpenTelemetry.
 
-**Testing:** 623 tests total — 479 unit tests, 124 integration tests, and 20 E2E tests. All passing. See [TESTING.md](TESTING.md).
+**Testing:** 733 tests total — 563 unit tests, 121 integration tests, and 49 E2E tests. All passing. See [TESTING.md](TESTING.md).
 
 See [ROADMAP.md](ROADMAP.md) for full version history and upcoming features.
 
@@ -344,7 +352,7 @@ npm install
 npm run dev    # http://localhost:5173
 ```
 
-The Vite proxy routes all `/auth/*`, `/users/*`, `/contacts/*`, `/accounts/*`, `/deals/*`, `/pipeline/*`, and `/activities/*` traffic to the gateway on port 5000.
+The Vite proxy routes all `/auth/*`, `/users/*`, `/contacts/*`, `/accounts/*`, `/deals/*`, `/pipeline/*`, `/activities/*`, and `/reports/*` traffic to the gateway on port 5000.
 
 ### Run a single test class
 
@@ -520,13 +528,13 @@ Setting `completedAt` on a `Task` for the first time publishes a `TaskCompleted`
 
 ## Testing
 
-623 tests across 15 projects. All passing.
+733 tests across 15 projects. All passing.
 
-**Unit tests (479)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
+**Unit tests (563)** — xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. Cover controllers, services, repositories, HTTP clients, and MassTransit consumers. EF Core InMemory for repository tests. Test files mirror source structure under `*.Tests/` projects.
 
-**Integration tests (124)** — `WebApplicationFactory<Program>` boots the real ASP.NET Core pipeline in-process. `Testcontainers.PostgreSql` provides a real PostgreSQL instance per test class. MassTransit test harness replaces RabbitMQ. `WireMock.Net` stubs downstream HTTP services. Each service has its own integration test project under `*.IntegrationTests/`.
+**Integration tests (121)** — `WebApplicationFactory<Program>` boots the real ASP.NET Core pipeline in-process. `Testcontainers.PostgreSql` provides a real PostgreSQL instance per test class. MassTransit test harness replaces RabbitMQ. `WireMock.Net` stubs downstream HTTP services. Each service has its own integration test project under `*.IntegrationTests/`.
 
-**E2E tests (20)** — `EndToEnd.Tests` runs against the full Docker Compose stack. Requires `docker compose up` before running.
+**E2E tests (49)** — `EndToEnd.Tests` runs against the full Docker Compose stack. Requires `docker compose up` before running.
 
 ## Roadmap
 
@@ -557,8 +565,8 @@ All items complete: refresh token rotation, secrets management (Phase 1), struct
 ### ✅ v2.1 — Enterprise User Management
 All items complete: admin invite flow, `Unassigned` holding state, role assignment, account deactivation, resend invite, forgot/reset password, force-change on first login, configurable password policy, identity audit log, MailKit email integration, and auth UI (invite accept, forgot/reset, change-password pages).
 
-### v2.2 — Username Login & Tenancy Foundation (planned)
-Add username login (email or username accepted), introduce a `Tenant` entity with composite `(TenantId, Username)` uniqueness, and lay the schema foundation for multi-tenancy across all three deployment models (on-prem, dedicated cloud, shared cloud SaaS). See [issue #99](https://github.com/ScottsSecondAct/MicroserviceExample/issues/99).
+### ✅ v2.2 — Username Login & Tenancy Foundation
+Username-based login, tenant entity with `(TenantId, Username)` composite uniqueness, default tenant seed for single-tenant deployments, provisioning endpoint for shared cloud, and gateway subdomain → `X-Tenant-Id` forwarding.
 
 See [ROADMAP.md](ROADMAP.md) for detailed feature lists per version.
 

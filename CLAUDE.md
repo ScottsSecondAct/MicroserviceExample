@@ -14,108 +14,148 @@ dotnet test MicroserviceExample.sln
 # Run tests for a single service
 dotnet test AuthService/src/AuthService.Tests/AuthService.Tests.csproj
 dotnet test UserManagementService/src/UserManagementService.Tests/UserManagementService.Tests.csproj
+dotnet test AccountService/src/AccountService.Tests/AccountService.Tests.csproj
+dotnet test ContactService/src/ContactService.Tests/ContactService.Tests.csproj
+dotnet test DealService/src/DealService.Tests/DealService.Tests.csproj
+dotnet test ActivityService/src/ActivityService.Tests/ActivityService.Tests.csproj
+dotnet test ReportingService/src/ReportingService.Tests/ReportingService.Tests.csproj
 
-# Run a single test
+# Run integration tests for a single service
+dotnet test AuthService/src/AuthService.IntegrationTests/AuthService.IntegrationTests.csproj
+dotnet test DealService/src/DealService.IntegrationTests/DealService.IntegrationTests.csproj
+
+# Run a single test class
 dotnet test --filter "FullyQualifiedName~<TestClassName>" AuthService/src/AuthService.Tests/AuthService.Tests.csproj
 
-# Run a service locally
+# Run a service locally (each in its own terminal)
+dotnet run --project ApiGateway/src/ApiGateway/
 dotnet run --project AuthService/src/AuthService/
 dotnet run --project UserManagementService/src/UserManagementService/
+dotnet run --project AccountService/src/AccountService/
+dotnet run --project ContactService/src/ContactService/
+dotnet run --project DealService/src/DealService/
+dotnet run --project ActivityService/src/ActivityService/
+dotnet run --project ReportingService/src/ReportingService/
+
+# Docker (recommended for running the full stack)
+cp .env.example .env   # set JWT_SECRET and other vars
+docker compose up --build -d
+
+# Frontend
+cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
 ## Architecture
 
-Two ASP.NET Core (.NET 9) microservices with synchronous HTTP inter-service communication, each backed by its own PostgreSQL database via Entity Framework Core.
+Eight ASP.NET Core (.NET 9) microservices behind a YARP API gateway. Services communicate via synchronous HTTP (when the caller can't proceed without the result) or asynchronous messaging via RabbitMQ + MassTransit (for downstream side-effects). Each service owns its own PostgreSQL database — no shared data stores.
 
 ### Services
 
-**AuthService** (HTTP :5188 / HTTPS :7043)
-- Handles registration, login, and JWT token issuance
-- On registration, calls UserManagementService to create a profile and retrieve the assigned role
-- JWT tokens include claims: Email, UserId, Role (2-hour expiry)
+**ApiGateway** (HTTP :5000)
+- YARP reverse proxy — single entry point for all clients
+- Validates JWT Bearer tokens; downstream services do not independently validate tokens
+- Applies CORS, rate limiting, and routes all traffic by path prefix
+- Subdomain → `X-Tenant-Id` forwarding for shared-cloud multi-tenancy
 
-**UserManagementService** (HTTP :5151 / HTTPS :7158)
-- Manages user profiles (UserId, Email, Role, DisplayName, CreatedAt)
-- Called synchronously by AuthService via `HttpClientFactory`; base URL configured in `appsettings.json` as `ServiceUrls:UserManagementService`
+**AuthService** (HTTP :5188 / HTTPS :7043 | Docker: :8080)
+- Handles login, admin-provisioned registration, invite flow, password reset
+- On registration: publishes `UserRegistered` event to RabbitMQ (async)
+- On login: fetches current role from UserManagementService synchronously via `IUserRoleClient`
+- JWT tokens carry `UserId`, `Email`, `Role`, `TenantId` claims (2-hour expiry)
+- Issues opaque refresh tokens stored in `authdb`; `POST /api/login/refresh` rotates them
 
-**SharedLibrary**
-- Contains shared DTOs (`CreateUserProfileRequest`, `CreateUserProfileResponse`) and the `UserRole` enum (Unassigned, Member, Admin)
-- No external dependencies; referenced by both services
+**UserManagementService** (HTTP :5151 / HTTPS :7158 | Docker: :8080)
+- Owns user profiles: `UserId`, `TenantId`, `Username`, `Email`, `Role`, `DisplayName`, `IsActive`, `CreatedAt`
+- Consumes `UserRegistered` → creates profile with `Role=Unassigned`
+- `GET /api/users/{userId}/role` used by AuthService at login
+- `GET /api/users/team` lightweight projection for owner dropdowns
+- Admin endpoints: list users, assign role, deactivate/reactivate, resend invite, audit log
+
+**AccountService** (Docker: :8080)
+- Full CRUD for company accounts; publishes `AccountCreated`, `AccountDeleted`
+
+**ContactService** (Docker: :8080)
+- Full CRUD for contacts; status lifecycle: Lead → Prospect → Customer → Churned
+- Validates `AccountId` synchronously against AccountService (fail-open)
+- Publishes `ContactCreated`, `ContactStatusChanged`, `ContactDeleted`
+
+**DealService** (Docker: :8080)
+- Full CRUD for deals + deal-contact associations with role
+- Pipeline stages seeded on startup: Prospecting, Proposal, Negotiation, Closed Won, Closed Lost
+- Validates `AccountId` and `ContactId` synchronously (fail-open)
+- Consumes `ContactDeleted` → removes orphaned deal-contact associations
+- Publishes `DealCreated`, `DealStageChanged`, `DealClosed`
+
+**ActivityService** (Docker: :8080)
+- Full CRUD for activities: Call, Email, Meeting, Task, Note
+- All entity references (`ContactId`, `DealId`, `AccountId`, `OwnerId`) are optional
+- Publishes `ActivityLogged` on create; `TaskCompleted` when a Task is first marked complete
+
+**ReportingService** (Docker: :8080)
+- Read-only. No write API. Maintains event-driven projections.
+- Consumes `DealCreated`, `DealStageChanged`, `DealClosed`, `ActivityLogged`, `ContactStatusChanged`
+- Endpoints: `GET /api/reports/pipeline|activities|contacts|dashboard`
+
+### Shared Libraries
+
+| Package | Contents |
+|---|---|
+| `SharedLibrary.Auth` | `UserRole` enum (`Unassigned`, `Member`, `SalesRep`, `Manager`, `Admin`), Auth DTOs |
+| `SharedLibrary.Messaging` | `BaseEvent` record (`CorrelationId`, `OccurredAt`, `EventType`), `UserRegistered` |
+| `SharedLibrary.Accounts` | `AccountCreated`, `AccountDeleted` events |
+| `SharedLibrary.Contacts` | `ContactStatus` enum, `ContactCreated`, `ContactStatusChanged`, `ContactDeleted` events |
+| `SharedLibrary.Deals` | `DealStage` enum, `DealContactRole` enum, `DealCreated`, `DealStageChanged`, `DealClosed` events |
+| `SharedLibrary.Activities` | `ActivityType` enum, `ActivityLogged`, `TaskCompleted` events |
 
 ### Layered pattern (per service)
 
+```
 Controllers → Services (interfaces) → Repositories (interfaces) → EF DbContext
+```
 
-### Registration flow
-1. `POST /api/registration/register` → AuthService validates uniqueness, hashes password, saves user
-2. AuthService calls `POST /api/users` on UserManagementService with `CreateUserProfileRequest`
-3. UserManagementService creates profile with `Role=Member`, returns `CreateUserProfileResponse`
-4. AuthService stores the role and returns success
+Each layer is defined by an interface, enabling test doubles at any boundary.
 
-### Testing
-- xUnit + Moq + FluentAssertions
-- `Microsoft.EntityFrameworkCore.InMemory` used for repository/DbContext testing
-- Test files mirror source structure under `*.Tests/` projects
+### Registration flow (current — async)
+1. `POST /auth/api/registration/register` (Admin only) → AuthService validates, hashes password, saves `User`, publishes `UserRegistered` to RabbitMQ
+2. UserManagementService consumes `UserRegistered` → creates `UserProfile` with `Role=Unassigned`
+3. Admin promotes the user's role via `PATCH /api/admin/users/{id}/role`
 
-## CRM Evolution Plan
+### Login flow
+1. `POST /auth/api/login/login` → AuthService verifies credentials
+2. AuthService calls `GET /api/users/{userId}/role` on UserManagementService (synchronous)
+3. JWT minted with `UserId`, `Email`, `Role` claims; refresh token stored in DB
 
-### New Services
+## Key Patterns
 
-| Service | Owns | Communicates |
-|---|---|---|
-| **ContactService** | Contacts, status lifecycle (Lead→Customer), owner assignment | Validates AccountId via sync HTTP to AccountService; publishes `ContactCreated`, `ContactStatusChanged` |
-| **AccountService** | Companies, firmographics, addresses | Publishes `AccountCreated`, `AccountDeleted` |
-| **DealService** | Pipeline stages, deals, deal-contact associations | Validates ContactId/AccountId sync; publishes `DealStageChanged`, `DealClosed` |
-| **ActivityService** | Calls, emails, meetings, tasks, notes | Publishes `ActivityLogged`, `TaskCompleted` |
-| **ReportingService** | Read-model projections only (pipeline value, activity counts) | Subscribes to events from all above; no write API |
-| **YARP Gateway** | JWT validation, routing, CORS, rate limiting | Infrastructure — no business logic |
+**ServiceResult pattern:**
+```csharp
+ServiceResult.Success(data, message, statusCode)
+ServiceResult.Failure(message, statusCode)
+```
+Controllers call `StatusCode(result.StatusCode, result.Data ?? result.Message)`.
 
-### Changes to Existing Services
+**MassTransit publish:**
+```csharp
+await _publishEndpoint.Publish(new SomeEvent { ... });
+```
 
-**AuthService:** Remove `Role` from the `User` entity (duplicated from UserManagementService). On login, fetch current role from UserManagementService synchronously, encode it in the JWT. Convert registration from a synchronous HTTP call to publishing a `UserRegistered` event.
+**MassTransit consume:** implement `IConsumer<T>` in `ServiceName/Consumers/`.
 
-**UserManagementService:** Add a role-lookup endpoint (for login-time resolution), a `GET /api/users/team` lightweight projection (for assignment dropdowns in the frontend), and become a consumer of `UserRegistered` instead of being called directly.
+**HTTP validation clients** (AccountClient, ContactClient): fail-open on network exceptions — a downstream outage does not block the creating service.
 
-### Sync vs Async Decision Rule
+**EF Core:** no migrations; all services use `EnsureCreated()` on startup. Use `Include()` in repositories for navigation properties (no lazy loading). Repository tests use `Guid.NewGuid().ToString()` as the in-memory DB name for isolation.
 
-**Use sync HTTP** when the caller can't proceed without the result — login fetching a role, ContactService validating an AccountId before creating a contact.
+## Testing
 
-**Use async messaging (RabbitMQ + MassTransit)** when the effect is a downstream side-effect — UserManagementService creating a profile after registration, ReportingService updating pipeline totals after a deal closes.
+- **Unit:** xUnit + Moq + FluentAssertions + `RichardSzalay.MockHttp`. EF Core InMemory for repository tests.
+- **Integration:** `WebApplicationFactory<Program>` + `Testcontainers.PostgreSql` + `AddMassTransitTestHarness` + `WireMock.Net` for downstream stubs.
+- **E2E:** `EndToEnd.Tests` — requires `docker compose up` first.
 
-### SharedLibrary Evolution
+**Integration test notes:**
+- `public partial class Program { }` required at end of each service's `Program.cs`
+- Set connection string via `builder.UseSetting("ConnectionStrings:<Name>", ...)` before `ConfigureServices`
+- Use `_harness.Bus.Publish()` (not a scoped `IPublishEndpoint`) when publishing from integration tests
+- WireMock stubs for AuthService UMS role must return JSON `{ userId, role: 1 }`, not a plain string
+- `Consumer_DealStageChanged_MovesDealBetweenStages` in `ReportingService.IntegrationTests` is a known flaky test (passes in isolation, occasionally fails in parallel runs)
 
-Split into topic packages: `SharedLibrary.Auth`, `SharedLibrary.Contacts`, `SharedLibrary.Deals`, etc. A single change currently forces a rebuild of everything; topic packages mean services only reference the events they consume.
-
-### Frontend
-
-Needs React Router (current `useState`-based switching won't scale), React Query for server state caching, and per-domain API client modules. New pages: Contact list/detail, Account list/detail, Deal pipeline board (Kanban), Activity timeline, Dashboard.
-
-### Phased Roadmap
-
-**Phase 1 — Infrastructure Foundation** *(prerequisite for all CRM work)*
-Fix role duplication bug, add Docker Compose, add YARP gateway, convert registration to async via RabbitMQ.
-
-**Phase 2 — Contacts & Accounts**
-ContactService + AccountService with full CRUD and lifecycle. Update frontend with React Router and React Query.
-
-**Phase 3 — Deals**
-DealService with pipeline stages and deal-contact associations. Kanban board in the frontend.
-
-**Phase 4 — Activities**
-ActivityService (all types). Activity timeline on Contact and Deal detail pages.
-
-**Phase 5 — Reporting**
-ReportingService subscribes to domain events and builds read-model projections. Dashboard with pipeline and activity charts.
-
-**Phase 6 — Hardening**
-Refresh tokens, structured logging with correlation IDs, dead-letter queue monitoring, rate limiting, soft-delete + audit trail, integration test suite.
-
-## Potential Improvements
-
-- **Async messaging** — Registration is tightly coupled: if UserManagementService is down, registration fails. A message broker (RabbitMQ, Kafka) would decouple them and improve resilience.
-- **API Gateway** — Clients hit each service directly. A gateway (YARP, Ocelot) would provide a single entry point, centralize routing, and handle auth token validation instead of each service doing it independently.
-- **Centralized secrets** — JWT key and DB connection strings live in `appsettings.json`. A secrets manager (Vault, AWS Secrets Manager, Azure Key Vault) or environment variable injection would be more production-appropriate.
-- **Health checks** — No `/health` endpoints. ASP.NET Core's built-in `AddHealthChecks()` is needed for container orchestration (Kubernetes liveness/readiness probes).
-- **Distributed tracing** — Cross-service calls have no trace context. OpenTelemetry would allow tracing a registration request across both services.
-- **Docker / docker-compose** — No containerization. A `docker-compose.yml` with both services and PostgreSQL would make local development self-contained.
-- **Role ownership** — AuthService stores `Role` on its own `User` entity, duplicating data that UserManagementService owns. This creates a potential inconsistency; role should be fetched from UserManagementService rather than cached in AuthService's DB.
+**Registration returns 409** (not 400) on duplicate email.

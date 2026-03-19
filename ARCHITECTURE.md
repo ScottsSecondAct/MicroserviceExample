@@ -249,7 +249,7 @@ The shared library is split into topic packages so services only reference what 
 
 | Package | Contents |
 |---|---|
-| `SharedLibrary.Auth` | `UserRole` enum (`Unassigned`, `Member`, `Admin`), Auth DTOs (`CreateUserProfileRequest`, `CreateUserProfileResponse`) |
+| `SharedLibrary.Auth` | `UserRole` enum (`Unassigned`, `Member`, `SalesRep`, `Manager`, `Admin`), Auth DTOs (`CreateUserProfileRequest`, `CreateUserProfileResponse`) |
 | `SharedLibrary.Messaging` | `BaseEvent` (base class for all events) |
 | `SharedLibrary.Accounts` | `AccountCreated`, `AccountDeleted` events |
 | `SharedLibrary.Contacts` | `ContactStatus` enum, `ContactCreated`, `ContactStatusChanged`, `ContactDeleted` events |
@@ -317,9 +317,14 @@ Secrets are injected via environment variables (`.env` file):
 
 | Service | HTTP | HTTPS |
 |---|---|---|
+| ApiGateway | `:5000` | — |
 | AuthService | `:5188` | `:7043` |
 | UserManagementService | `:5151` | `:7158` |
-| ApiGateway | `:5000` | — |
+| AccountService | `:5243` | — |
+| ContactService | `:5167` | — |
+| DealService | `:5290` | — |
+| ActivityService | `:5291` | — |
+| ReportingService | `:5292` | — |
 
 ---
 
@@ -333,8 +338,8 @@ Secrets are injected via environment variables (`.env` file):
 | Integration | `WebApplicationFactory<Program>`, `Testcontainers.PostgreSql`, MassTransit test harness (`AddMassTransitTestHarness`), WireMock.Net for downstream HTTP stubs |
 | E2E | `EndToEnd.Tests` — requires the full Docker stack running |
 
-**Test counts (as of March 2026):** 377 total — 320 unit, 57 integration, 17 E2E
-**Coverage:** Line 96.2%, Branch 80.7%, Method 98.6%
+**Test counts (as of March 2026):** 733 total — 563 unit, 121 integration, 49 E2E
+**Coverage:** Line 97.2%, Branch 82.7%, Method 99.1%
 
 ### Integration Test Notes
 

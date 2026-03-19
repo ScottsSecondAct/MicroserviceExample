@@ -243,10 +243,7 @@ Use this view to identify invites that may need to be resent.
 
 ### 5.5 Assigning Roles
 
-The role a new user receives depends on how they were added to the system:
-
-- **Invited users** (added via **Admin > Users > Invite**) start with the **Unassigned** role. They have no CRM access until an administrator promotes them after they accept the invite.
-- **Self-registered users** start with the **Member** role and have read access to CRM features immediately upon first login.
+All users are added through the admin invite flow. Invited users start with the **Unassigned** role and have no CRM access until an administrator promotes them after they accept the invite.
 
 To change a user's role:
 
@@ -312,8 +309,7 @@ Click a contact's name to open the **Contact Detail** page.
 | Status | Meaning |
 |---|---|
 | **Lead** | Initial state. Contact has not been qualified. |
-| **Qualified** | Contact has been reviewed and is worth pursuing. |
-| **Proposal** | A formal proposal has been sent. |
+| **Prospect** | Contact has been reviewed and is worth pursuing. |
 | **Customer** | Contact has converted. |
 | **Churned** | Former customer who has left. |
 

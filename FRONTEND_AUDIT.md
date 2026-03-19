@@ -1,6 +1,6 @@
 # Frontend API Coverage Audit (updated March 2026)
 
-Audit conducted against all 7 services + gateway. 44 unique backend endpoints identified; frontend coverage assessed by reading all API client modules and page components in `frontend/src/`.
+Audit conducted against all 7 services + gateway. 43 unique backend endpoints identified; frontend coverage assessed by reading all API client modules and page components in `frontend/src/`.
 
 ## Coverage by service
 

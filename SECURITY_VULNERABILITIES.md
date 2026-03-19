@@ -120,17 +120,11 @@ if (app.Environment.IsDevelopment())
 
 ---
 
-### 8. No rate limiting on authentication endpoints
+### ~~8. No rate limiting on authentication endpoints~~ ✅ Fixed (v2.0)
 
-**Files:** `AuthService/src/AuthService/Controllers/LoginController.cs`, `RegistrationController.cs`, `ApiGateway/src/ApiGateway/Program.cs`
+**Fixed in:** v2.0 hardening
 
-**Risk:** `POST /auth/api/login/login` and `POST /auth/api/registration/register` have no rate limiting. An attacker can make unlimited login attempts, enabling:
-- Credential stuffing (testing breached username/password pairs)
-- Password brute force (especially dangerous given the low PBKDF2 iteration count)
-- Account enumeration via timing differences between "user not found" and "wrong password" responses
-- Registration spam
-
-**Fix:** Add ASP.NET Core's built-in rate limiter (`AddRateLimiter`) at the gateway for the `/auth/**` route. A fixed-window policy of 10 requests per minute per IP is a reasonable starting point for auth endpoints. Also add a per-user sliding window for login to limit password guessing even from distributed sources.
+Rate limiting is implemented at the YARP gateway using ASP.NET Core's built-in `AddRateLimiter`. Per-IP and per-user limits are applied across all routes; thresholds are configurable via environment variables.
 
 ---
 
@@ -185,13 +179,11 @@ ASPNETCORE_URLS: http://+:8080
 
 ## Medium
 
-### 12. Password complexity is not enforced
+### ~~12. Password complexity is not enforced~~ ✅ Fixed (v2.1)
 
-**File:** `AuthService/src/AuthService/Controllers/RegistrationController.cs`
+**Fixed in:** v2.1 Enterprise User Management
 
-**Risk:** There is no minimum password length check beyond what the frontend enforces (`minLength={6}` in the React form). Frontend validation is trivially bypassed by calling the API directly. A 6-character minimum with no complexity requirements allows extremely weak passwords that are trivially cracked once a database is leaked.
-
-**Fix:** Add server-side password policy validation in `RegistrationService` before hashing: minimum 12 characters, at least one uppercase letter, one digit, and one special character. Optionally integrate with [HaveIBeenPwned's Pwned Passwords API](https://haveibeenpwned.com/API/v3#PwnedPasswords) to reject known-breached passwords.
+Server-side password policy is enforced in `AuthService` before hashing. Policy requires minimum length, uppercase, lowercase, digit, and special character. Rules are configurable via `appsettings.json`. The frontend includes a strength indicator that reflects the same policy.
 
 ---
 
@@ -348,13 +340,11 @@ Or apply per-endpoint using `[RequestSizeLimit(65536)]`.
 
 ---
 
-### 21. No audit trail on CRM entities
+### ~~21. No audit trail on CRM entities~~ ✅ Fixed (v2.0)
 
-**Files:** All service entity models and repositories (Contact, Account, Deal, Activity)
+**Fixed in:** v2.0 hardening
 
-**Risk:** Hard deletes with no audit log make it impossible to determine who created, modified, or deleted a record. This is a compliance requirement for most data regulations (GDPR, SOC 2, HIPAA) and essential for forensic investigation after a breach or data integrity incident.
-
-**Fix:** Add `CreatedBy`, `UpdatedBy`, `DeletedBy` (Guid, populated from the JWT `UserId` claim), and soft-delete fields (`IsDeleted`, `DeletedAt`) to all CRM entities. Populate them automatically via an EF Core `SaveChanges` interceptor that reads the current user from `IHttpContextAccessor`. This is already noted as a v2.0 roadmap item.
+`IsDeleted`/`DeletedAt` soft-delete fields are present on all CRM entities. A lightweight audit log (actor, action, timestamp) is maintained per service. Hard deletes have been replaced with soft deletes across all CRUD endpoints. Identity-level audit events (invite sent, role change, deactivation) are stored in UserManagementService and accessible via `GET /api/users/audit`.
 
 ---
 
@@ -399,11 +389,11 @@ db.Database.EnsureCreated();
 | 5 | RabbitMQ default credentials | Critical | Low | Partial (docker-compose fixed; `?? "guest"` fallback remains) |
 | 6 | RabbitMQ management UI exposed | Critical | Low | Open |
 | 7 | Swagger enabled in production | High | Low | Open |
-| 8 | No rate limiting on auth endpoints | High | Medium | Open |
+| 8 | ~~No rate limiting on auth endpoints~~ | ~~High~~ | ~~Medium~~ | **Fixed v2.0** |
 | 9 | ~~No refresh token / no revocation~~ | ~~High~~ | ~~High~~ | **Fixed v2.0** |
 | 10 | Containers run as root | High | Low | Open |
 | 11 | Inter-service traffic unencrypted | High | High | Open |
-| 12 | Password complexity not enforced | Medium | Low | Open |
+| 12 | ~~Password complexity not enforced~~ | ~~Medium~~ | ~~Low~~ | **Fixed v2.1** |
 | 13 | No security response headers | Medium | Low | Open |
 | 14 | CORS policy too broad | Medium | Low | Open |
 | 15 | Health endpoint leaks topology | Medium | Low | Open |
@@ -412,17 +402,16 @@ db.Database.EnsureCreated();
 | 18 | AllowedHosts permits any host | Medium | Low | Open |
 | 19 | No request body size limits | Medium | Low | Open |
 | 20 | OpenTelemetry exporting to console | Low | Low | Open |
-| 21 | No audit trail on CRM entities | Low | High | Open |
+| 21 | ~~No audit trail on CRM entities~~ | ~~Low~~ | ~~High~~ | **Fixed v2.0** |
 | 22 | EnsureCreated() in production | Low | Medium | Open |
 | 23 | No input length limits | Low | Low | Open |
 
-### Recommended priority order
+### Roadmap tracking
 
-**Fix immediately (low effort, critical/high risk):**
-Issues 2, 3, 5 (remove `?? "guest"` fallback), 6, 7, 10, 13, 14, 16, 17, 18, 19 — most are one-line or one-file changes.
+All open issues are now tracked in ROADMAP.md:
 
-**Fix before any real user data is stored:**
-Issues 1, 8, 12, 15 — these directly affect data confidentiality and availability.
-
-**Plan for v2.1+:**
-Issues 11, 21, 22, 23 — these require architectural work and are tracked in the roadmap.
+| Issues | Milestone |
+|---|---|
+| 1, 2, 3, 5, 6, 7, 10, 13, 14, 15, 16, 17, 18, 19, 23 | v2.3 — Security Hardening |
+| 11 (mTLS), 20 (OTel exporter) | v3.0 — Infrastructure Hardening |
+| 22 (EnsureCreated) | v3.0 — Prerequisites |
