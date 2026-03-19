@@ -80,7 +80,7 @@ public class LoginService : ILoginService
     var refreshToken = await CreateRefreshTokenAsync(user.UserId);
 
     _logger.LogInformation("User with email {Email} logged in successfully.", user.Email);
-    return ServiceResult.Success(new LoginResponse { Token = jwtToken, RefreshToken = refreshToken }, "Login successful.");
+    return ServiceResult.Success(new LoginResponse { Token = jwtToken, RefreshToken = refreshToken, UserId = user.UserId.ToString() }, "Login successful.");
   }
 
   public async Task<ServiceResult> RefreshAsync(RefreshRequest request)
@@ -111,7 +111,7 @@ public class LoginService : ILoginService
     var newRefreshToken = await CreateRefreshTokenAsync(existing.UserId);
 
     _logger.LogInformation("Refresh token rotated for user {UserId}.", existing.UserId);
-    return ServiceResult.Success(new LoginResponse { Token = newJwt, RefreshToken = newRefreshToken }, "Token refreshed.");
+    return ServiceResult.Success(new LoginResponse { Token = newJwt, RefreshToken = newRefreshToken, UserId = existing.UserId.ToString() }, "Token refreshed.");
   }
 
   private async Task<string> CreateRefreshTokenAsync(Guid userId)
