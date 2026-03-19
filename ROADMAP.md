@@ -145,7 +145,7 @@ Upgrade the frontend from a functional but basic layout to a professional, enter
 
 ---
 
-## v2.0 — Hardening & Production Readiness
+## v2.0 — Hardening & Production Readiness ✅
 
 - [x] **Refresh tokens** — implement refresh token rotation in AuthService; issue short-lived JWTs alongside opaque refresh tokens stored in the DB; `POST /api/auth/refresh` rotates the token and issues a new JWT
 - [x] **Secrets management (Phase 1)** — move JWT key, DB passwords, and RabbitMQ credentials out of `appsettings.json` and `docker-compose.yml` into environment variables; `.env.example` documents all required variables; Phase 2 (Vault / cloud secret store) remains open
@@ -186,7 +186,7 @@ Replaces the open self-registration model with an admin-controlled identity syst
 
 ---
 
-## v2.2 — Username Login & Tenancy Foundation
+## v2.2 — Username Login & Tenancy Foundation ✅
 
 Adds username-based login and lays the structural groundwork for multi-tenancy so the username feature is built on the correct schema from day one — avoiding a breaking migration when v3.0 multi-tenancy is implemented.
 
@@ -195,29 +195,29 @@ Supports all three planned deployment models:
 - **Shared cloud (SaaS)** — multiple tenants on one instance; tenant resolved from subdomain at the gateway; `(TenantId, Username)` composite uniqueness allows `admin` in every tenant
 
 ### Tenant Entity (new)
-- [ ] **Tenant table** — add a `Tenant` entity to `AuthDbContext` and `UserManagementDbContext`; fields: `TenantId` (PK), `Slug` (unique), `DisplayName`, `CreatedAt`
-- [ ] **Default tenant seed** — single-tenant deployments seed one tenant on startup via `appsettings.json` `DefaultTenant` section; invisible to users
+- [x] **Tenant table** — add a `Tenant` entity to `AuthDbContext` and `UserManagementDbContext`; fields: `TenantId` (PK), `Slug` (unique), `DisplayName`, `CreatedAt`
+- [x] **Default tenant seed** — single-tenant deployments seed one tenant on startup via `appsettings.json` `DefaultTenant` section; invisible to users
 
 ### TenantId on Users and Profiles
-- [ ] **`TenantId` FK on `AuthService.User`** — single-tenant deployments always use the seeded default; no UI exposure needed
-- [ ] **`TenantId` FK on `UserManagementService.UserProfile`** — same pattern
+- [x] **`TenantId` FK on `AuthService.User`** — single-tenant deployments always use the seeded default; no UI exposure needed
+- [x] **`TenantId` FK on `UserManagementService.UserProfile`** — same pattern
 
 ### Username Login
-- [ ] **`Username` field on `User`** — nullable string with composite `(TenantId, Username)` unique constraint; replaces any global unique index
-- [ ] **Admin seed** — default admin gets `Username = "admin"` (or value from `DefaultAdmin` config)
-- [ ] **Registration** — username auto-derived from email prefix (e.g. `john.doe@corp.com` → `john.doe`); numeric suffix appended on collision within tenant
-- [ ] **`LoginRequest.EmailOrUsername`** — rename `Email` field; drop `[EmailAddress]` validation; `LoginService` branches on `@` to look up by email or by `(TenantId, Username)`
-- [ ] **Forgot-password stays email-only** — email is still required to send a reset link
+- [x] **`Username` field on `User`** — nullable string with composite `(TenantId, Username)` unique constraint; replaces any global unique index
+- [x] **Admin seed** — default admin gets `Username = "admin"` (or value from `DefaultAdmin` config)
+- [x] **Registration** — username auto-derived from email prefix (e.g. `john.doe@corp.com` → `john.doe`); numeric suffix appended on collision within tenant
+- [x] **`LoginRequest.EmailOrUsername`** — rename `Email` field; drop `[EmailAddress]` validation; `LoginService` branches on `@` to look up by email or by `(TenantId, Username)`
+- [x] **Forgot-password stays email-only** — email is still required to send a reset link
 
 ### Admin Provisioning Flow
-- [ ] **Startup seed** preserved for single-tenant deployments (on-prem / dedicated cloud) where `DefaultTenant` + `DefaultAdmin` config is present
-- [ ] **Provisioning endpoint** — `POST /api/tenants/provision` (bootstrap-secret auth) for shared cloud tenant creation; creates tenant + first admin atomically
+- [x] **Startup seed** preserved for single-tenant deployments (on-prem / dedicated cloud) where `DefaultTenant` + `DefaultAdmin` config is present
+- [x] **Provisioning endpoint** — `POST /api/tenants/provision` (bootstrap-secret auth) for shared cloud tenant creation; creates tenant + first admin atomically
 
 ### Gateway Update
-- [ ] **Subdomain → `X-Tenant-Id`** — YARP middleware extracts subdomain from `Host` header and forwards `X-Tenant-Id` to downstream services for shared cloud deployments; single-tenant deployments fall back to the default tenant
+- [x] **Subdomain → `X-Tenant-Id`** — YARP middleware extracts subdomain from `Host` header and forwards `X-Tenant-Id` to downstream services for shared cloud deployments; single-tenant deployments fall back to the default tenant
 
 ### Frontend
-- [ ] **Login form** — label changes to "Email or username"; `type="text"`, `autoComplete="username"`
+- [x] **Login form** — label changes to "Email or username"; `type="text"`, `autoComplete="username"`
 
 ---
 
@@ -226,7 +226,7 @@ Supports all three planned deployment models:
 Allows multiple independent organizations to share the same deployment with full data isolation. This is a significant cross-cutting refactor that touches every service.
 
 ### Prerequisites (complete before any multi-tenancy work)
-- [ ] **Introduce EF Core migrations** — `EnsureCreated()` cannot add columns to existing databases; all 6 services must be migrated to `dotnet ef migrations` before any schema changes can be applied reliably across environments
+- [x] **Introduce EF Core migrations** — `EnsureCreated()` cannot add columns to existing databases; all 6 services must be migrated to `dotnet ef migrations` before any schema changes can be applied reliably across environments
 
 ### Tenant Resolution
 - [ ] **Tenant identification strategy** — choose and implement one: subdomain-based (`acme.yourapp.com`), header-based (`X-Tenant-Id`), or path-based (`/t/{tenantId}/...`); subdomain is the most enterprise-standard approach
