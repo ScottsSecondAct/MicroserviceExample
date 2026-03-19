@@ -246,6 +246,16 @@ Row-level isolation with a shared database is the most practical starting point 
 - [ ] **Tenant-scoped registration** — users register within a specific tenant context; cross-tenant access is not permitted
 - [ ] **Admin account provisioning** — disable public self-registration; each tenant gets a super-admin account created by the platform operator; super-admin invites additional users within their tenant
 
+### Platform Super Admin
+The existing `POST /api/tenants/provision` endpoint (bootstrap-secret auth, v2.2) is the seed of platform administration, but full SaaS operation requires a formalized platform-admin layer that sits above all tenants.
+
+- [ ] **`PlatformAdmin` role** — a new top-level role encoded in the JWT that grants cross-tenant authority; distinct from a tenant's own `Admin` role, which is always scoped to one tenant; platform admins authenticate against a dedicated internal tenant or a separate credential store
+- [ ] **Tenant management endpoints** — `GET /api/platform/tenants` (list all tenants with status, user count, created date), `POST /api/platform/tenants` (create tenant + first admin atomically, supersedes the bootstrap endpoint), `PUT /api/platform/tenants/{id}` (rename, update config), `DELETE /api/platform/tenants/{id}` (suspend — soft disable, not hard delete)
+- [ ] **Tenant suspension enforcement** — gateway checks tenant active status on every request and returns `403 Tenant Suspended` for disabled tenants; status cached with a short TTL to avoid per-request DB calls
+- [ ] **Impersonation** — `POST /api/platform/tenants/{id}/impersonate` issues a short-lived JWT scoped to the target tenant with an `impersonatedBy` claim; all audit log entries made during an impersonation session record the platform admin's identity alongside the tenant admin's; impersonation sessions are time-limited (15 minutes) and cannot be refreshed
+- [ ] **Platform audit log** — records all platform-admin actions (tenant created, suspended, impersonation started/ended) with timestamp and actor; stored separately from per-tenant audit logs; accessible only to platform admins
+- [ ] **Platform admin console (frontend)** — protected route visible only to `PlatformAdmin` role; tenant list with status badges, create-tenant form, suspend/reactivate toggle, impersonate button; distinct visual treatment (e.g. banner or color scheme change) to make it clear the operator is in platform-admin context
+
 ### Messaging
 - [ ] **`TenantId` on all events** — add `TenantId` to `BaseEvent` in `SharedLibrary.Messaging`; all publishers set it; all consumers scope their DB operations using it
 - [ ] **Consumer tenant context** — MassTransit consumers populate `ITenantContext` from the incoming message before calling any service or repository method
