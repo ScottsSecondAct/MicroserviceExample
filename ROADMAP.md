@@ -39,7 +39,7 @@ Working two-service authentication system with a React frontend.
 
 ---
 
-## v1.1 — Infrastructure Foundation
+## v1.1 — Infrastructure Foundation ✅
 
 Prerequisite for all CRM work. No new features — only the infrastructure that makes adding services safe and reliable.
 
