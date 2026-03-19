@@ -16,17 +16,18 @@ This project is open to contributions from **California State University, Sacram
    - 2.6 [Running the Frontend](#26-running-the-frontend)
    - 2.7 [Verifying Your Setup](#27-verifying-your-setup)
 3. [Finding Something to Work On](#3-finding-something-to-work-on)
-4. [Workflow](#4-workflow)
-   - 4.1 [Branching](#41-branching)
-   - 4.2 [Making Changes](#42-making-changes)
-   - 4.3 [Running Tests](#43-running-tests)
-   - 4.4 [Opening a Pull Request](#44-opening-a-pull-request)
-   - 4.5 [Code Review](#45-code-review)
-5. [Coding Standards](#5-coding-standards)
-6. [Testing Requirements](#6-testing-requirements)
-7. [Project Documentation to Read First](#7-project-documentation-to-read-first)
-8. [Getting Help](#8-getting-help)
-9. [Code of Conduct](#9-code-of-conduct)
+4. [Using AI to Solve Issues](#4-using-ai-to-solve-issues)
+5. [Workflow](#5-workflow)
+   - 5.1 [Branching](#51-branching)
+   - 5.2 [Making Changes](#52-making-changes)
+   - 5.3 [Running Tests](#53-running-tests)
+   - 5.4 [Opening a Pull Request](#54-opening-a-pull-request)
+   - 5.5 [Code Review](#55-code-review)
+6. [Coding Standards](#6-coding-standards)
+7. [Testing Requirements](#7-testing-requirements)
+8. [Project Documentation to Read First](#8-project-documentation-to-read-first)
+9. [Getting Help](#9-getting-help)
+10. [Code of Conduct](#10-code-of-conduct)
 
 ---
 
@@ -235,9 +236,48 @@ If you have a contribution idea that is not tracked as an issue, open one first 
 
 ---
 
-## 4. Workflow
+## 4. Using AI to Solve Issues
 
-### 4.1 Branching
+**Using AI assistance is encouraged.** AI coding tools have become a normal and productive part of software development, and this project welcomes their use. If an AI helped you understand the codebase, design an approach, write code, or debug a failing test — that is a good thing.
+
+### Recommended tools
+
+| Tool | What it is good for |
+|---|---|
+| [Claude Code](https://claude.ai/code) | Agentic coding in the terminal — reads your codebase, writes and edits files, runs tests, and explains decisions. Well-suited to the layered architecture and test patterns used here. |
+| [GitHub Copilot](https://github.com/features/copilot) | In-editor completions and chat. Good for staying in flow while writing boilerplate and unit tests. |
+| [ChatGPT](https://chat.openai.com) | Great for explaining concepts, reviewing architecture decisions, or getting unstuck on a design question. |
+| [Gemini](https://gemini.google.com) | Strong at summarizing documentation and reasoning about large contexts. |
+| [Cursor](https://www.cursor.com) | AI-native editor built on VS Code — useful if you prefer a GUI-first workflow. |
+
+You are not limited to this list. Use whatever tool helps you build correct, well-tested code.
+
+### Getting good results
+
+AI tools work best when you give them context. Before asking for help with an issue:
+
+1. Share the relevant issue text and acceptance criteria.
+2. Point the tool at the service(s) involved — paste the relevant controller, service, and repository files.
+3. Reference `ARCHITECTURE.md` for the layered pattern and `TESTING.md` for the test requirements. Both documents are short and AI tools can read them in full.
+4. Ask the tool to explain its approach before generating code. This surfaces misunderstandings early.
+
+For agentic tools like Claude Code, running `claude` from the repo root lets the tool read `CLAUDE.md` and explore the codebase itself. This often produces better results than pasting code manually.
+
+### You must disclose AI use in your PR
+
+If AI tools meaningfully contributed to your solution — generating code, designing the approach, writing tests — say so in your pull request description. A brief note is all that is needed:
+
+> **AI assistance:** Used Claude Code to scaffold the service method and unit tests; reviewed and adjusted the generated code before committing.
+
+This is not a barrier or a negative mark. It is a professional norm that helps reviewers calibrate their review, gives credit where it is due, and contributes to an honest record of how the work was done. PRs that omit this when AI was clearly used may be asked to update their description before merging.
+
+There is no minimum or maximum amount of AI use — the standard is: disclose it accurately and own the code you submit. You are responsible for understanding, testing, and standing behind everything in your PR, regardless of how it was produced.
+
+---
+
+## 5. Workflow
+
+### 5.1 Branching
 
 Create a branch from the latest `main`:
 
@@ -257,7 +297,7 @@ Branch naming convention:
 
 Keep branches focused. One issue per branch is the norm.
 
-### 4.2 Making Changes
+### 5.2 Making Changes
 
 Build the solution frequently to catch compile errors early:
 ```bash
@@ -272,7 +312,7 @@ Service and pattern conventions to follow (all in `ARCHITECTURE.md`):
 - **EF Core:** No lazy loading. Use `Include()` in repositories. No raw SQL unless there is a clear performance reason.
 - **Fail-open HTTP clients:** `AccountClient`, `ContactClient`, and similar validation clients catch network exceptions and return a safe default rather than propagating the error.
 
-### 4.3 Running Tests
+### 5.3 Running Tests
 
 Run the tests for the service you changed before pushing:
 
@@ -287,9 +327,9 @@ dotnet test ServiceName/src/ServiceName.IntegrationTests/ServiceName.Integration
 dotnet test --filter "FullyQualifiedName~ClassName" path/to/project.csproj
 ```
 
-**Every pull request must include tests for the new code.** See [Section 6](#6-testing-requirements) for what is required.
+**Every pull request must include tests for the new code.** See [Section 7](#7-testing-requirements) for what is required.
 
-### 4.4 Opening a Pull Request
+### 5.4 Opening a Pull Request
 
 Push your branch and open a PR against `main`:
 
@@ -305,7 +345,7 @@ Then go to GitHub and open the PR. In the PR description:
 
 The CI pipeline runs automatically on every PR. It builds the solution and runs all unit and integration tests. **CI must be green before a reviewer will look at your PR.**
 
-### 4.5 Code Review
+### 5.5 Code Review
 
 A maintainer will review your PR and may leave comments requesting changes. This is normal and expected — code review is a learning opportunity, not a judgment. Respond to feedback by pushing additional commits to the same branch; do not open a new PR.
 
@@ -313,7 +353,7 @@ Once approved and CI passes, a maintainer will merge your PR.
 
 ---
 
-## 5. Coding Standards
+## 6. Coding Standards
 
 The project does not use an auto-formatter enforced in CI (yet), but follow these conventions to match the existing codebase:
 
@@ -340,7 +380,7 @@ The project does not use an auto-formatter enforced in CI (yet), but follow thes
 
 ---
 
-## 6. Testing Requirements
+## 7. Testing Requirements
 
 All PRs must maintain or improve test coverage. The current baseline is **97.2% line, 82.7% branch, 99.1% method**.
 
@@ -388,7 +428,7 @@ See [`TESTING.md`](TESTING.md) for full patterns including MassTransit harness u
 
 ---
 
-## 7. Project Documentation to Read First
+## 8. Project Documentation to Read First
 
 | Document | Purpose |
 |---|---|
@@ -401,7 +441,7 @@ See [`TESTING.md`](TESTING.md) for full patterns including MassTransit harness u
 
 ---
 
-## 8. Getting Help
+## 9. Getting Help
 
 **Stuck on setup?** Open a [GitHub issue](https://github.com/ScottsSecondAct/MicroserviceExample/issues) with the tag `question` and describe what you tried and what happened.
 
@@ -424,6 +464,6 @@ See [`TESTING.md`](TESTING.md) for full patterns including MassTransit harness u
 
 ---
 
-## 9. Code of Conduct
+## 10. Code of Conduct
 
 This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). All contributors — regardless of experience level — are expected to treat each other with respect. Please read it before participating.
